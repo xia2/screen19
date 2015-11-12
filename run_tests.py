@@ -36,12 +36,11 @@ def discover_unittests(module, pattern='tst_*.py'):
   test_list = recursive_TestSuite_to_list(found_tests)
   return tuple(test_list)
 
-tst_list = list(discover_unittests("i19"))
-
-def run():
-  build_dir = libtbx.env.under_build("i19")
-  dist_dir = libtbx.env.dist_path("i19")
-  test_utils.run_tests(build_dir, dist_dir, tst_list)
-
 if (__name__ == "__main__"):
-  run()
+  import unittest
+  test_suite = unittest.defaultTestLoader.discover(libtbx.env.dist_path("i19"), pattern="tst_*.py")
+  result = unittest.TextTestRunner().run(test_suite)
+  import sys
+  sys.exit(0 if result.wasSuccessful() else 1)
+
+tst_list = list(discover_unittests("i19"))
