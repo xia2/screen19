@@ -30,7 +30,7 @@ def i19_version():
         import subprocess
         with open(os.devnull, 'w') as devnull:
           version = subprocess.check_output(["git", "describe"], cwd=i19_path, stderr=devnull).rstrip()
-          version.replace('-', '.', 1)
+          version = version.replace('-', '.', 1)
         with open(version_file, 'w') as gv:
           gv.write(version)
       except Exception:
