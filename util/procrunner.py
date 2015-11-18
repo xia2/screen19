@@ -41,7 +41,7 @@ class _NonBlockingStreamReader:
     self._buffer.close()
     return data
 
-def run_process(command, timeout=None, debug=False):
+def run_process(command, timeout=None, debug=False, print_stdout=True, print_stderr=True):
   ''' run an external process, command line specified as array,
       optionally enforces a timeout specified in seconds,
       obtains STDOUT, STDERR and exit code
@@ -60,8 +60,8 @@ def run_process(command, timeout=None, debug=False):
     max_time = start_time + timeout
 
   p = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  stdout = _NonBlockingStreamReader(p.stdout)
-  stderr = _NonBlockingStreamReader(p.stderr)
+  stdout = _NonBlockingStreamReader(p.stdout, output=print_stdout)
+  stderr = _NonBlockingStreamReader(p.stderr, output=print_stderr)
 
   timeout_encountered = False
 

@@ -1,13 +1,13 @@
 import mock
 import unittest
-import procrunner
+import i19.util.procrunner
 
 class ProcrunnerTests(unittest.TestCase):
 
-  @unittest.skipIf(procrunner._dummy, 'procrunner class set to dummy mode')
-  @mock.patch('procrunner._NonBlockingStreamReader')
-  @mock.patch('procrunner.time')
-  @mock.patch('procrunner.subprocess')
+  @unittest.skipIf(i19.util.procrunner._dummy, 'procrunner class set to dummy mode')
+  @mock.patch('i19.util.procrunner._NonBlockingStreamReader')
+  @mock.patch('i19.util.procrunner.time')
+  @mock.patch('i19.util.procrunner.subprocess')
   def test_run_command_aborts_after_timeout(self, mock_subprocess, mock_time, mock_streamreader):
     mock_process = mock.Mock()
     mock_process.returncode = None
@@ -15,16 +15,16 @@ class ProcrunnerTests(unittest.TestCase):
     task = ['___']
 
     with self.assertRaises(Exception):
-      procrunner._run_with_timeout(task, -1, False)
+      i19.util.procrunner.run_process(task, -1, False)
 
     self.assertTrue(mock_subprocess.Popen.called)
     self.assertTrue(mock_process.terminate.called)
     self.assertTrue(mock_process.kill.called)
 
 
-  @unittest.skipIf(procrunner._dummy, 'procrunner class set to dummy mode')
-  @mock.patch('procrunner._NonBlockingStreamReader')
-  @mock.patch('procrunner.subprocess')
+  @unittest.skipIf(i19.util.procrunner._dummy, 'procrunner class set to dummy mode')
+  @mock.patch('i19.util.procrunner._NonBlockingStreamReader')
+  @mock.patch('i19.util.procrunner.subprocess')
   def test_run_command_runs_command_and_directs_pipelines(self, mock_subprocess, mock_streamreader):
     (mock_stdout, mock_stderr) = (mock.Mock(), mock.Mock())
     mock_stdout.get_output.return_value = mock.sentinel.proc_stdout
@@ -35,7 +35,7 @@ class ProcrunnerTests(unittest.TestCase):
     mock_process.stderr = stream_stderr
     mock_process.returncode = 99
     command = ['___']
-    def streamreader_processing(*args):
+    def streamreader_processing(*args, **kwargs):
       return {(stream_stdout,): mock_stdout, (stream_stderr,): mock_stderr}[args]
     mock_streamreader.side_effect = streamreader_processing
     mock_subprocess.Popen.return_value = mock_process
@@ -49,10 +49,10 @@ class ProcrunnerTests(unittest.TestCase):
       'timeout': False,
     }
 
-    actual = procrunner._run_with_timeout(command, 0.5, False)
+    actual = i19.util.procrunner.run_process(command, 0.5, False)
 
     self.assertTrue(mock_subprocess.Popen.called)
-    mock_streamreader.assert_has_calls([mock.call(stream_stdout,), mock.call(stream_stderr,)], any_order=True)
+    mock_streamreader.assert_has_calls([mock.call(stream_stdout, output=mock.ANY), mock.call(stream_stderr, output=mock.ANY)], any_order=True)
     self.assertFalse(mock_process.terminate.called)
     self.assertFalse(mock_process.kill.called)
     self.assertEquals(actual, expected)
@@ -76,7 +76,7 @@ class ProcrunnerTests(unittest.TestCase):
     teststream = _stream()
     testdata = ['a', 'b', 'c']
 
-    streamreader = procrunner._NonBlockingStreamReader(teststream, output=False)
+    streamreader = i19.util.procrunner._NonBlockingStreamReader(teststream, output=False)
     for d in testdata:
       teststream.write(d)
     self.assertFalse(streamreader.has_finished())
