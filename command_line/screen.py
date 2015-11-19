@@ -61,9 +61,52 @@ class i19Screen():
 
     if result['exitcode'] == 0:
       print "Pixel intensity distribution:"
+      import re
+      hist = {}
       for l in result['stdout'].split("\n"):
-        if not l.endswith(': 0') and not l == "":
-          info(l)
+        m = re.search('^([0-9]+) - [0-9]+: ([0-9]+)$', l)
+        if m and m.group(1) != '0' and m.group(2) != '0':
+          hist[int(m.group(1))] = int(m.group(2))
+      hist_maxval=max(hist.itervalues())
+      hist_height=20
+
+      hist_width=max(hist.iterkeys())
+      hist_xlab=1
+      if hist_width > 9: hist_xlab=2
+      if hist_width > 99: hist_xlab=3
+
+      info("")
+      info(hist_maxval)
+      hist_scaled={x: round(hist_height * hist[x] / hist_maxval, 1) for x in hist.iterkeys()}
+      for l in range(hist_height):
+        line = {x: (2 if (hist_height - l - 0.3) < hist_scaled[x] 
+              else (1 if (hist_height - l - 0.8) < hist_scaled[x] or (l == hist_height - 1)
+              else  0)) for x in hist.iterkeys()}
+        s = ''
+        for x in range(hist_width):
+          if (x+1) in line:
+            if line[x+1] == 2:
+              s+='#'
+            elif line[x+1] == 1:
+              s+='\033[90m#\033[0m'
+            else:
+              s+=' '
+          else:
+            s+=' '
+        info('|%s' % s)
+      info('-%s' % (hist_width * '-'))
+
+      xlabel = [      
+       ' ' + (' ' * 99) + ('1' * 100) + ('2' * 100) + ('3' * 100) + ('4' * 100) + '5',
+       ' ' + (' ' * 9) + (('1' * 10) + ('2' * 10) + ('3' * 10) + ('4' * 10) + ('5' * 10)
+           + ('6' * 10) + ('7' * 10) + ('8' * 10) + ('9' * 10) + ('0' * 10)) * 5,
+       ' ' + ('1234567890' * 50)
+      ]
+      for l in xlabel:
+        if l[:hist_width+1].strip() != '':
+          info(l[:hist_width+1])
+
+      info("")
       info("Successfully completed (%.1f sec)" % result['runtime'])
     else:
       warn("Failed with exit code %d" % result['exitcode'])
