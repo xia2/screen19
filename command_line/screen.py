@@ -21,7 +21,7 @@ Examples::
 
 '''
 
-class i19Screen():
+class i19_screen():
   import libtbx.load_env
   from libtbx.utils import Sorry
 
@@ -61,30 +61,32 @@ class i19Screen():
     result = run_process(command, print_stdout=False)
     debug("result = %s" % self._prettyprint_dictionary(result))
 
-    if result['exitcode'] == 0:
-      print "Pixel intensity distribution:"
-      hist = {}
-      for l in result['stdout'].split("\n"):
-        m = re.search('^([0-9.]+) - [0-9.]+: ([0-9]+)$', l)
-        if m and m.group(2) != '0': # and m.group(1) != '0' and m.group(2) != '0':
-          hist[float(m.group(1))] = int(m.group(2))
-      histcount = sum(hist.itervalues())
-      del hist[0]
-
-      # There is a possibility that _sigma_m should be doubled here
-      scale = 1 / (math.sqrt(math.pi) * self._sigma_m * math.erf(self._oscillation / 2 / self._sigma_m))
-      info("Determined scale factor for intensities as %f" % scale)
-      hist_corrected = { x*scale: hist[x] for x in hist.iterkeys() }
-
-      self._plot_intensities(hist_corrected)
-
-      if (histcount % self._num_images) != 0:
-        warn("Warning: There may be undetected overloads above the upper bound!")
-
-      info("Successfully completed (%.1f sec)" % result['runtime'])
-    else:
+    if result['exitcode'] != 0:
       warn("Failed with exit code %d" % result['exitcode'])
       sys.exit(1)
+    print "Pixel intensity distribution:"
+    hist = {}
+    for l in result['stdout'].split("\n"):
+      m = re.search('^([0-9.]+) - [0-9.]+: ([0-9]+)$', l)
+      if m and m.group(2) != '0': # and m.group(1) != '0' and m.group(2) != '0':
+        hist[float(m.group(1))] = int(m.group(2))
+    histcount = sum(hist.itervalues())
+    del hist[0]
+
+    scale = 1 / (math.sqrt(math.pi) * (2 * self._sigma_m) * math.erf((self._oscillation / 2) / (2 * self._sigma_m)))
+    info("Determined scale factor for intensities as %f" % scale)
+    hist = { x*scale: hist[x] for x in hist.iterkeys() }
+
+    self._plot_intensities(hist)
+
+    hist_max = max(hist.iterkeys())
+    if (hist_max > 100):
+      warn("Warning: Strongest pixel reaches %.1f %% of the detector count rate limit!" % hist_max)
+
+    if (histcount % self._num_images) != 0:
+      warn("Warning: There may be undetected overloads above the upper bound!")
+
+    info("Successfully completed (%.1f sec)" % result['runtime'])
 
   def _plot_intensities(self, bins):
     import subprocess
@@ -213,4 +215,4 @@ class i19Screen():
     return
 
 if __name__ == '__main__':
-  i19Screen().run(sys.argv[1:])
+  i19_screen().run(sys.argv[1:])
