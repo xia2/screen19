@@ -1,5 +1,6 @@
 from __future__ import division
 from logging import info, debug, warn
+import math
 import re
 import sys
 
@@ -64,50 +65,65 @@ class i19Screen():
       print "Pixel intensity distribution:"
       hist = {}
       for l in result['stdout'].split("\n"):
-        m = re.search('^([0-9]+) - [0-9]+: ([0-9]+)$', l)
-        if m and m.group(1) != '0' and m.group(2) != '0':
-          hist[int(m.group(1))] = int(m.group(2))
-      hist_maxval=max(hist.itervalues())
-      hist_height=20
+        m = re.search('^([0-9.]+) - [0-9.]+: ([0-9]+)$', l)
+        if m and m.group(2) != '0': # and m.group(1) != '0' and m.group(2) != '0':
+          hist[float(m.group(1))] = int(m.group(2))
+      histcount = sum(hist.itervalues())
+      del hist[0]
 
-      hist_width=max(hist.iterkeys())
-      hist_xlab=1
-      if hist_width > 9: hist_xlab=2
-      if hist_width > 99: hist_xlab=3
+      # There is a possibility that _sigma_m should be doubled here
+      scale = 1 / (math.sqrt(math.pi) * self._sigma_m * math.erf(self._oscillation / 2 / self._sigma_m))
+      info("Determined scale factor for intensities as %f" % scale)
+      hist_corrected = { x*scale: hist[x] for x in hist.iterkeys() }
 
-      info("")
-      info(hist_maxval)
-      hist_scaled={x: round(hist_height * hist[x] / hist_maxval, 1) for x in hist.iterkeys()}
-      for l in range(hist_height):
-        line = {x: (2 if (hist_height - l - 0.3) < hist_scaled[x] 
-              else (1 if (hist_height - l - 0.8) < hist_scaled[x] or (l == hist_height - 1)
-              else  0)) for x in hist.iterkeys()}
-        s = ''
-        for x in range(hist_width):
-          if (x+1) in line:
-            if line[x+1] == 2:
-              s+='#'
-            elif line[x+1] == 1:
-              s+='\033[90m#\033[0m'
-            else:
-              s+=' '
-          else:
-            s+=' '
-        info('|%s' % s)
-      info('-%s' % (hist_width * '-'))
+      self._plot_intensities(hist_corrected)
 
-      xlabel = [      
-       ' ' + (' ' * 99) + ('1' * 100) + ('2' * 100) + ('3' * 100) + ('4' * 100) + '5',
-       ' ' + (' ' * 9) + (('1' * 10) + ('2' * 10) + ('3' * 10) + ('4' * 10) + ('5' * 10)
-           + ('6' * 10) + ('7' * 10) + ('8' * 10) + ('9' * 10) + ('0' * 10)) * 5,
-       ' ' + ('1234567890' * 50)
-      ]
-      for l in xlabel:
-        if l[:hist_width+1].strip() != '':
-          info(l[:hist_width+1])
+      if (histcount % self._num_images) != 0:
+        warn("Warning: There may be undetected overloads above the upper bound!")
 
-      info("")
       info("Successfully completed (%.1f sec)" % result['runtime'])
+    else:
+      warn("Failed with exit code %d" % result['exitcode'])
+      sys.exit(1)
+
+  def _plot_intensities(self, bins):
+    import subprocess
+    rows, columns = subprocess.check_output(['stty', 'size']).split()
+
+    command = [ "gnuplot" ]
+    plot_commands = [
+      "set term dumb %s %d" % (columns, int(rows)-2),
+      "set title 'Spot intensity distribution'",
+      "set xlabel '% of maximum'",
+      "set ylabel 'Number of observed pixels'",
+      "set boxwidth 1.0",
+      "set xtics out nomirror",
+      "plot '-' using 1:2 title '' with boxes"
+    ]
+    for x in sorted(bins.iterkeys()):
+      plot_commands.append("%f %d" % (x, bins[x]))
+    plot_commands.append("e")
+
+    debug("running %s with:\n  %s\n" % (" ".join(command), "\n  ".join(plot_commands)))
+
+    result = run_process(command, stdin="\n".join(plot_commands)+"\n", timeout=120, print_stdout=False)
+
+    debug("result = %s" % self._prettyprint_dictionary(result))
+
+    if result['exitcode'] == 0:
+      star = re.compile(r'\*')
+      space = re.compile(' ')
+      state = set()
+      for l in result['stdout'].split("\n"):
+        if l.strip() != '':
+          stars = {m.start(0) for m in re.finditer(star, l)}
+          if len(stars) == 0:
+            state = set()
+          else:
+            state |= stars
+            l = list(l)
+            for s in state: l[s] = '*'
+          info("".join(l))
     else:
       warn("Failed with exit code %d" % result['exitcode'])
       sys.exit(1)
@@ -132,6 +148,23 @@ class i19Screen():
     if result['exitcode'] == 0:
       m = re.search('model [0-9]+ \(([0-9]+) [^\n]*\n[^\n]*\n[^\n]*Unit cell: \(([^\n]*)\)\n[^\n]*Space group: ([^\n]*)\n', result['stdout'])
       info("Found primitive solution: %s (%s) using %s reflections" % (m.group(3), m.group(2), m.group(1)))
+      info("Successfully completed (%.1f sec)" % result['runtime'])
+    else:
+      warn("Failed with exit code %d" % result['exitcode'])
+      sys.exit(1)
+
+  def _create_profile_model(self):
+    info("\nCreating profile model...")
+    command = [ "dials.create_profile_model", "experiments.json", "indexed.pickle" ]
+    result = run_process(command, print_stdout=False)
+    debug("result = %s" % self._prettyprint_dictionary(result))
+    if result['exitcode'] == 0:
+      from dxtbx.model.experiment.experiment_list import ExperimentListFactory
+      db = ExperimentListFactory.from_json_file('experiments_with_profile_model.json')[0]
+      self._num_images = db.imageset.get_scan().get_num_images()
+      self._oscillation = db.imageset.get_scan().get_oscillation()[1]
+      self._sigma_m = db.profile.sigma_m()
+      info("%d images, %s deg. oscillation, sigma_m=%.3f" % (self._num_images, str(self._oscillation), self._sigma_m))
       info("Successfully completed (%.1f sec)" % result['runtime'])
     else:
       warn("Failed with exit code %d" % result['exitcode'])
@@ -171,9 +204,10 @@ class i19Screen():
       self._import(args)
       self.json_file = 'datablock.json'
 
-    self._check_intensities()
     self._find_spots()
     self._index()
+    self._create_profile_model()
+    self._check_intensities()
     self._refine_bravais()
 
     return
