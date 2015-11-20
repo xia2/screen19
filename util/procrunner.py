@@ -41,7 +41,51 @@ class _NonBlockingStreamReader:
     self._buffer.close()
     return data
 
-def run_process(command, timeout=None, debug=False, print_stdout=True, print_stderr=True):
+class _NonBlockingStreamWriter:
+  '''Writes to a stream in a thread to avoid blocking/deadlocks'''
+  def __init__(self, stream, data, debug=False):
+    self._buffer = data
+    self._buffer_len = len(data)
+    self._buffer_pos = 0
+    self._debug = debug
+    self._max_block_len = 4096
+    self._stream = stream
+    self._terminated = False
+
+    def _thread_write_buffer_to_stream():
+      while self._buffer_pos < self._buffer_len:
+        if (self._buffer_len - self._buffer_pos) > self._max_block_len:
+          block = self._buffer[self._buffer_pos:(self._buffer_pos + self._max_block_len)]
+        else:
+          block = self._buffer[self._buffer_pos:]
+        try:
+          self._stream.write(block)
+        except IOError, e:
+          if e.errno == 32: # broken pipe, ie. process terminated without reading entire stdin
+            self._stream.close()
+            self._terminated = True
+            return
+          raise
+        self._buffer_pos += len(block)
+        if debug:
+          print "wrote %d bytes to stream" % len(block)
+      self._stream.close()
+      self._terminated = True
+
+    self._thread = Thread(target = _thread_write_buffer_to_stream)
+    self._thread.daemon = True
+    self._thread.start()
+
+  def has_finished(self):
+    return self._terminated
+
+  def bytes_sent(self):
+    return self._buffer_pos
+
+  def bytes_remaining(self):
+    return self._buffer_len - self._buffer_pos
+
+def run_process(command, timeout=None, debug=False, stdin=None, print_stdout=True, print_stderr=True):
   ''' run an external process, command line specified as array,
       optionally enforces a timeout specified in seconds,
       obtains STDOUT, STDERR and exit code
@@ -49,6 +93,11 @@ def run_process(command, timeout=None, debug=False, print_stdout=True, print_std
 
   if debug:
     print "Starting external process:", command
+
+  if stdin is None:
+    stdin_pipe = None
+  else:
+    stdin_pipe = subprocess.PIPE
 
   if _dummy:
     return { 'exitcode': 0, 'command': command,
@@ -59,9 +108,11 @@ def run_process(command, timeout=None, debug=False, print_stdout=True, print_std
   if timeout is not None:
     max_time = start_time + timeout
 
-  p = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  p = subprocess.Popen(command, shell=False, stdin=stdin_pipe, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout = _NonBlockingStreamReader(p.stdout, output=print_stdout)
   stderr = _NonBlockingStreamReader(p.stderr, output=print_stderr)
+  if stdin is not None:
+    stdin = _NonBlockingStreamWriter(p.stdin, data=stdin)
 
   timeout_encountered = False
 
@@ -117,4 +168,8 @@ def run_process(command, timeout=None, debug=False, print_stdout=True, print_std
   result = { 'exitcode': p.returncode, 'command': command,
              'stdout': stdout, 'stderr': stderr,
              'timeout': timeout_encountered, 'runtime': runtime }
+  if stdin is not None:
+    result.update({ 'stdin_bytes_sent': stdin.bytes_sent(),
+                    'stdin_bytes_remain': stdin.bytes_remaining() })
+
   return result
