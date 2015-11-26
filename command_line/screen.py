@@ -1,5 +1,6 @@
 from __future__ import division
 from logging import info, debug, warn
+import json
 import math
 import re
 import sys
@@ -64,18 +65,31 @@ class i19_screen():
     if result['exitcode'] != 0:
       warn("Failed with exit code %d" % result['exitcode'])
       sys.exit(1)
+
+    with open('overload.json') as fh:
+      overload_data = json.load(fh)
+
     print "Pixel intensity distribution:"
     hist = {}
-    for l in result['stdout'].split("\n"):
-      m = re.search('^([0-9.]+) - [0-9.]+: ([0-9]+)$', l)
-      if m and m.group(2) != '0': # and m.group(1) != '0' and m.group(2) != '0':
-        hist[float(m.group(1))] = int(m.group(2))
-    histcount = sum(hist.itervalues())
-    del hist[0]
+    for b in range(overload_data['bin_count']):
+      if overload_data['bins'][b] > 0:
+        hist[b] = overload_data['bins'][b]
 
-    scale = 1 / (math.sqrt(math.pi) * (2 * self._sigma_m) * math.erf((self._oscillation / 2) / (2 * self._sigma_m)))
+    histcount = sum(hist.itervalues())
+
+    scale = 100 * overload_data['scale_factor'] / (math.sqrt(math.pi) * (2 * self._sigma_m) * math.erf((self._oscillation / 2) / (2 * self._sigma_m)))
     info("Determined scale factor for intensities as %f" % scale)
-    hist = { x*scale: hist[x] for x in hist.iterkeys() }
+    rescaled_hist = {}
+    for x in hist.iterkeys():
+      rescaled = int(x * scale / 10) * 10 + 5
+      rescaled = int(x * scale)
+      try:
+        rescaled_hist[rescaled] += hist[x]
+      except:
+        rescaled_hist[rescaled] = hist[x]
+    hist = rescaled_hist
+    debug("rescaled histogram: %s", str(hist))
+    del hist[0]
 
     self._plot_intensities(hist)
 
@@ -98,8 +112,10 @@ class i19_screen():
       "set title 'Spot intensity distribution'",
       "set xlabel '% of maximum'",
       "set ylabel 'Number of observed pixels'",
+      "set logscale y",
       "set boxwidth 1.0",
       "set xtics out nomirror",
+      "set ytics out",
       "plot '-' using 1:2 title '' with boxes"
     ]
     for x in sorted(bins.iterkeys()):
