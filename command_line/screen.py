@@ -76,7 +76,13 @@ class i19_screen():
 
     histcount = sum(hist.itervalues())
 
-    scale = 100 * overload_data['scale_factor'] / (math.sqrt(math.pi) * (2 * self._sigma_m) * math.erf((self._oscillation / 2) / (2 * self._sigma_m)))
+    # we have checked this: if _sigma_m >> _oscillation it works out about 1
+    # as you would expect
+    mosaicity_factor = math.sqrt(math.pi) * (2 * self._sigma_m) * \
+      math.erf((self._oscillation / 2) / (2 * self._sigma_m))
+
+    info("Mosaicity factor: %f" % mosaicity_factor)
+    scale = 100 * overload_data['scale_factor'] / mosaicity_factor
     info("Determined scale factor for intensities as %f" % scale)
     rescaled_hist = {}
     for x in hist.iterkeys():
