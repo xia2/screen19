@@ -8,11 +8,10 @@ import sys
 from i19.util.procrunner import run_process
 
 help_message = '''
-
 This program processes screening data obtained at Diamond Light Source
 Beamline I19-1.
 
-Examples::
+Examples:
 
   i19.screen datablock.json
 
@@ -211,17 +210,20 @@ class i19_screen():
       sys.exit(1)
 
   def run(self, args):
+    from dials.util.version import dials_version
+    from i19.util.version import i19_version
+    version_information = "%s using %s" % (i19_version(), dials_version())
+
     if len(args) == 0:
       print help_message
+      print version_information
       return
 
     # Configure the logging
     from dials.util import log
     log.config(1, info='i19.screen.log', debug='i19.screen.debug.log')
 
-    from dials.util.version import dials_version
-    from i19.util.version import i19_version
-    info("%s using %s" % (i19_version(), dials_version()))
+    info(version_information)
 
     self._count_processors()
 
