@@ -163,13 +163,22 @@ class i19_screen():
     command = [ "dials.index", self.json_file, "strong.pickle" ]
     result = run_process(command, print_stdout=False)
     debug("result = %s" % self._prettyprint_dictionary(result))
-    if result['exitcode'] == 0:
-      m = re.search('model [0-9]+ \(([0-9]+) [^\n]*\n[^\n]*\n[^\n]*Unit cell: \(([^\n]*)\)\n[^\n]*Space group: ([^\n]*)\n', result['stdout'])
-      info("Found primitive solution: %s (%s) using %s reflections" % (m.group(3), m.group(2), m.group(1)))
-      info("Successfully completed (%.1f sec)" % result['runtime'])
-    else:
+    if result['exitcode'] != 0:
       warn("Failed with exit code %d" % result['exitcode'])
-      sys.exit(1)
+
+      info("\nRetrying with max_cell constraint...")
+      command += [ "max_cell=20" ]
+      result = run_process(command, print_stdout=False)
+      debug("result = %s" % self._prettyprint_dictionary(result))
+
+      if result['exitcode'] != 0:
+        warn("Failed with exit code %d" % result['exitcode'])
+        warn("Giving up.")
+        sys.exit(1)
+
+    m = re.search('model [0-9]+ \(([0-9]+) [^\n]*\n[^\n]*\n[^\n]*Unit cell: \(([^\n]*)\)\n[^\n]*Space group: ([^\n]*)\n', result['stdout'])
+    info("Found primitive solution: %s (%s) using %s reflections" % (m.group(3), m.group(2), m.group(1)))
+    info("Successfully completed (%.1f sec)" % result['runtime'])
 
   def _create_profile_model(self):
     info("\nCreating profile model...")
