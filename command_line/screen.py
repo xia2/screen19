@@ -78,8 +78,8 @@ class i19_screen():
 
     # we have checked this: if _sigma_m >> _oscillation it works out about 1
     # as you would expect
-    mosaicity_factor = math.sqrt(math.pi) * (2 * self._sigma_m) * \
-      math.erf((self._oscillation / 2) / (2 * self._sigma_m))
+    mosaicity_factor = math.sqrt(math.pi) * self._sigma_m * \
+      math.erf(self._oscillation / (2 * self._sigma_m))
 
     info("Mosaicity factor: %f" % mosaicity_factor)
     scale = 100 * overload_data['scale_factor'] / mosaicity_factor
