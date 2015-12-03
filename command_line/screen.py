@@ -108,8 +108,11 @@ class i19_screen():
     info("Successfully completed (%.1f sec)" % result['runtime'])
 
   def _plot_intensities(self, bins):
-    import subprocess
-    rows, columns = subprocess.check_output(['stty', 'size']).split()
+    try:
+      import subprocess
+      rows, columns = subprocess.check_output(['stty', 'size']).split()
+    except Exception:
+      rows, columns = 80, 25
 
     command = [ "gnuplot" ]
     plot_commands = [
