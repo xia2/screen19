@@ -84,6 +84,7 @@ class i19_screen():
     info("Mosaicity factor: %f" % mosaicity_factor)
     scale = 100 * overload_data['scale_factor'] / mosaicity_factor
     info("Determined scale factor for intensities as %f" % scale)
+    debug("intensity histogram: { %s }", ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]))
     rescaled_hist = {}
     for x in hist.iterkeys():
       rescaled = int(x * scale / 10) * 10 + 5
@@ -93,7 +94,7 @@ class i19_screen():
       except:
         rescaled_hist[rescaled] = hist[x]
     hist = rescaled_hist
-    debug("rescaled histogram: %s", str(hist))
+    debug("rescaled histogram: { %s }", ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]))
     del hist[0]
 
     self._plot_intensities(hist)
