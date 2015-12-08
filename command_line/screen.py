@@ -152,8 +152,7 @@ class i19_screen():
             for s in state: l[s] = '*'
           info("".join(l))
     else:
-      warn("Failed with exit code %d" % result['exitcode'])
-      sys.exit(1)
+      warn("Error running gnuplot. Can not plot intensity distribution. Exit code %d" % result['exitcode'])
 
   def _find_spots(self):
     info("\nSpot finding...")
