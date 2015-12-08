@@ -23,7 +23,6 @@ Examples:
 
 class i19_screen():
   import libtbx.load_env
-  from libtbx.utils import Sorry
 
   def _prettyprint_dictionary(self, d):
     return "{\n%s\n}" % \

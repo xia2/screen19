@@ -1,3 +1,4 @@
+from __future__ import division
 import mock
 import unittest
 import i19.util.procrunner

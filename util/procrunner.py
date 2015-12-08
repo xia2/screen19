@@ -1,3 +1,4 @@
+from __future__ import division
 import cStringIO as StringIO
 import subprocess
 import time
