@@ -1,5 +1,7 @@
+import random
 import time
 import stomp
+import string
 import sys
 
 class MyListener(stomp.ConnectionListener):
@@ -15,12 +17,13 @@ conn.connect('admin', 'password', wait=True)
 
 block = 0
 destination = '/queue/test'
+key = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
 
-print "Producer producing into %s" % destination
+print "Producer %s producing into %s" % (key, destination)
 while True:
   block += 1
-  print "Sending block %d to %s" % (block, destination),
-  conn.send(body='Block %d' % block, destination=destination)
+  print "Sending block %s-%d to %s" % (key, block, destination),
+  conn.send(body='Block %s-%d' % (key, block), destination=destination)
   print "done"
   time.sleep(1.2)
 
