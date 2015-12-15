@@ -8,6 +8,7 @@ class GDAspy(stomp.ConnectionListener):
     self._conn = stomp.Connection([('sci-serv5.diamond.ac.uk', 61613)])
     self._queues = {
       'status': '/queue/scisoft.xia2.STATUS_QUEUE',
+#     'status-topic': '/topic/scisoft.xia2.STATUS_TOPIC',
       'submission': '/queue/scisoft.xia2.SUBMISSION_QUEUE'
     }
     self._conn.set_listener('', self)
