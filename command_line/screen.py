@@ -68,10 +68,12 @@ class i19_screen():
       overload_data = json.load(fh)
 
     print "Pixel intensity distribution:"
+    count_sum = 0
     hist = {}
     for b in range(overload_data['bin_count']):
       if overload_data['bins'][b] > 0:
         hist[b] = overload_data['bins'][b]
+        count_sum += b * overload_data['bins'][b]
 
     histcount = sum(hist.itervalues())
 
@@ -99,11 +101,16 @@ class i19_screen():
     self._plot_intensities(hist)
 
     hist_max = max(hist.iterkeys())
+    text = "Strongest pixel reaches %.1f %% of the detector count rate limit" % hist_max
     if (hist_max > 100):
-      warn("Warning: Strongest pixel reaches %.1f %% of the detector count rate limit!" % hist_max)
+      warn("Warning: %s!" % text)
+    else:
+      info(text)
 
     if (histcount % self._num_images) != 0:
       warn("Warning: There may be undetected overloads above the upper bound!")
+
+    info("Total sum of counts in dataset: %d" % count_sum)
 
     info("Successfully completed (%.1f sec)" % result['runtime'])
 
