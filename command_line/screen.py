@@ -2,6 +2,7 @@ from __future__ import division
 from logging import info, debug, warn
 import json
 import math
+import os
 import re
 import sys
 
@@ -38,7 +39,11 @@ class i19_screen():
     debug("result = %s" % self._prettyprint_dictionary(result))
 
     if result['exitcode'] == 0:
-      info("Successfully completed (%.1f sec)" % result['runtime'])
+      if os.path.isfile('datablock.json'):
+        info("Successfully completed (%.1f sec)" % result['runtime'])
+      else:
+        warn("Could not import images. Do the specified images exist at that location?")
+        sys.exit(1)
     else:
       warn("Failed with exit code %d" % result['exitcode'])
       sys.exit(1)
