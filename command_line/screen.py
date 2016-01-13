@@ -165,9 +165,9 @@ class i19_screen():
     else:
       warn("Error running gnuplot. Can not plot intensity distribution. Exit code %d" % result['exitcode'])
 
-  def _find_spots(self):
+  def _find_spots(self, additional_parameters=[]):
     info("\nSpot finding...")
-    command = [ "dials.find_spots", self.json_file, "nproc=%s" % self.nproc ]
+    command = [ "dials.find_spots", self.json_file, "nproc=%s" % self.nproc ] + additional_parameters
     result = run_process(command, print_stdout=False)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
@@ -192,12 +192,28 @@ class i19_screen():
 
       if result['exitcode'] != 0:
         warn("Failed with exit code %d" % result['exitcode'])
-        warn("Giving up.")
-        sys.exit(1)
+        return False
 
     m = re.search('model [0-9]+ \(([0-9]+) [^\n]*\n[^\n]*\n[^\n]*Unit cell: \(([^\n]*)\)\n[^\n]*Space group: ([^\n]*)\n', result['stdout'])
     info("Found primitive solution: %s (%s) using %s reflections" % (m.group(3), m.group(2), m.group(1)))
     info("Successfully completed (%.1f sec)" % result['runtime'])
+    return True
+
+  def _refine(self):
+    info("\nIndexing...")
+    command = [ "dials.refine", "experiments.json", "indexed.pickle" ]
+    result = run_process(command, print_stdout=False)
+    debug("result = %s" % self._prettyprint_dictionary(result))
+    if result['exitcode'] != 0:
+      warn("Failed with exit code %d" % result['exitcode'])
+      warn("Giving up.")
+      sys.exit(1)
+
+    info("Successfully refined (%.1f sec)" % result['runtime'])
+    os.rename("experiments.json", "experiments.unrefined.json")
+    os.rename("indexed.pickle", "indexed.unrefined.pickle")
+    os.rename("refined_experiments.json", "experiments.json")
+    os.rename("refined.pickle", "indexed.pickle")
 
   def _create_profile_model(self):
     info("\nCreating profile model...")
@@ -212,9 +228,10 @@ class i19_screen():
       self._sigma_m = db.profile.sigma_m()
       info("%d images, %s deg. oscillation, sigma_m=%.3f" % (self._num_images, str(self._oscillation), self._sigma_m))
       info("Successfully completed (%.1f sec)" % result['runtime'])
+      return True
     else:
       warn("Failed with exit code %d" % result['exitcode'])
-      sys.exit(1)
+      return False
 
   def _refine_bravais(self):
     info("\nRefining bravais settings...")
@@ -254,8 +271,18 @@ class i19_screen():
       self.json_file = 'datablock.json'
 
     self._find_spots()
-    self._index()
-    self._create_profile_model()
+    if not self._index():
+      info("\nRetrying for stronger spots only...")
+      self._find_spots(['sigma_strong=15'])
+      if not self._index():
+        warn("Giving up.")
+        sys.exit(1)
+    if not self._create_profile_model():
+      info("\nRefining model to attempt to increase number of valid spots...")
+      self._refine()
+      if not self._create_profile_model():
+        warn("Giving up.")
+        sys.exit(1)
     self._check_intensities()
     self._refine_bravais()
 
