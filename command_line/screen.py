@@ -124,7 +124,7 @@ class i19_screen():
       import subprocess
       rows, columns = subprocess.check_output(['stty', 'size']).split()
     except Exception:
-      rows, columns = 80, 25
+      rows, columns = 25, 80
 
     command = [ "gnuplot" ]
     plot_commands = [
