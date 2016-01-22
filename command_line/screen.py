@@ -180,21 +180,27 @@ class i19_screen():
       sys.exit(1)
 
   def _index(self):
-    info("\nIndexing...")
-    command = [ "dials.index", self.json_file, "strong.pickle" ]
-    result = run_process(command, print_stdout=False)
-    debug("result = %s" % self._prettyprint_dictionary(result))
-    if result['exitcode'] != 0:
-      warn("Failed with exit code %d" % result['exitcode'])
+    runlist = [
+      ("Indexing...",
+        [ "dials.index", self.json_file, "strong.pickle" ]),
+      ("Retrying with max_cell constraint",
+        [ "dials.index", self.json_file, "strong.pickle", "max_cell=20" ]),
+      ("Retrying with 1D FFT",
+        [ "dials.index", self.json_file, "strong.pickle", "indexing.method=fft1d" ])
+      ]
 
-      info("\nRetrying with max_cell constraint...")
-      command += [ "max_cell=20" ]
+    for message, command in runlist:
+      info("\n%s..." % message)
+
       result = run_process(command, print_stdout=False)
       debug("result = %s" % self._prettyprint_dictionary(result))
-
       if result['exitcode'] != 0:
         warn("Failed with exit code %d" % result['exitcode'])
-        return False
+      else:
+        break
+
+    if result['exitcode'] != 0:
+      return False
 
     m = re.search('model [0-9]+ \(([0-9]+) [^\n]*\n[^\n]*\n[^\n]*Unit cell: \(([^\n]*)\)\n[^\n]*Space group: ([^\n]*)\n', result['stdout'])
     info("Found primitive solution: %s (%s) using %s reflections" % (m.group(3), m.group(2), m.group(1)))
@@ -275,15 +281,33 @@ class i19_screen():
     self._find_spots()
     if not self._index():
       info("\nRetrying for stronger spots only...")
+      os.rename("strong.pickle", "all_spots.pickle")
       self._find_spots(['sigma_strong=15'])
       if not self._index():
         warn("Giving up.")
+        info("""
+Could not find an indexing solution. You may want to have a look
+at the reciprocal space by running:
+
+  dials.reciprocal_lattice_viewer datablock.json all_spots.pickle
+
+or, to only include stronger spots:
+
+  dials.reciprocal_lattice_viewer datablock.json strong.pickle
+""")
         sys.exit(1)
+
     if not self._create_profile_model():
       info("\nRefining model to attempt to increase number of valid spots...")
       self._refine()
       if not self._create_profile_model():
         warn("Giving up.")
+        info("""
+The identified indexing solution may not be correct. You may want to have a look
+at the reciprocal space by running:
+
+  dials.reciprocal_lattice_viewer experiments.json indexed.pickle
+""")
         sys.exit(1)
     self._check_intensities()
     self._refine_bravais()
