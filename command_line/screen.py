@@ -172,12 +172,17 @@ class i19_screen():
     command = [ "dials.find_spots", self.json_file, "nproc=%s" % self.nproc ] + additional_parameters
     result = run_process(command, print_stdout=False)
     debug("result = %s" % self._prettyprint_dictionary(result))
-    if result['exitcode'] == 0:
-      m = re.search('Saved ([0-9]+) reflections to strong.pickle', result['stdout'])
-      info("Found %s reflections (%.1f sec)" % (m.group(1), result['runtime']))
-    else:
+    if result['exitcode'] != 0:
       warn("Failed with exit code %d" % result['exitcode'])
       sys.exit(1)
+    info(60 * '-')
+    from libtbx import easy_pickle
+    from dials.util.ascii_art import spot_counts_per_image_plot
+    refl = easy_pickle.load('strong.pickle')
+    info(spot_counts_per_image_plot(refl))
+    info(60 * '-')
+    info("Successfully completed (%.1f sec)" % result['runtime'])
+
 
   def _index(self):
     runlist = [
