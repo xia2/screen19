@@ -97,7 +97,7 @@ class i19_screen():
       rescaled = int(x * scale)
       try:
         rescaled_hist[rescaled] += hist[x]
-      except:
+      except Exception:
         rescaled_hist[rescaled] = hist[x]
     hist = rescaled_hist
     debug("rescaled histogram: { %s }", ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]))
@@ -273,6 +273,27 @@ class i19_screen():
       warn("Failed with exit code %d" % result['exitcode'])
       sys.exit(1)
 
+  def _report(self):
+    info("\nCreating report...")
+    command = [ "dials.report", "experiments_with_profile_model.json", "indexed.pickle" ]
+    result = run_process(command, print_stdout=False)
+    debug("result = %s" % self._prettyprint_dictionary(result))
+    if result['exitcode'] == 0:
+      info("Successfully completed (%.1f sec)" % result['runtime'])
+      if sys.stdout.isatty():
+        info("Trying to start browser")
+        try:
+          import subprocess
+          d = dict(os.environ)
+          d["LD_LIBRARY_PATH"] = ""
+          subprocess.Popen(["xdg-open", "dials-report.html"], env=d)
+        except Exception, e:
+          debug("Could not open browser")
+          debug(str(e))
+    else:
+      warn("Failed with exit code %d" % result['exitcode'])
+      sys.exit(1)
+
   def run(self, args):
     from dials.util.version import dials_version
     from i19.util.version import i19_version
@@ -328,6 +349,7 @@ at the reciprocal space by running:
   dials.reciprocal_lattice_viewer experiments.json indexed.pickle
 """)
         sys.exit(1)
+    self._report()
     self._predict()
     self._check_intensities()
     self._refine_bravais()
