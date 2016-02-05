@@ -105,11 +105,11 @@ class i19_screen():
         rescaled_hist[rescaled] = hist[x]
     hist = rescaled_hist
     debug("rescaled histogram: { %s }", ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]))
-    del hist[0]
+    hist_max = max(hist.iterkeys())
 
+    del hist[0]
     self._plot_intensities(hist)
 
-    hist_max = max(hist.iterkeys())
     text = "Strongest pixel reaches %.1f %% of the detector count rate limit" % hist_max
     if (hist_max > 100):
       warn("Warning: %s!" % text)
@@ -151,7 +151,8 @@ class i19_screen():
 
     debug("running %s with:\n  %s\n" % (" ".join(command), "\n  ".join(plot_commands)))
 
-    result = run_process(command, stdin="\n".join(plot_commands)+"\n", timeout=120, print_stdout=False)
+    result = run_process(command, stdin="\n".join(plot_commands)+"\n", timeout=120,
+        print_stdout=False, print_stderr=False)
 
     debug("result = %s" % self._prettyprint_dictionary(result))
 
