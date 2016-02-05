@@ -185,13 +185,14 @@ class i19_screen():
 
 
   def _index(self):
+    base_command = [ "dials.index", self.json_file, "strong.pickle", "indexing.nproc=%s" % self.nproc ]
     runlist = [
       ("Indexing...",
-        [ "dials.index", self.json_file, "strong.pickle" ]),
+        base_command),
       ("Retrying with max_cell constraint",
-        [ "dials.index", self.json_file, "strong.pickle", "max_cell=20" ]),
+        base_command + [ "max_cell=20" ]),
       ("Retrying with 1D FFT",
-        [ "dials.index", self.json_file, "strong.pickle", "indexing.method=fft1d" ])
+        base_command + [ "indexing.method=fft1d" ])
       ]
 
     for message, command in runlist:
