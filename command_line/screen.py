@@ -32,6 +32,10 @@ class i19_screen():
 
   def _import(self, files):
     info("\nImporting data...")
+    if len(files) == 1 and os.path.isdir(files[0]):
+      debug("You specified a directory. Importing all CBF files in that directory.")
+      files = [ os.path.join(files[0], f) for f in os.listdir(files[0]) if f.endswith('.cbf') ]
+
     command = [ "dials.import" ] + files
     debug("running %s" % " ".join(command))
 
