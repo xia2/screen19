@@ -120,17 +120,18 @@ class i19_screen():
     info("Successfully completed (%.1f sec)" % result['runtime'])
 
   def _plot_intensities(self, bins):
-    rows, columns = 25, 80
+    columns, rows = 80, 25
     if sys.stdout.isatty():
       try:
         import subprocess
-        rows, columns = subprocess.check_output(['stty', 'size']).split()
+        rows, columns = [int(i) for i in subprocess.check_output(['stty', 'size']).split()]
       except Exception:
         pass
+    rows = min(rows, int(columns / 2))
 
     command = [ "gnuplot" ]
     plot_commands = [
-      "set term dumb %s %d" % (columns, int(rows)-2),
+      "set term dumb %d %d" % (columns, rows-2),
       "set title 'Spot intensity distribution'",
       "set xlabel '% of maximum'",
       "set ylabel 'Number of observed pixels'",
