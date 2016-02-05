@@ -281,16 +281,16 @@ class i19_screen():
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
       info("Successfully completed (%.1f sec)" % result['runtime'])
-      if sys.stdout.isatty():
-        info("Trying to start browser")
-        try:
-          import subprocess
-          d = dict(os.environ)
-          d["LD_LIBRARY_PATH"] = ""
-          subprocess.Popen(["xdg-open", "dials-report.html"], env=d)
-        except Exception, e:
-          debug("Could not open browser")
-          debug(str(e))
+#     if sys.stdout.isatty():
+#       info("Trying to start browser")
+#       try:
+#         import subprocess
+#         d = dict(os.environ)
+#         d["LD_LIBRARY_PATH"] = ""
+#         subprocess.Popen(["xdg-open", "dials-report.html"], env=d)
+#       except Exception, e:
+#         debug("Could not open browser")
+#         debug(str(e))
     else:
       warn("Failed with exit code %d" % result['exitcode'])
       sys.exit(1)
