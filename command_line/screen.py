@@ -95,6 +95,7 @@ class i19_screen():
     scale = 100 * overload_data['scale_factor'] / mosaicity_factor
     info("Determined scale factor for intensities as %f" % scale)
     debug("intensity histogram: { %s }", ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]))
+    max_count = max(hist.iterkeys())
     rescaled_hist = {}
     for x in hist.iterkeys():
       rescaled = int(x * scale / 10) * 10 + 5
@@ -110,7 +111,7 @@ class i19_screen():
     del hist[0]
     self._plot_intensities(hist)
 
-    text = "Strongest pixel reaches %.1f %% of the detector count rate limit" % hist_max
+    text = "Strongest pixel (%d counts) reaches %.1f %% of the detector count rate limit" % (max_count, hist_max)
     if (hist_max > 100):
       warn("Warning: %s!" % text)
     else:
@@ -127,11 +128,11 @@ class i19_screen():
     columns, rows = 80, 25
     if sys.stdout.isatty():
       try:
-        import subprocess
-        rows, columns = [int(i) for i in subprocess.check_output(['stty', 'size']).split()]
+        result = run_process(['stty', 'size'], timeout=1, print_stdout=False, print_stderr=False)
+        rows, columns = [int(i) for i in result['stdout'].split()]
       except Exception:
         pass
-    rows = min(rows, int(columns / 2))
+    rows = min(rows, int(columns / 3))
 
     command = [ "gnuplot" ]
     plot_commands = [
@@ -316,6 +317,7 @@ class i19_screen():
     log.config(1, info='i19.screen.log', debug='i19.screen.debug.log')
 
     info(version_information)
+    debug('Run with %s' % str(args))
 
     self._count_processors()
 
