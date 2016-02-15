@@ -30,13 +30,82 @@ class i19_screen():
       "\n".join(["  %s: %s" % (k, str(d[k]).replace("\n", "\n%s" % (" " * (4 + len(k)))))
         for k in d.iterkeys() ])
 
+  def _quick_import(self, files):
+    debug("Attempting quick import...")
+    files.sort()
+    template = None
+    templates = []
+    for f in files:
+      if template is None:
+        template = { 't': f, 'count': 1 }
+        continue
+      if len(template['t']) != len(f):
+        templates.append(template)
+        template = { 't': f, 'count': 1 }
+        continue
+      # Find positions where file names differ
+      template_positions = filter(lambda x: x is not None, \
+                             map(lambda (x,y,z):z if x!=y else None, \
+                               zip(template['t'], f, range(len(f)))))
+      template_positions = (min(template_positions), max(template_positions))
+      # This must not conflict with previously determined template information
+      if 'range' in template:
+        if (template_positions[0]+1 < template['range'][0]) \
+        or (template_positions[0]   > template['range'][1]) \
+        or (template_positions[1]   > template['range'][1]):
+          templates.append(template)
+          template = { 't': f, 'count': 1 }
+          continue
+        template_positions = (min(template_positions[0], template['range'][0]), template['range'][1])
+      # Check if filename can be predicted using existing template information
+      predicted_filename = template['t'][:template_positions[0]] + \
+                           ("%%0%dd" % (1 + template_positions[1] - template_positions[0]) % (
+                             int(template['t'][template_positions[0]:1 + template_positions[1]]) + \
+                             template['count'])) + \
+                           template['t'][1 + template_positions[1]:]
+      if f != predicted_filename:
+        templates.append(template)
+        template = { 't': f, 'count': 1 }
+        continue
+      template['range'] = template_positions
+      template['count'] = 1 + (template['count'] if 'count' in template else 0)
+    templates.append(template)
+    debug("Quick import template summary:")
+    debug(templates)
+
+    if len(templates) > 1:
+      debug("Cannot currently run quick import on multiple templates")
+      return False
+
+    info("Running quick import")
+
+    self._run_dials_import([templates[0]['t']])
+
+    with open('datablock.json', 'r') as fh:
+      datablock = json.load(fh)
+    datablock[0]['scan'][0]['exposure_time'] = datablock[0]['scan'][0]['exposure_time'] * templates[0]['count']
+    datablock[0]['scan'][0]['epochs'] = map(lambda n: n * datablock[0]['scan'][0]['exposure_time'][0] + datablock[0]['scan'][0]['epochs'][0], range(templates[0]['count']))
+    datablock[0]['scan'][0]['image_range'][1] = datablock[0]['scan'][0]['image_range'][1] + templates[0]['count'] - 1
+    with open('datablock.json', 'w') as fh:
+      json.dump(datablock, fh, indent = 2, sort_keys=True)
+
+    return True
+
   def _import(self, files):
     info("\nImporting data...")
     if len(files) == 1 and os.path.isdir(files[0]):
       debug("You specified a directory. Importing all CBF files in that directory.")
       files = [ os.path.join(files[0], f) for f in os.listdir(files[0]) if f.endswith('.cbf') ]
 
-    command = [ "dials.import" ] + files
+    # Can the files be quick-imported?
+    if self._quick_import(files):
+      info("Quick import successful")
+      return
+
+    self._run_dials_import(files)
+
+  def _run_dials_import(self, parameters):
+    command = [ "dials.import" ] + parameters
     debug("running %s" % " ".join(command))
 
     result = run_process(command, print_stdout=False)
