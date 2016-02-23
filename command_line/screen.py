@@ -79,15 +79,10 @@ class i19_screen():
 
     info("Running quick import")
 
-    self._run_dials_import([templates[0]['t']])
+    scan_range = int(templates[0]['t'][templates[0]['range'][0]:templates[0]['range'][1]+1])
+    scan_range = (scan_range, scan_range + templates[0]['count'] - 1)
 
-    with open('datablock.json', 'r') as fh:
-      datablock = json.load(fh)
-    datablock[0]['scan'][0]['exposure_time'] = datablock[0]['scan'][0]['exposure_time'] * templates[0]['count']
-    datablock[0]['scan'][0]['epochs'] = map(lambda n: n * datablock[0]['scan'][0]['exposure_time'][0] + datablock[0]['scan'][0]['epochs'][0], range(templates[0]['count']))
-    datablock[0]['scan'][0]['image_range'][1] = datablock[0]['scan'][0]['image_range'][1] + templates[0]['count'] - 1
-    with open('datablock.json', 'w') as fh:
-      json.dump(datablock, fh, indent = 2, sort_keys=True)
+    self._run_dials_import([templates[0]['t'], "geometry.scan.image_range=%d,%d" % scan_range, "geometry.scan.extrapolate_scan=True"])
 
     return True
 
