@@ -14,10 +14,10 @@ def discover_pytests(module):
   dist_dir = libtbx.env.dist_path(module)
   class TestDiscoveryPlugin:
     def pytest_itemcollected(self, item):
-      test_list.append([ "libtbx.python", "-m", "pytest",
+      test_list.append([ "libtbx.python", "-m", "pytest", '--noconftest',
         os.path.join(dist_dir, item.nodeid) ])
   print "Discovering pytest tests:"
-  pytest.main(['-qq', '--collect-only', dist_dir], plugins=[TestDiscoveryPlugin()])
+  pytest.main(['-qq', '--collect-only', '--noconftest', dist_dir], plugins=[TestDiscoveryPlugin()])
   return test_list
 
 if (__name__ == "__main__"):
@@ -29,7 +29,6 @@ if (__name__ == "__main__"):
 
 tst_list = [
 #  "$D/tests/tst_legacy.py",
-  ["$D/tests/tst_legacy_mult.py", 1]
-#  ["$D/tests/tst_legacy_mult.py", 2]
+  ["$D/tests/tst_legacy_mult.py", "1"]
+#  ["$D/tests/tst_legacy_mult.py", "2"]
 ] + discover_pytests("i19")
-
