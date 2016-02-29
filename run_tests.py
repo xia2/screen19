@@ -28,8 +28,8 @@ if (__name__ == "__main__"):
   sys.exit(0 if result.wasSuccessful() else 1)
 
 tst_list = [
-  "$D/tests/tst_legacy.py",
-  ["$D/tests/tst_legacy_mult.py", 1],
-  ["$D/tests/tst_legacy_mult.py", 2]
+#  "$D/tests/tst_legacy.py",
+  ["$D/tests/tst_legacy_mult.py", 1]
+#  ["$D/tests/tst_legacy_mult.py", 2]
 ] + discover_pytests("i19")
 
