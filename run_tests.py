@@ -1,39 +1,24 @@
 from __future__ import division
 import libtbx.load_env
 
-def discover_unittests(module, pattern='tst_*.py'):
+def discover_pytests(module):
   try:
-    import inspect
     import os
-    import sys
-    import unittest
+    import pytest
   except:
-    return tuple([])
+    return []
+  if 'LIBTBX_SKIP_PYTEST' in os.environ:
+    return []
 
+  test_list = []
   dist_dir = libtbx.env.dist_path(module)
-  found_tests = unittest.defaultTestLoader.discover(dist_dir, pattern=pattern)
-
-  def recursive_TestSuite_to_list(suite):
-    list = []
-    for t in suite:
-      if isinstance(t, unittest.TestSuite):
-        list.extend(recursive_TestSuite_to_list(t))
-      elif isinstance(t, unittest.TestCase):
-        module = t.__class__.__module__
-        if module == 'unittest.loader':
-          # This indicates a loading error.
-          # Regenerate file name and try to run file directly.
-          path = t._testMethodName.replace('.', os.path.sep)
-          list.append("$D/%s.py" % path)
-        else:
-          module = inspect.getsourcefile(sys.modules[module])
-          function = "%s.%s" % (t.__class__.__name__, t._testMethodName)
-          list.append([module, function])
-      else:
-        raise Exception("Unknown test object (%s)" % t)
-    return list
-  test_list = recursive_TestSuite_to_list(found_tests)
-  return tuple(test_list)
+  class TestDiscoveryPlugin:
+    def pytest_itemcollected(self, item):
+      test_list.append([ "libtbx.python", "-m", "pytest",
+        os.path.join(dist_dir, item.nodeid) ])
+  print "Discovering pytest tests:"
+  pytest.main(['-qq', '--collect-only', dist_dir], plugins=[TestDiscoveryPlugin()])
+  return test_list
 
 if (__name__ == "__main__"):
   import unittest
@@ -42,4 +27,9 @@ if (__name__ == "__main__"):
   import sys
   sys.exit(0 if result.wasSuccessful() else 1)
 
-tst_list = list(discover_unittests("i19"))
+tst_list = [
+  "$D/tests/tst_legacy.py",
+  ["$D/tests/tst_legacy_mult.py", 1],
+  ["$D/tests/tst_legacy_mult.py", 2]
+] + discover_pytests("i19")
+
