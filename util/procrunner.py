@@ -5,7 +5,7 @@ import time
 import timeit
 from threading import Thread
 
-_dummy = False
+dummy = False
 
 class _NonBlockingStreamReader:
   '''Reads a stream in a thread to avoid blocking/deadlocks'''
@@ -92,6 +92,7 @@ def run_process(command, timeout=None, debug=False, stdin=None, print_stdout=Tru
       obtains STDOUT, STDERR and exit code
       and returns summary dictionary. '''
 
+  time_start = time.strftime("%Y-%m-%d %H:%M:%S GMT", time.gmtime())
   if debug:
     print "Starting external process:", command
 
@@ -100,10 +101,11 @@ def run_process(command, timeout=None, debug=False, stdin=None, print_stdout=Tru
   else:
     stdin_pipe = subprocess.PIPE
 
-  if _dummy:
+  if dummy:
     return { 'exitcode': 0, 'command': command,
              'stdout': '', 'stderr': '',
-             'timeout': False, 'runtime': 0 }
+             'timeout': False, 'runtime': 0,
+             'time_start': time_start, 'time_end': time_start }
 
   start_time = timeit.default_timer()
   if timeout is not None:
@@ -165,10 +167,12 @@ def run_process(command, timeout=None, debug=False, stdin=None, print_stdout=Tru
 
   stdout = stdout.get_output()
   stderr = stderr.get_output()
+  time_end = time.strftime("%Y-%m-%d %H:%M:%S GMT", time.gmtime())
 
   result = { 'exitcode': p.returncode, 'command': command,
              'stdout': stdout, 'stderr': stderr,
-             'timeout': timeout_encountered, 'runtime': runtime }
+             'timeout': timeout_encountered, 'runtime': runtime,
+             'time_start': time_start, 'time_end': time_end }
   if stdin is not None:
     result.update({ 'stdin_bytes_sent': stdin.bytes_sent(),
                     'stdin_bytes_remain': stdin.bytes_remaining() })

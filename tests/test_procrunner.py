@@ -4,7 +4,7 @@ import i19.util.procrunner
 import mock
 import pytest
 
-@pytest.mark.skipif(i19.util.procrunner._dummy, reason='procrunner class set to dummy mode')
+@pytest.mark.skipif(i19.util.procrunner.dummy, reason='procrunner class set to dummy mode')
 @mock.patch('i19.util.procrunner._NonBlockingStreamReader')
 @mock.patch('i19.util.procrunner.time')
 @mock.patch('i19.util.procrunner.subprocess')
@@ -22,7 +22,7 @@ def test_run_command_aborts_after_timeout(mock_subprocess, mock_time, mock_strea
   assert mock_process.kill.called
 
 
-@pytest.mark.skipif(i19.util.procrunner._dummy, reason='procrunner class set to dummy mode')
+@pytest.mark.skipif(i19.util.procrunner.dummy, reason='procrunner class set to dummy mode')
 @mock.patch('i19.util.procrunner._NonBlockingStreamReader')
 @mock.patch('i19.util.procrunner.subprocess')
 def test_run_command_runs_command_and_directs_pipelines(mock_subprocess, mock_streamreader):

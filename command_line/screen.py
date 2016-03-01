@@ -5,6 +5,7 @@ import math
 import os
 import re
 import sys
+import time
 
 from i19.util.procrunner import run_process
 
@@ -369,7 +370,7 @@ class i19_screen():
   def run(self, args):
     from dials.util.version import dials_version
     from i19.util.version import i19_version
-    version_information = "%s using %s" % (i19_version(), dials_version())
+    version_information = "%s using %s (%s)" % (i19_version(), dials_version(), time.strftime("%Y-%m-%d %H:%M:%S"))
 
     if len(args) == 0:
       print help_message
@@ -426,6 +427,7 @@ at the reciprocal space by running:
     self._predict()
     self._check_intensities()
     self._refine_bravais()
+    debug("Finished at %s" % time.strftime("%Y-%m-%d %H:%M:%S"))
 
     return
 
