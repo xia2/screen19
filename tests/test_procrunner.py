@@ -47,6 +47,8 @@ def test_run_command_runs_command_and_directs_pipelines(mock_subprocess, mock_st
     'command': command,
     'runtime': mock.ANY,
     'timeout': False,
+    'time_start': mock.ANY,
+    'time_end': mock.ANY
   }
 
   actual = i19.util.procrunner.run_process(command, 0.5, False)
