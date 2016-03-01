@@ -239,7 +239,9 @@ class i19_screen():
     else:
       warn("Error running gnuplot. Can not plot intensity distribution. Exit code %d" % result['exitcode'])
 
-  def _find_spots(self, additional_parameters=[]):
+  def _find_spots(self, additional_parameters=None):
+    if additional_parameters is None:
+      additional_parameters = []
     info("\nSpot finding...")
     command = [ "dials.find_spots", self.json_file, "nproc=%s" % self.nproc ] + additional_parameters
     result = run_process(command, print_stdout=False)
