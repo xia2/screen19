@@ -27,7 +27,7 @@ class GDAspy(stomp.ConnectionListener):
       print "Subscribing to %s (%d)" % (q['queue'], q['id'])
       self._conn.subscribe(destination=q['queue'], id=q['id'], ack='auto', browser='true')
 
-    while any([not q['closed'] for q in self._queues.itervalues()]):
+    while any( not q['closed'] for q in self._queues.itervalues()):
       time.sleep(0.2)
 #   self._conn.disconnect()
     print "All information read.\n\n"
