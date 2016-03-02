@@ -40,7 +40,7 @@ def i19_version():
     if (version is None) and os.path.exists(version_file):
       with open(version_file, 'r') as gv:
         version = gv.read().rstrip()
-  except Exception:
+  except Exception: # ignore any errors, use default information instead
     pass
 
   if version is None:

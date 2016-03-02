@@ -195,7 +195,7 @@ class i19_screen():
       try:
         result = run_process(['stty', 'size'], timeout=1, print_stdout=False, print_stderr=False)
         rows, columns = [int(i) for i in result['stdout'].split()]
-      except Exception:
+      except Exception: # ignore any errors and use default size
         pass
     rows = min(rows, int(columns / 3))
 
