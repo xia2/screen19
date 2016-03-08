@@ -1,17 +1,24 @@
-# creates empty .cbf files at set speed
+# creates (copies) .cbf files at set speed
 
 import itertools
+import os
 import time
+import shutil
+import sys
 
-pattern = 'somefile_01_%05d.cbf'
-speed = 0.01 # seconds / image
-r = xrange(1800)
+sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+
+srcpattern = '/dls/tmp/wra62962/jeppe-analysis/data/04/nidppecl2_d_phiscans_04_%05d.cbf'
+dstpattern = 'image_%05d.cbf'
+speed = 0.1 # seconds / image
+r = xrange(1, 3600)
 
 start = time.time()
 
 for image, timewait in itertools.izip(r, itertools.count(start, speed)):
+  in_time = True
   while time.time() < timewait:
     time.sleep(speed / 10)
-  filename = pattern % image
-  open(filename, 'a').close()
-  print filename
+    in_time = False
+  shutil.copyfile(srcpattern % image, dstpattern % image)
+  sys.stdout.write('+' if in_time else '-')

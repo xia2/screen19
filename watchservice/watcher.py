@@ -39,7 +39,7 @@ class Watcher():
           else:
             waittime = random.uniform(self._basespeed, backoff)
           if firstfile:
-            waittime = max(3, waittime)
+            waittime = min(3, waittime)
           time.sleep(waittime)
           total_wait += waittime
           if firstfile:

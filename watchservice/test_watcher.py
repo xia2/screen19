@@ -44,7 +44,7 @@ def test_start_asynchronous_watcher(mocktime, mockos):
 
 @mock.patch('i19.watchservice.watcher.os')
 @mock.patch('i19.watchservice.watcher.time')
-def test_watcher_backoff_strategy(mocktime, mockos):
+def test_watcher_backoff_strategy_first_file(mocktime, mockos):
   mockos.path.exists.return_value = False
 
   files = list(Generator('somefile_%05d.cbf', 1, 10))
@@ -55,8 +55,7 @@ def test_watcher_backoff_strategy(mocktime, mockos):
   w.start(asynchronous=False)
 
   assert w.is_active() == False
-  assert mockos.path.exists.call_count > 1
-  assert mockos.path.exists.call_count < 30
+  assert mockos.path.exists.call_count > 20
   for call in mockos.path.exists.call_args_list:
     args, kwargs = call
     assert args == ( files[0], )
@@ -70,10 +69,7 @@ def test_watcher_backoff_strategy(mocktime, mockos):
     assert kwargs == {}
     t = args[0]
     assert t >= base
-    assert t <= base * npow
-    assert npow * base <= 4096
-    npow = 2 * npow
-  assert t == 2048
+    assert t <= 3
 
   assert cb.call_count == 1
   args, kwargs = cb.call_args
