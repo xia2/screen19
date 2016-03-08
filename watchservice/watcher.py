@@ -22,6 +22,7 @@ class Watcher():
       return
     self._started = True
     self._running = True
+    firstfile = True
     try:
       while True:
         nextfile = next(self._files)
@@ -37,12 +38,18 @@ class Watcher():
             waittime = self._waitlimit
           else:
             waittime = random.uniform(self._basespeed, backoff)
+          if firstfile:
+            waittime = max(3, waittime)
           time.sleep(waittime)
           total_wait += waittime
-          backoff *= 2
+          if firstfile:
+            backoff += 40
+          else:
+            backoff *= 2
 
         if self._callback:
           self._callback(file=nextfile, success=True, wait=total_wait)
+      firstfile = False
     except StopIteration:
       self._terminate()
       return
