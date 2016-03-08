@@ -1,5 +1,5 @@
-from generator import Generator
-from watcher import Watcher
+from i19.watchservice.generator import Generator
+from i19.watchservice.watcher import Watcher
 import mock
 import itertools
 import time
@@ -14,8 +14,8 @@ def test_instantiate_watcher():
   assert next(g) == 0
 
 
-@mock.patch('watcher.os')
-@mock.patch('watcher.time')
+@mock.patch('i19.watchservice.watcher.os')
+@mock.patch('i19.watchservice.watcher.time')
 def test_start_asynchronous_watcher(mocktime, mockos):
   mockos.path.exists.return_value = True
 
@@ -42,8 +42,8 @@ def test_start_asynchronous_watcher(mocktime, mockos):
     assert kwargs == { 'file': f, 'success': True, 'wait': 0 }
 
 
-@mock.patch('watcher.os')
-@mock.patch('watcher.time')
+@mock.patch('i19.watchservice.watcher.os')
+@mock.patch('i19.watchservice.watcher.time')
 def test_watcher_backoff_strategy(mocktime, mockos):
   mockos.path.exists.return_value = False
 
