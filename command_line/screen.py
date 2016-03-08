@@ -229,7 +229,7 @@ class i19_screen():
       for l in result['stdout'].split("\n"):
         if l.strip() != '':
           stars = {m.start(0) for m in re.finditer(star, l)}
-          if len(stars) == 0:
+          if not stars:
             state = set()
           else:
             state |= stars

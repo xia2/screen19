@@ -5,7 +5,7 @@ def discover_pytests(module):
   try:
     import os
     import pytest
-  except:
+  except ImportError:
     return []
   if 'LIBTBX_SKIP_PYTEST' in os.environ:
     return []

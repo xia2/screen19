@@ -78,6 +78,6 @@ def test_watcher_backoff_strategy(mocktime, mockos):
   assert cb.call_count == 1
   args, kwargs = cb.call_args
   assert args == ()
-  assert 'wait' in kwargs and kwargs['wait'] > 0
+  assert kwargs['wait'] > 0
   del kwargs['wait']
   assert kwargs == { 'file': files[0], 'success': False }
