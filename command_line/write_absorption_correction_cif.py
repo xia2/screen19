@@ -1,5 +1,8 @@
 from __future__ import division
+import datetime
+import iotbx.cif.model
 import os
+import xia2.XIA2Version
 
 def find_scale_dir():
   assert os.path.exists('xia2.json')
@@ -21,10 +24,32 @@ def find_aimless_log():
   assert os.path.isfile(lastlog)
   return lastlog
 
-def main(log, png):
-  from xia2.Toolkit.AimlessSurface import evaluate_1degree, scrape_coefficients
-  evaluate_1degree(scrape_coefficients(log), png)
+def write_cif(filename, absmin, absmax, prefix='abscorr'):
+  block = iotbx.cif.model.block()
+  block["_audit_creation_method"] = xia2.XIA2Version.Version
+  block["_audit_creation_date"] = datetime.date.today().isoformat()
+
+  block["_publ_section_references"] = '''
+Winter, G. (2010) Journal of Applied Crystallography 43
+'''
+
+  block["_exptl_absorpt_correction_T_min"] = absmin
+  block["_exptl_absorpt_correction_T_max"] = absmax
+
+  cif = iotbx.cif.model.cif()
+  cif[prefix] = block
+  with open(filename, 'w') as fh:
+    cif.show(out=fh)
+
+def main():
+  print "Generating absorption surface"
+  log = find_aimless_log()
+
+  from xia2.Toolkit.AimlessSurface import evaluate_1degree, scrape_coefficients, generate_map
+  absmap = evaluate_1degree(scrape_coefficients(log))
+
+  write_cif('absorption_surface.cif_xia2', absmap.min(), absmap.max())
+  generate_map(absmap, 'absorption_surface.png')
 
 if __name__ == '__main__':
-  print "Generating absorption surface map"
-  main(find_aimless_log(), 'absorption_surface.png')
+  main()
