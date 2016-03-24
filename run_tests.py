@@ -6,6 +6,15 @@ def discover_pytests(module):
     import os
     import pytest
   except ImportError:
+    def pytest_warning():
+      print "=" * 60
+      print "WARNING: Skipping some tests\n"
+      print "To run all available tests you need to install pytest"
+      print "eg. with   libtbx.python -m pip install pytest"
+      print "=" * 60
+    pytest_warning()
+    import atexit
+    atexit.register(pytest_warning)
     return []
   if 'LIBTBX_SKIP_PYTEST' in os.environ:
     return []
