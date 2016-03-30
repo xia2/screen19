@@ -7,7 +7,7 @@ import re
 import sys
 import time
 
-from i19.util.procrunner import run_process
+from dials.util.procrunner import run_process
 
 help_message = '''
 This program processes screening data obtained at Diamond Light Source

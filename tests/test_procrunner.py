@@ -1,13 +1,13 @@
 from __future__ import division
 
-import i19.util.procrunner
+import dials.util.procrunner
 import mock
 import pytest
 
-@pytest.mark.skipif(i19.util.procrunner.dummy, reason='procrunner class set to dummy mode')
-@mock.patch('i19.util.procrunner._NonBlockingStreamReader')
-@mock.patch('i19.util.procrunner.time')
-@mock.patch('i19.util.procrunner.subprocess')
+@pytest.mark.skipif(dials.util.procrunner.dummy, reason='procrunner class set to dummy mode')
+@mock.patch('dials.util.procrunner._NonBlockingStreamReader')
+@mock.patch('dials.util.procrunner.time')
+@mock.patch('dials.util.procrunner.subprocess')
 def test_run_command_aborts_after_timeout(mock_subprocess, mock_time, mock_streamreader):
   mock_process = mock.Mock()
   mock_process.returncode = None
@@ -15,16 +15,16 @@ def test_run_command_aborts_after_timeout(mock_subprocess, mock_time, mock_strea
   task = ['___']
 
   with pytest.raises(Exception):
-    i19.util.procrunner.run_process(task, -1, False)
+    dials.util.procrunner.run_process(task, -1, False)
 
   assert mock_subprocess.Popen.called
   assert mock_process.terminate.called
   assert mock_process.kill.called
 
 
-@pytest.mark.skipif(i19.util.procrunner.dummy, reason='procrunner class set to dummy mode')
-@mock.patch('i19.util.procrunner._NonBlockingStreamReader')
-@mock.patch('i19.util.procrunner.subprocess')
+@pytest.mark.skipif(dials.util.procrunner.dummy, reason='procrunner class set to dummy mode')
+@mock.patch('dials.util.procrunner._NonBlockingStreamReader')
+@mock.patch('dials.util.procrunner.subprocess')
 def test_run_command_runs_command_and_directs_pipelines(mock_subprocess, mock_streamreader):
   (mock_stdout, mock_stderr) = (mock.Mock(), mock.Mock())
   mock_stdout.get_output.return_value = mock.sentinel.proc_stdout
@@ -51,7 +51,7 @@ def test_run_command_runs_command_and_directs_pipelines(mock_subprocess, mock_st
     'time_end': mock.ANY
   }
 
-  actual = i19.util.procrunner.run_process(command, 0.5, False)
+  actual = dials.util.procrunner.run_process(command, 0.5, False)
 
   assert mock_subprocess.Popen.called
   mock_streamreader.assert_has_calls([mock.call(stream_stdout, output=mock.ANY), mock.call(stream_stderr, output=mock.ANY)], any_order=True)
@@ -78,7 +78,7 @@ def test_nonblockingstreamreader_can_read():
   teststream = _stream()
   testdata = ['a', 'b', 'c']
 
-  streamreader = i19.util.procrunner._NonBlockingStreamReader(teststream, output=False)
+  streamreader = dials.util.procrunner._NonBlockingStreamReader(teststream, output=False)
   for d in testdata:
     teststream.write(d)
   assert not streamreader.has_finished()
