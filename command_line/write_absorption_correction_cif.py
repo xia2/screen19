@@ -2,7 +2,7 @@ from __future__ import division
 import datetime
 import iotbx.cif.model
 import os
-import xia2.XIA2Version
+import re
 
 def find_scale_dir():
   assert os.path.exists('xia2.json')
@@ -24,17 +24,43 @@ def find_aimless_log():
   assert os.path.isfile(lastlog)
   return lastlog
 
+def get_versions():
+  from dials.util.version import dials_version
+  from i19.util.version import i19_version
+  import xia2.XIA2Version
+  versions = {
+    'xia2': xia2.XIA2Version.Version,
+    'dials': dials_version(),
+    'i19': i19_version(),
+    'aimless': 'AIMLESS, CCP4' }
+  with open(find_aimless_log(), 'r') as aimlesslog:
+    pattern = re.compile(" +#+ *CCP4.*#+")
+    for line in aimlesslog:
+      if pattern.search(line):
+        versions['aimless'] = re.sub('\s\s+', ', ', line.strip("\t\n #"))
+        break
+  return versions
+
 def write_cif(filename, absmin, absmax, prefix='abscorr'):
+  versions = get_versions()
   block = iotbx.cif.model.block()
-  block["_audit_creation_method"] = xia2.XIA2Version.Version
+  block["_audit_creation_method"] = versions['xia2']
   block["_audit_creation_date"] = datetime.date.today().isoformat()
 
   block["_publ_section_references"] = '''
-Winter, G. (2010) Journal of Applied Crystallography 43
+Evans, P. R. and Murshudov, G. N. (2013) Acta Cryst. D69, 1204-1214.
+Winter, G. (2010) Journal of Applied Crystallography 43, 186-190.
 '''
 
   block["_exptl_absorpt_correction_T_min"] = absmin
   block["_exptl_absorpt_correction_T_max"] = absmax
+  block["_exptl_absorpt_correction_type"] = "empirical"
+  block["_exptl_absorpt_process_details"] = '''
+{aimless}
+Scaling & analysis of unmerged intensities, absorption correction using spherical harmonics
+
+Run via {xia2}, {dials}, {i19}
+'''.format(**versions)
 
   cif = iotbx.cif.model.cif()
   cif[prefix] = block
