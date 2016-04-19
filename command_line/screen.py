@@ -123,7 +123,7 @@ class i19_screen():
     result = run_process(command, print_stdout=False)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
-      self.nproc = result['stdout']
+      self.nproc = result['stdout'].strip()
     else:
       warn("Could not determine number of available processors. Error code %d" % result['exitcode'])
       sys.exit(1)
