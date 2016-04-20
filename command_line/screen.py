@@ -23,6 +23,8 @@ Examples:
 
 '''
 
+procrunner_debug = True
+
 class i19_screen():
   import libtbx.load_env
 
@@ -104,7 +106,7 @@ class i19_screen():
     command = [ "dials.import" ] + parameters
     debug("running %s" % " ".join(command))
 
-    result = run_process(command, print_stdout=False)
+    result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
 
     if result['exitcode'] == 0:
@@ -117,10 +119,13 @@ class i19_screen():
       warn("Failed with exit code %d" % result['exitcode'])
       sys.exit(1)
 
-  def _count_processors(self):
+  def _count_processors(self, nproc=None):
+    if nproc is not None:
+      self.nproc = nproc
+      return
     command = [ "libtbx.show_number_of_processors" ]
     debug("running %s" % command)
-    result = run_process(command, print_stdout=False)
+    result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
       self.nproc = result['stdout'].strip()
@@ -131,7 +136,8 @@ class i19_screen():
   def _check_intensities(self):
     info("\nTesting pixel intensities...")
     command = [ "xia2.overload", self.json_file ]
-    result = run_process(command, print_stdout=False)
+    debug("running %s" % command)
+    result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
 
     if result['exitcode'] != 0:
@@ -193,7 +199,7 @@ class i19_screen():
     columns, rows = 80, 25
     if sys.stdout.isatty():
       try:
-        result = run_process(['stty', 'size'], timeout=1, print_stdout=False, print_stderr=False)
+        result = run_process(['stty', 'size'], timeout=1, print_stdout=False, print_stderr=False, debug=procrunner_debug)
         rows, columns = [int(i) for i in result['stdout'].split()]
       except Exception: # ignore any errors and use default size
         pass
@@ -218,7 +224,7 @@ class i19_screen():
     debug("running %s with:\n  %s\n" % (" ".join(command), "\n  ".join(plot_commands)))
 
     result = run_process(command, stdin="\n".join(plot_commands)+"\n", timeout=120,
-        print_stdout=False, print_stderr=False)
+        print_stdout=False, print_stderr=False, debug=procrunner_debug)
 
     debug("result = %s" % self._prettyprint_dictionary(result))
 
@@ -244,7 +250,7 @@ class i19_screen():
       additional_parameters = []
     info("\nSpot finding...")
     command = [ "dials.find_spots", self.json_file, "nproc=%s" % self.nproc ] + additional_parameters
-    result = run_process(command, print_stdout=False)
+    result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] != 0:
       warn("Failed with exit code %d" % result['exitcode'])
@@ -272,7 +278,7 @@ class i19_screen():
     for message, command in runlist:
       info("\n%s..." % message)
 
-      result = run_process(command, print_stdout=False)
+      result = run_process(command, print_stdout=False, debug=procrunner_debug)
       debug("result = %s" % self._prettyprint_dictionary(result))
       if result['exitcode'] != 0:
         warn("Failed with exit code %d" % result['exitcode'])
@@ -290,7 +296,7 @@ class i19_screen():
   def _refine(self):
     info("\nIndexing...")
     command = [ "dials.refine", "experiments.json", "indexed.pickle" ]
-    result = run_process(command, print_stdout=False)
+    result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] != 0:
       warn("Failed with exit code %d" % result['exitcode'])
@@ -306,7 +312,7 @@ class i19_screen():
   def _predict(self):
     info("\nPredicting reflections...")
     command = [ "dials.predict", "experiments_with_profile_model.json" ]
-    result = run_process(command, print_stdout=False)
+    result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
       info("To view predicted reflections run:")
@@ -320,7 +326,7 @@ class i19_screen():
   def _create_profile_model(self):
     info("\nCreating profile model...")
     command = [ "dials.create_profile_model", "experiments.json", "indexed.pickle" ]
-    result = run_process(command, print_stdout=False)
+    result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
       from dxtbx.model.experiment.experiment_list import ExperimentListFactory
@@ -338,7 +344,7 @@ class i19_screen():
   def _refine_bravais(self):
     info("\nRefining bravais settings...")
     command = [ "dials.refine_bravais_settings", "experiments.json", "indexed.pickle" ]
-    result = run_process(command, print_stdout=False)
+    result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
       m = re.search('---+\n[^\n]*\n---+\n(.*\n)*---+', result['stdout'])
@@ -351,7 +357,7 @@ class i19_screen():
   def _report(self):
     info("\nCreating report...")
     command = [ "dials.report", "experiments_with_profile_model.json", "indexed.pickle" ]
-    result = run_process(command, print_stdout=False)
+    result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
       info("Successfully completed (%.1f sec)" % result['runtime'])
@@ -386,7 +392,13 @@ class i19_screen():
     info(version_information)
     debug('Run with %s' % str(args))
 
-    self._count_processors()
+    # FIXME use proper optionparser here. This works for now
+    nproc = None
+    if len(args) >= 1 and args[0].startswith('nproc='):
+      nproc = args[0][6:]
+      args = args[1:]
+    self._count_processors(nproc=nproc)
+    debug('Using %s processors' % self.nproc)
 
     if len(args) == 1 and args[0].endswith('.json'):
       self.json_file = args[0]
