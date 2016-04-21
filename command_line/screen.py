@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import time
+import timeit
 
 from dials.util.procrunner import run_process
 
@@ -139,6 +140,7 @@ class i19_screen():
     debug("running %s" % command)
     result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
+    info("Successfully completed (%.1f sec)" % result['runtime'])
 
     if result['exitcode'] != 0:
       warn("Failed with exit code %d" % result['exitcode'])
@@ -156,8 +158,8 @@ class i19_screen():
           hist[b] = overload_data['bins'][b]
           count_sum += b * overload_data['bins'][b]
     else:
-      hist = overload_data['counts']
-      count_sum = sum([b * c for b,c in hist.iteritems()])
+      hist = { int(k): v for k, v in overload_data['counts'].iteritems() if int(k) > 0 }
+      count_sum = sum([k * v for k, v in hist.iteritems()])
 
     histcount = sum(hist.itervalues())
 
@@ -172,34 +174,31 @@ class i19_screen():
     info("Determined scale factor for intensities as %f" % scale)
     debug("intensity histogram: { %s }", ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]))
     max_count = max(hist.iterkeys())
+    hist_max = max_count * scale
+    hist_granularity, hist_format = 1, '%.0f'
+    if hist_max < 15:
+      hist_granularity, hist_format = 10, '%.1f'
     rescaled_hist = {}
     for x in hist.iterkeys():
-      rescaled = int(x * scale)
-      try:
-        rescaled_hist[rescaled] += hist[x]
-      except Exception:
-        rescaled_hist[rescaled] = hist[x]
+      rescaled = round(x * scale * hist_granularity)
+      if rescaled > 0:
+        rescaled_hist[rescaled] = hist[x] + rescaled_hist.get(rescaled, 0)
     hist = rescaled_hist
-    debug("rescaled histogram: { %s }", ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]))
-    hist_max = max_count * scale
+    debug("rescaled histogram: { %s }", ", ".join([(hist_format + ":%d") % (k / hist_granularity, hist[k]) for k in sorted(hist)]))
 
-    del hist[0]
-    self._plot_intensities(hist)
+    self._plot_intensities(hist, 1 / hist_granularity)
 
     text = "Strongest pixel (%d counts) reaches %.1f %% of the detector count rate limit" % (max_count, hist_max)
     if (hist_max > 100):
       warn("Warning: %s!" % text)
     else:
       info(text)
-
-    if (histcount % self._num_images) != 0:
-      warn("Warning: There may be undetected overloads above the upper bound!")
+    if 'overload_limit' in overload_data and max_count >= overload_data['overload_limit']:
+      warn("Warning: THE DATA ALREADY CONTAIN REGULAR OVERLOADS!")
 
     info("Total sum of counts in dataset: %d" % count_sum)
 
-    info("Successfully completed (%.1f sec)" % result['runtime'])
-
-  def _plot_intensities(self, bins):
+  def _plot_intensities(self, bins, hist_value_factor):
     columns, rows = 80, 25
     if sys.stdout.isatty():
       try:
@@ -216,13 +215,13 @@ class i19_screen():
       "set xlabel '% of maximum'",
       "set ylabel 'Number of observed pixels'",
       "set logscale y",
-      "set boxwidth 1.0",
+      "set boxwidth %f" % hist_value_factor,
       "set xtics out nomirror",
       "set ytics out",
       "plot '-' using 1:2 title '' with boxes"
     ]
     for x in sorted(bins.iterkeys()):
-      plot_commands.append("%f %d" % (x, bins[x]))
+      plot_commands.append("%f %d" % (x * hist_value_factor, bins[x]))
     plot_commands.append("e")
 
     debug("running %s with:\n  %s\n" % (" ".join(command), "\n  ".join(plot_commands)))
@@ -383,6 +382,7 @@ class i19_screen():
     from dials.util.version import dials_version
     from i19.util.version import i19_version
     version_information = "%s using %s (%s)" % (i19_version(), dials_version(), time.strftime("%Y-%m-%d %H:%M:%S"))
+    start = timeit.default_timer()
 
     if len(args) == 0:
       print help_message
@@ -445,9 +445,10 @@ at the reciprocal space by running:
     self._predict()
     self._check_intensities()
     self._refine_bravais()
-    debug("Finished at %s" % time.strftime("%Y-%m-%d %H:%M:%S"))
 
-    return
+    i19screen_runtime = timeit.default_timer() - start
+    debug("Finished at %s, total runtime: %.1f" % (time.strftime("%Y-%m-%d %H:%M:%S"), i19screen_runtime))
+    info("i19.screen successfully completed (%.1f sec)" % i19screen_runtime)
 
 if __name__ == '__main__':
   i19_screen().run(sys.argv[1:])
