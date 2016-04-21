@@ -150,10 +150,14 @@ class i19_screen():
     print "Pixel intensity distribution:"
     count_sum = 0
     hist = {}
-    for b in range(overload_data['bin_count']):
-      if overload_data['bins'][b] > 0:
-        hist[b] = overload_data['bins'][b]
-        count_sum += b * overload_data['bins'][b]
+    if 'bins' in overload_data:
+      for b in range(overload_data['bin_count']):
+        if overload_data['bins'][b] > 0:
+          hist[b] = overload_data['bins'][b]
+          count_sum += b * overload_data['bins'][b]
+    else:
+      hist = overload_data['counts']
+      count_sum = sum([b * c for b,c in hist.iteritems()])
 
     histcount = sum(hist.itervalues())
 
@@ -177,7 +181,7 @@ class i19_screen():
         rescaled_hist[rescaled] = hist[x]
     hist = rescaled_hist
     debug("rescaled histogram: { %s }", ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]))
-    hist_max = max(hist.iterkeys())
+    hist_max = max_count * scale
 
     del hist[0]
     self._plot_intensities(hist)
