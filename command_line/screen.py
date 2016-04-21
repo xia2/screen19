@@ -159,17 +159,17 @@ class i19_screen():
 
     # we have checked this: if _sigma_m >> _oscillation it works out about 1
     # as you would expect
-    mosaicity_factor = math.sqrt(math.pi) * self._sigma_m * \
+    M = math.sqrt(math.pi) * self._sigma_m * \
       math.erf(self._oscillation / (2 * self._sigma_m))
+    average_to_peak = M / self._oscillation
 
-    info("Mosaicity factor: %f" % mosaicity_factor)
-    scale = 100 * overload_data['scale_factor'] / mosaicity_factor
+    info("Average-to-peak intensity ratio: %f" % average_to_peak)
+    scale = 100 * overload_data['scale_factor'] / average_to_peak
     info("Determined scale factor for intensities as %f" % scale)
     debug("intensity histogram: { %s }", ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]))
     max_count = max(hist.iterkeys())
     rescaled_hist = {}
     for x in hist.iterkeys():
-      rescaled = int(x * scale / 10) * 10 + 5
       rescaled = int(x * scale)
       try:
         rescaled_hist[rescaled] += hist[x]
