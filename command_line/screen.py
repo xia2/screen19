@@ -136,7 +136,7 @@ class i19_screen():
 
   def _check_intensities(self):
     info("\nTesting pixel intensities...")
-    command = [ "xia2.overload", self.json_file ]
+    command = [ "xia2.overload", "nproc=%s" % self.nproc, self.json_file ]
     debug("running %s" % command)
     result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
