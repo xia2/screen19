@@ -24,7 +24,7 @@ Examples:
 
 '''
 
-procrunner_debug = True
+procrunner_debug = False
 
 class i19_screen():
   import libtbx.load_env
