@@ -176,6 +176,8 @@ class i19_screen():
     max_count = max(hist.iterkeys())
     hist_max = max_count * scale
     hist_granularity, hist_format = 1, '%.0f'
+    if hist_max < 50:
+      hist_granularity, hist_format = 2, '%.1f'
     if hist_max < 15:
       hist_granularity, hist_format = 10, '%.1f'
     rescaled_hist = {}
@@ -194,7 +196,15 @@ class i19_screen():
     else:
       info(text)
     if 'overload_limit' in overload_data and max_count >= overload_data['overload_limit']:
-      warn("Warning: THE DATA ALREADY CONTAIN REGULAR OVERLOADS!")
+      warn("Warning: THE DATA CONTAIN REGULAR OVERLOADS!")
+      warn("         The photon incidence rate is outside the specified limits of the detector.")
+      warn("         The built-in detector count rate correction cannot adjust for this.")
+    elif (hist_max > 70):
+      warn("Warning: The photon incidence rate is well outside the linear response region of the detector (<25%).")
+      warn("         The built-in detector count rate correction may not be able to adjust for this.")
+    elif (hist_max > 25):
+      info("The photon incidence rate is outside the linear response region of the detector (<25%).")
+      info("The built-in detector count rate correction should be able to adjust for this.")
 
     info("Total sum of counts in dataset: %d" % count_sum)
 
