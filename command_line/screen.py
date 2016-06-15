@@ -7,7 +7,7 @@ import re
 import sys
 import time
 import timeit
-
+import traceback
 from dials.util.procrunner import run_process
 
 help_message = '''
@@ -236,8 +236,11 @@ class i19_screen():
 
     debug("running %s with:\n  %s\n" % (" ".join(command), "\n  ".join(plot_commands)))
 
-    result = run_process(command, stdin="\n".join(plot_commands)+"\n", timeout=120,
+    try:
+      result = run_process(command, stdin="\n".join(plot_commands)+"\n", timeout=120,
         print_stdout=False, print_stderr=False, debug=procrunner_debug)
+    except OSError:
+      info(traceback.format_exc())
 
     debug("result = %s" % self._prettyprint_dictionary(result))
 
