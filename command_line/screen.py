@@ -199,6 +199,7 @@ class i19_screen():
       warn("Warning: THE DATA CONTAIN REGULAR OVERLOADS!")
       warn("         The photon incidence rate is outside the specified limits of the detector.")
       warn("         The built-in detector count rate correction cannot adjust for this.")
+      warn("         You should aim for count rates below 25% of the detector limit.")
     elif (hist_max > 70):
       warn("Warning: The photon incidence rate is well outside the linear response region of the detector (<25%).")
       warn("         The built-in detector count rate correction may not be able to adjust for this.")
