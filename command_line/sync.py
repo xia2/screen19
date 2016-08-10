@@ -1,16 +1,19 @@
 from libtbx.utils import Sorry
 from optparse import OptionParser, SUPPRESS_HELP
+import datetime
 import os
+import re
 import shutil
 import sys
 import time
 
 class FileCopier():
-  def __init__(self, source, destination, maxwait=3*60*60, symlink=False):
+  def __init__(self, source, destination, maxwait=3*60*60, symlink=False, test=None):
     self._destination = destination
     self._source = source
     self._symlink = symlink
     self._timeout = time.time() + maxwait
+    self._test = test
 
   def __str__(self):
     return "File: %s" % self._source
@@ -24,16 +27,25 @@ class FileCopier():
       return False
     if os.path.exists(self._source):
       targetdir = os.path.dirname(self._destination)
-      if not os.path.exists(targetdir):
-        os.makedirs(targetdir)
-      if self._symlink:
-        print "Linking %s > %s" % (self._source, self._destination)
-        os.symlink(self._source, self._destination)
-      else:
-        print "Copying %s > %s" % (self._source, self._destination)
-        shutil.copyfile(self._source, self._destination)
+      if self._test and self._test() == False:
+        print "Skipping %s (test)" % self._source
+        return False
+      if not self._test or self._test():
+        if not os.path.exists(targetdir):
+          os.makedirs(targetdir)
+        if self._symlink:
+          print "Linking %s > %s" % (self._source, self._destination)
+          os.symlink(self._source, self._destination)
+        else:
+          print "Copying %s > %s" % (self._source, self._destination)
+          shutil.copyfile(self._source, self._destination)
+        return False
+    if time.time() >= self._timeout:
+      print "Giving up on %s" % (self._source)
       return False
-    return time.time() < self._timeout
+
+    # maybe next time
+    return True
 
 class FolderCopier():
   def __init__(self, source, destination, task_scheduler, maxwait=3*60*60):
@@ -90,10 +102,19 @@ class FindProcessed():
     def delayed_copy_structure_folder(source, destination):
       self.add_task(FolderCopier(source, destination, self.add_task, maxwait=1*60*60))
 
+    newfolders = 0
     while True:
       folder = self._processfile.readline()
       if folder:
         folder = folder.rstrip()
+        stripnumber = re.search('[0-9]+: (.*)', folder)
+        if stripnumber:
+          folder = stripnumber.group(1)
+        if '(skipped) ' in folder:
+          continue
+
+        newfolders = newfolders + 1
+
         source = folder
         destination = folder.replace('/processed/', '/processing/')
 #       destination = destination.replace('/dls/i19-1/data/2016', '/dls/tmp/wra62962/copytest')
@@ -105,13 +126,20 @@ class FindProcessed():
             symlink=True))
 
         self.add_task(FileCopier(
-            os.path.join(source, 'xia2.txt'),
-            os.path.join(destination, 'xia2.txt'),
-            symlink=True))
-
-        self.add_task(FileCopier(
             os.path.join(source, 'xia2.cif'),
             os.path.join(destination, 'xia2.cif'),
+            symlink=True))
+
+        # Only symlink xia2.txt if xia2.cif is present, otherwise wait
+        # (ie. do not symlink if xia2 run fails)
+        def test_for_xia2_cif():
+          if os.path.exists(os.path.join(source, 'xia2.cif')):
+            return True
+          return None
+        self.add_task(FileCopier(
+            os.path.join(source, 'xia2.txt'),
+            os.path.join(destination, 'xia2.txt'),
+            test=test_for_xia2_cif,
             symlink=True))
 
         # Wait for structure folder, if it appears monitor and copy everything in it.
@@ -121,6 +149,10 @@ class FindProcessed():
             [os.path.join(source, 'structure'), destination]
             ))
       else:
+        if newfolders > 1:
+          print "\nFound %d new data collection sweeps" % newfolders
+        elif newfolders == 1:
+          print "\nFound a new data collection sweep"
         break
 
   def run(self):
@@ -166,7 +198,7 @@ class FindProcessed():
           remaining_tasks.append(f)
         time.sleep(0.01)
       self._watch_tasks = remaining_tasks + self._added_tasks
-      print "\nWaiting to copy new results in %s (watching %d places)\n" % (self._visit, len(self._watch_tasks))
+      print "\n%s: Waiting for new results in %d locations (%s)\n" % (datetime.datetime.now().strftime("%H:%M:%S"), len(self._watch_tasks), self._visit)
       time.sleep(30)
 
     print "Terminating script after one day."
