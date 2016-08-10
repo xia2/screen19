@@ -162,7 +162,9 @@ class FindProcessed():
     parser.add_option("-?", help=SUPPRESS_HELP, action="help")
     self._opts, args = parser.parse_args()
     if len(args) != 1:
-      raise Sorry('You need to give exactly one visit number as parameter')
+      raise Sorry('To run i19.sync you need to give exactly one visit number as parameter, eg.\n'
+                  '   i19.sync cm14476-4\n'
+                  'You can then leave it running in the background for the rest of the visit.\n')
     self._visit = args[0]
 
     # Step 1: Find visit directory
