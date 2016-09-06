@@ -80,6 +80,9 @@ class i19_screen():
     if len(templates) > 1:
       debug("Cannot currently run quick import on multiple templates")
       return False
+    if 'range' not in templates[0]:
+      debug("Cannot run quick import: could not determine image naming template")
+      return False
 
     info("Running quick import")
 
