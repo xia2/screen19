@@ -44,6 +44,9 @@ def stability_fft(imageset, params):
   if params.scan_range:
     start, end = params.scan_range
     indices = indices[start:end]
+  else:
+    start = 0
+    end = indices[-1] + 1
 
   counts = flex.double(len(indices))
 
@@ -51,7 +54,7 @@ def stability_fft(imageset, params):
 
   for i in indices:
     pixels = imageset.get_raw_data(i)[0]
-    counts[i] = good_pixel_total(pixels, trusted)
+    counts[i-start] = good_pixel_total(pixels, trusted)
 
   t1 = time.time()
 
