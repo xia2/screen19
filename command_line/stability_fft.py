@@ -21,6 +21,12 @@ remove_spots = False
 scan_range = None
   .help = "Scan range to use for analysis"
   .type = ints(size=2)
+exposure_time = None
+  .type = float
+  .help = "Override exposure time if not correctly written in headers"
+output_file = "i19_stability.dat"
+  .type = path
+  .help = "Name for the output file"
 
 """, process_includes=True)
 
@@ -36,7 +42,11 @@ def stability_fft(imageset, params):
 
   scan = imageset.get_scan()
   detector = imageset.get_detector()[0]
-  exposure = scan.get_exposure_times()[0]
+  if params.exposure_time:
+    exposure = params.exposure_time
+  else:
+    exposure = scan.get_exposure_times()[0]
+
   trusted = detector.get_trusted_range()
 
   indices = imageset.indices()
@@ -70,10 +80,13 @@ def stability_fft(imageset, params):
   f_hz = 1.0 / exposure
   f_scale = f_hz / counts.size()
 
+  print 'Sample frequency: %.2f Hz' % f_hz
+  print 'Writing output to: %s' % params.output_file
+
+  fout = open(params.output_file, 'w')
   for j in range(power.size()):
-    print j * f_scale, power[j]
-
-
+    fout.write('%f %f\n' % (j * f_scale, power[j]))
+  fout.close()
 
 def main():
   from dials.util.options import OptionParser
