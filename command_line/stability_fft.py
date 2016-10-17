@@ -30,13 +30,6 @@ output_file = "i19_stability.dat"
 
 """, process_includes=True)
 
-def good_pixel_total(pixels, trusted):
-  negative = (pixels < 0)
-  hot = (pixels > int(round(trusted[1])))
-  bad = negative | hot
-  good = pixels.select((~bad).iselection())
-  return flex.sum(good)
-
 def stability_fft(imageset, params):
   from i19.util.time_analysis import fft
 
@@ -62,9 +55,30 @@ def stability_fft(imageset, params):
 
   t0 = time.time()
 
+  if params.remove_spots:
+    from dials.algorithms.spot_finding.factory import SpotFinderFactory
+    from dials.algorithms.spot_finding.factory import phil_scope
+    from dxtbx import datablock
+    spot_params = phil_scope.fetch(source=iotbx.phil.parse("")).extract()
+    threshold_function = SpotFinderFactory.configure_threshold(
+      spot_params, datablock.DataBlock([imageset]))
+  else:
+    threshold_function = None
+
   for i in indices:
-    pixels = imageset.get_raw_data(i)[0]
-    counts[i-start] = good_pixel_total(pixels, trusted)
+    pixels = imageset.get_raw_data(i)[0].as_double()
+
+    negative = (pixels < 0)
+    hot = (pixels > int(round(trusted[1])))
+    bad = negative | hot
+
+    if threshold_function:
+      peak_pixels = threshold_function.compute_threshold(pixels, ~bad)
+      good = pixels.select((~bad & ~peak_pixels).iselection())
+    else:
+      good = pixels.select((~bad).iselection())
+
+    counts[i-start] = flex.sum(good)
 
   t1 = time.time()
 
