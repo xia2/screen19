@@ -75,5 +75,3 @@ class GDAspy(stomp.ConnectionListener):
       return None
 
 GDAspy()
-
-

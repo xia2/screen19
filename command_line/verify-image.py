@@ -111,5 +111,3 @@ for filename in sorted(filelist):
     break
 
   print "Checking file %s" % filename
-
-
