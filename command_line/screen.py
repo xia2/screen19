@@ -28,7 +28,7 @@ Examples:
 
 procrunner_debug = False
 logger = logging.getLogger('dials.i19.screen')
-debug, info, warn = logger.info, logger.debug, logger.warn
+debug, info, warn = logger.debug, logger.info, logger.warn
 
 class i19_screen():
   import libtbx.load_env
