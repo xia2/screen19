@@ -22,6 +22,8 @@ Examples:
 
   i19.screen /path/to/data/
 
+  i19.screen /path/to/data/image0001.cbf:1:100
+
 '''
 
 procrunner_debug = False
@@ -75,10 +77,13 @@ class i19_screen():
         continue
       template['range'] = template_positions
       template['count'] = 1 + (template['count'] if 'count' in template else 0)
+    template['range'] = (template['range'][0], template['range'][1] + 1)
     templates.append(template)
+    return self._quick_import_templates(templates)
+
+  def _quick_import_templates(self, templates):
     debug("Quick import template summary:")
     debug(templates)
-
     if len(templates) > 1:
       debug("Cannot currently run quick import on multiple templates")
       return False
@@ -88,7 +93,7 @@ class i19_screen():
 
     info("Running quick import")
 
-    scan_range = int(templates[0]['t'][templates[0]['range'][0]:templates[0]['range'][1]+1])
+    scan_range = int(templates[0]['t'][templates[0]['range'][0]:templates[0]['range'][1]])
     scan_range = (scan_range, scan_range + templates[0]['count'] - 1)
 
     self._run_dials_import([templates[0]['t'], "geometry.scan.image_range=%d,%d" % scan_range, "geometry.scan.extrapolate_scan=True"])
@@ -97,9 +102,25 @@ class i19_screen():
 
   def _import(self, files):
     info("\nImporting data...")
-    if len(files) == 1 and os.path.isdir(files[0]):
-      debug("You specified a directory. Importing all CBF files in that directory.")
-      files = [ os.path.join(files[0], f) for f in os.listdir(files[0]) if f.endswith('.cbf') ]
+    if len(files) == 1:
+      if os.path.isdir(files[0]):
+        debug("You specified a directory. Importing all CBF files in that directory.")
+        files = [ os.path.join(files[0], f) for f in os.listdir(files[0]) if f.endswith('.cbf') ]
+      elif len(files[0].split(':')) == 3:
+        debug("You specified an image range in the xia2 format. Importing all specified files.")
+        template, start, end = files[0].split(':')
+        start, end = int(start), int(end)
+        template_range = re.search("([0-9]+)[^0-9]+$", template)
+        if template_range:
+          if not self._quick_import_templates([{
+                't': template,
+                'count': (end-start+1),
+                'range': template_range.span(1),
+                }]):
+            warn("Could not import specified image range.")
+            sys.exit(1)
+          info("Quick import successful")
+          return
 
     # Can the files be quick-imported?
     if self._quick_import(files):
