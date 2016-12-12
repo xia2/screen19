@@ -130,7 +130,7 @@ class i19_screen():
     self._run_dials_import(files)
 
   def _run_dials_import(self, parameters):
-    command = [ "dials.import" ] + parameters
+    command = [ "dials.import" ] + parameters # + [ 'allow_multiple_sweeps=true' ]
     debug("running %s" % " ".join(command))
 
     result = run_process(command, print_stdout=False, debug=procrunner_debug)
@@ -143,6 +143,9 @@ class i19_screen():
         warn("Could not import images. Do the specified images exist at that location?")
         sys.exit(1)
     else:
+      if "More than 1 sweep was found." in result['stderr']:
+        warn("The data contain multiple sweeps. i19.screen can only run on a single sweep of data.")
+        sys.exit(1)
       warn("Failed with exit code %d" % result['exitcode'])
       sys.exit(1)
 
