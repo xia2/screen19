@@ -163,7 +163,16 @@ class i19_screen():
       warn("Could not determine number of available processors. Error code %d" % result['exitcode'])
       sys.exit(1)
 
-  def _check_intensities(self):
+  def _count_images(self):
+    with open(self.json_file) as fh:
+      datablock = json.load(fh)
+    try:
+      return sum(len(s['exposure_time']) for s in datablock[0]['scan'])
+    except Exception:
+      warn("Could not determine number of images in dataset")
+      sys.exit(1)
+
+  def _check_intensities(self, mosaicity_correction=True):
     info("\nTesting pixel intensities...")
     command = [ "xia2.overload", "nproc=%s" % self.nproc, self.json_file ]
     debug("running %s" % command)
@@ -192,13 +201,16 @@ class i19_screen():
 
     histcount = sum(hist.itervalues())
 
-    # we have checked this: if _sigma_m >> _oscillation it works out about 1
-    # as you would expect
-    M = math.sqrt(math.pi) * self._sigma_m * \
-      math.erf(self._oscillation / (2 * self._sigma_m))
-    average_to_peak = M / self._oscillation
+    if mosaicity_correction:
+      # we have checked this: if _sigma_m >> _oscillation it works out about 1
+      # as you would expect
+      M = math.sqrt(math.pi) * self._sigma_m * \
+        math.erf(self._oscillation / (2 * self._sigma_m))
+      average_to_peak = M / self._oscillation
+      info("Average-to-peak intensity ratio: %f" % average_to_peak)
+    else:
+      average_to_peak = 1
 
-    info("Average-to-peak intensity ratio: %f" % average_to_peak)
     scale = 100 * overload_data['scale_factor'] / average_to_peak
     info("Determined scale factor for intensities as %f" % scale)
     debug("intensity histogram: { %s }", ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]))
@@ -235,6 +247,10 @@ class i19_screen():
     elif (hist_max > 25):
       info("The photon incidence rate is outside the linear response region of the detector (<25%).")
       info("The built-in detector count rate correction should be able to adjust for this.")
+    if not mosaicity_correction:
+      warn("Warning: Not enough data for proper profile estimation.")
+      warn("         The spot intensities are not corrected for mosaicity.")
+      warn("         The true photon incidence rate will be higher than the given estimate.")
 
     info("Total sum of counts in dataset: %d" % count_sum)
 
@@ -246,6 +262,7 @@ class i19_screen():
         rows, columns = [int(i) for i in result['stdout'].split()]
       except Exception: # ignore any errors and use default size
         pass
+    columns = min(columns, 120)
     rows = min(rows, int(columns / 3))
 
     command = [ "gnuplot" ]
@@ -453,6 +470,11 @@ class i19_screen():
       self._import(args)
       self.json_file = 'datablock.json'
 
+    n_images = self._count_images()
+    fast_mode = n_images < 10
+    if fast_mode:
+      info("%d images found, skipping a lot of processing" % n_images)
+
     self._find_spots()
     if not self._index():
       info("\nRetrying for stronger spots only...")
@@ -472,7 +494,7 @@ or, to only include stronger spots:
 """)
         sys.exit(1)
 
-    if not self._create_profile_model():
+    if not fast_mode and not self._create_profile_model():
       info("\nRefining model to attempt to increase number of valid spots...")
       self._refine()
       if not self._create_profile_model():
@@ -484,9 +506,10 @@ at the reciprocal space by running:
   dials.reciprocal_lattice_viewer experiments.json indexed.pickle
 """)
         sys.exit(1)
-    self._report()
-    self._predict()
-    self._check_intensities()
+    if not fast_mode:
+      self._report()
+      self._predict()
+      self._check_intensities()
     self._refine_bravais()
 
     i19screen_runtime = timeit.default_timer() - start
