@@ -39,6 +39,9 @@ class i19_screen():
         for k in d.iterkeys() ])
 
   def _quick_import(self, files):
+    if len(files) == 1:
+      # No point in quick-importing a single file
+      return False
     debug("Attempting quick import...")
     files.sort()
     template = None
