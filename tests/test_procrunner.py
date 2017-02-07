@@ -8,8 +8,7 @@ import pytest
 @mock.patch('dials.util.procrunner._NonBlockingStreamReader')
 @mock.patch('dials.util.procrunner.time')
 @mock.patch('dials.util.procrunner.subprocess')
-@mock.patch('dials.util.procrunner.Queue')
-def test_run_command_aborts_after_timeout(mock_queue, mock_subprocess, mock_time, mock_streamreader):
+def test_run_command_aborts_after_timeout(mock_subprocess, mock_time, mock_streamreader):
   mock_process = mock.Mock()
   mock_process.returncode = None
   mock_subprocess.Popen.return_value = mock_process
@@ -55,14 +54,15 @@ def test_run_command_runs_command_and_directs_pipelines(mock_subprocess, mock_st
   actual = dials.util.procrunner.run_process(command, 0.5, False)
 
   assert mock_subprocess.Popen.called
-  mock_streamreader.assert_has_calls([mock.call(stream_stdout, output=mock.ANY, debug=mock.ANY, notify=mock.ANY),
-                                      mock.call(stream_stderr, output=mock.ANY, debug=mock.ANY, notify=mock.ANY)], any_order=True)
+  mock_streamreader.assert_has_calls([mock.call(stream_stdout, output=mock.ANY, debug=mock.ANY, notify=mock.ANY, callback=None),
+                                      mock.call(stream_stderr, output=mock.ANY, debug=mock.ANY, notify=mock.ANY, callback=None)], any_order=True)
   assert not mock_process.terminate.called
   assert not mock_process.kill.called
   assert actual == expected
 
-
-def test_nonblockingstreamreader_can_read():
+@mock.patch('dials.util.procrunner.select')
+def test_nonblockingstreamreader_can_read(mock_select):
+  mock_select.return_value = [[]]
   import time
   class _stream:
     def __init__(self):
@@ -70,10 +70,15 @@ def test_nonblockingstreamreader_can_read():
       self.closed = False
     def write(self, string):
       self.data.append(string)
-    def readline(self):
+      mock_select.return_value = [[1]]
+    def read(self, maxlength):
       while (len(self.data) == 0) and not self.closed:
         time.sleep(0.2)
-      return self.data.pop(0) if len(self.data) > 0 else ''
+      if len(self.data) <= 0:
+        return ''
+      if len(self.data) == 1:
+        mock_select.return_value = [[]]
+      return self.data.pop(0)
     def close(self):
       self.closed=True
 
