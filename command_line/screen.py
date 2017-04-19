@@ -42,6 +42,9 @@ class i19_screen():
     if len(files) == 1:
       # No point in quick-importing a single file
       return False
+
+    return False # disabling quick import pending fix for dials/dials#337
+
     debug("Attempting quick import...")
     files.sort()
     template = None
@@ -395,7 +398,7 @@ class i19_screen():
     result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
-      from dxtbx.model.experiment.experiment_list import ExperimentListFactory
+      from dxtbx.model.experiment_list import ExperimentListFactory
       db = ExperimentListFactory.from_json_file('experiments_with_profile_model.json')[0]
       self._num_images = db.imageset.get_scan().get_num_images()
       self._oscillation = db.imageset.get_scan().get_oscillation()[1]
