@@ -42,9 +42,6 @@ class i19_screen():
     if len(files) == 1:
       # No point in quick-importing a single file
       return False
-
-    return False # disabling quick import pending fix for dials/dials#337
-
     debug("Attempting quick import...")
     files.sort()
     template = None
