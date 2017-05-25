@@ -204,18 +204,31 @@ class i19_screen():
 
     histcount = sum(hist.itervalues())
 
+    average_to_peak_basic, average_to_peak_extended = 1, None
     if mosaicity_correction:
       # we have checked this: if _sigma_m >> _oscillation it works out about 1
       # as you would expect
-      M = math.sqrt(math.pi) * self._sigma_m * \
-        math.erf(self._oscillation / (2 * self._sigma_m))
-      average_to_peak = M / self._oscillation
-      info("Average-to-peak intensity ratio: %f" % average_to_peak)
-    else:
-      average_to_peak = 1
+      if self._sigma_m_basic:
+        M = math.sqrt(math.pi) * self._sigma_m_basic * \
+          math.erf(self._oscillation / (2 * self._sigma_m_basic))
+        average_to_peak_basic = M / self._oscillation
+        info("Average-to-peak intensity ratio: %f (basic profile model)" % average_to_peak_basic)
+      if self._sigma_m_extended:
+        M = math.sqrt(math.pi) * self._sigma_m_extended * \
+          math.erf(self._oscillation / (2 * self._sigma_m_extended))
+        average_to_peak_extended = M / self._oscillation
+        info("Average-to-peak intensity ratio: %f (extended profile model)" % average_to_peak_extended)
+        info("Using extended profile model for count rate estimation plot")
+      else:
+        info("Using basic profile model for count rate estimation plot")
 
-    scale = 100 * overload_data['scale_factor'] / average_to_peak
-    info("Determined scale factor for intensities as %f" % scale)
+    scale = scale_basic = 100 * overload_data['scale_factor'] / average_to_peak_basic
+    if average_to_peak_extended:
+      scale = scale_extended = 100 * overload_data['scale_factor'] / average_to_peak_extended
+      info("Determined scale factor for intensities as %f (basic: %f)" % (scale_extended, scale_basic))
+    else:
+      info("Determined scale factor for intensities as %f" % scale_basic)
+
     debug("intensity histogram: { %s }", ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]))
     max_count = max(hist.iterkeys())
     hist_max = max_count * scale
@@ -239,6 +252,8 @@ class i19_screen():
       warn("Warning: %s!" % text)
     else:
       info(text)
+    if average_to_peak_extended:
+      info("   %s(basic profile model estimate: %.1f %%)" % (" " * len(str(max_count)), max_count * scale_basic))
     if 'overload_limit' in overload_data and max_count >= overload_data['overload_limit']:
       warn("Warning: THE DATA CONTAIN REGULAR OVERLOADS!")
       warn("         The photon incidence rate is outside the specified limits of the detector.")
@@ -394,18 +409,31 @@ class i19_screen():
     command = [ "dials.create_profile_model", "experiments.json", "indexed.pickle" ]
     result = run_process(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
+    self._sigma_m_basic, self._sigma_m_extended = None, None
     if result['exitcode'] == 0:
       from dxtbx.model.experiment_list import ExperimentListFactory
       db = ExperimentListFactory.from_json_file('experiments_with_profile_model.json')[0]
       self._num_images = db.imageset.get_scan().get_num_images()
       self._oscillation = db.imageset.get_scan().get_oscillation()[1]
-      self._sigma_m = db.profile.sigma_m()
-      info("%d images, %s deg. oscillation, sigma_m=%.3f" % (self._num_images, str(self._oscillation), self._sigma_m))
+      self._sigma_m_basic = db.profile.sigma_m()
+      info("%d images, %s deg. oscillation, sigma_m=%.3f" % (self._num_images, str(self._oscillation), self._sigma_m_basic))
       info("Successfully completed (%.1f sec)" % result['runtime'])
+    info("\nCreating extended profile model...")
+    command = [ "dials.create_profile_model", "experiments.json", "indexed.pickle", "sigma_m_algorithm=extended" ]
+    result = run_process(command, print_stdout=False, debug=procrunner_debug)
+    debug("result = %s" % self._prettyprint_dictionary(result))
+    if result['exitcode'] == 0:
+      from dxtbx.model.experiment_list import ExperimentListFactory
+      db = ExperimentListFactory.from_json_file('experiments_with_profile_model.json')[0]
+      self._num_images = db.imageset.get_scan().get_num_images()
+      self._oscillation = db.imageset.get_scan().get_oscillation()[1]
+      self._sigma_m_extended = db.profile.sigma_m()
+      info("%d images, %s deg. oscillation, sigma_m=%.3f" % (self._num_images, str(self._oscillation), self._sigma_m_extended))
+      info("Successfully completed (%.1f sec)" % result['runtime'])
+    if self._sigma_m_basic or self._sigma_m_extended:
       return True
-    else:
-      warn("Failed with exit code %d" % result['exitcode'])
-      return False
+    warn("Failed with exit code %d" % result['exitcode'])
+    return False
 
   def _refine_bravais(self):
     info("\nRefining bravais settings...")
