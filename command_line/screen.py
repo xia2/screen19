@@ -462,7 +462,7 @@ class i19_screen():
 #         d = dict(os.environ)
 #         d["LD_LIBRARY_PATH"] = ""
 #         subprocess.Popen(["xdg-open", "dials-report.html"], env=d)
-#       except Exception, e:
+#       except Exception as e:
 #         debug("Could not open browser")
 #         debug(str(e))
     else:

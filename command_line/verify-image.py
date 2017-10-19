@@ -99,7 +99,7 @@ for filename in sorted(filelist):
       messages = test(data)
       if messages is not None:
         result.extend(messages)
-    except Exception, e:
+    except Exception as e:
       result.append(e.message)
 
   if result != []:
