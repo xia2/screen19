@@ -1,9 +1,20 @@
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
 def pytest_collect_file(path, parent):
+  '''
+  libtbx compatibility layer:
+
+  collect all libtbx legacy tests to run them from within pytest.
+  '''
+
+  import os
+  if 'LIBTBX_SKIP_PYTEST' in os.environ:
+    '''The pytest discovery process is ran from within libtbx, so do not
+       attempt to find libtbx legacy tests.'''
+    return
+
   import libtbx
   from libtbx.test_utils.parallel import make_commands, run_command
-  import os
   import pytest
   import sys
 
@@ -36,8 +47,11 @@ def pytest_collect_file(path, parent):
 
   class LibtbxRunTestsFile(pytest.File):
     def collect(self):
-      os.environ['LIBTBX_SKIP_PYTEST'] = '1'
-      import run_tests
+      try:
+        os.environ['LIBTBX_SKIP_PYTEST'] = '1'
+        from . import run_tests
+      finally:
+        del os.environ['LIBTBX_SKIP_PYTEST']
 
       for test in run_tests.tst_list:
         if isinstance(test, basestring):
