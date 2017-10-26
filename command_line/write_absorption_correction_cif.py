@@ -1,8 +1,10 @@
 from __future__ import division
+
 import datetime
-import iotbx.cif.model
 import os
 import re
+
+import iotbx.cif.model
 
 def find_scale_dir():
   assert os.path.exists('xia2.json')

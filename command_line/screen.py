@@ -1,4 +1,5 @@
 from __future__ import division
+
 import json
 import logging
 import math
@@ -8,6 +9,7 @@ import sys
 import time
 import timeit
 import traceback
+
 from dials.util.procrunner import run_process
 
 help_message = '''

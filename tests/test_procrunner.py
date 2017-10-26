@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division, print_function
 
 import dials.util.procrunner
 import mock
@@ -95,4 +95,3 @@ def test_nonblockingstreamreader_can_read(mock_select):
 
   assert streamreader.has_finished()
   assert streamreader.get_output() == ''.join(testdata)
-

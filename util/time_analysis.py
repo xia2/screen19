@@ -1,5 +1,6 @@
 #!/usr/bin/env libtbx.python
 from __future__ import division
+
 from scitbx.array_family import flex
 
 def source(length=10000, sample_rate_hz=100, f_hz=10):

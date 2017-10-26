@@ -1,7 +1,9 @@
 from __future__ import division
+
+import time
+
 import iotbx.phil
 from scitbx.array_family import flex
-import time
 
 help_message = '''
 

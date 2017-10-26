@@ -1,7 +1,7 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division, print_function
 
-from i19.command_line.screen import i19_screen
 import pytest
+from i19.command_line.screen import i19_screen
 
 def test_i19screen_command_line_help_does_not_crash():
   i19_screen().run('')

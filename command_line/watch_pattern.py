@@ -1,7 +1,10 @@
+from __future__ import division
+
 import json
-from optparse import OptionParser, SUPPRESS_HELP
-import stomp
 import sys
+from optparse import SUPPRESS_HELP, OptionParser
+
+import stomp
 from i19.watchservice.generator import Generator
 from i19.watchservice.watcher import Watcher as FileWatcher
 

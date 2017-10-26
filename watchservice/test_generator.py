@@ -1,3 +1,5 @@
+from __future__ import division, print_function
+
 from generator import Generator
 
 def test_filename_generator():

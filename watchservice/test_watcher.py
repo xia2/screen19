@@ -1,8 +1,11 @@
-from i19.watchservice.generator import Generator
-from i19.watchservice.watcher import Watcher
-import mock
+from __future__ import division, print_function
+
 import itertools
 import time
+
+import mock
+from i19.watchservice.generator import Generator
+from i19.watchservice.watcher import Watcher
 
 def test_instantiate_watcher():
   g = itertools.count(0)

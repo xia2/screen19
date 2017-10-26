@@ -1,17 +1,17 @@
-from __future__ import division
 # LIBTBX_PRE_DISPATCHER_INCLUDE_SH export PHENIX_GUI_ENVIRONMENT=1
 # LIBTBX_PRE_DISPATCHER_INCLUDE_SH export BOOST_ADAPTBX_FPE_DEFAULT=1
 
+from __future__ import division, print_function
+
 import json
-from optparse import OptionParser, SUPPRESS_HELP
-import stomp
 import sys
-import time
-
-import iotbx.phil
-import dials.command_line.image_viewer as iv
-
 import threading
+import time
+from optparse import SUPPRESS_HELP, OptionParser
+
+import dials.command_line.image_viewer as iv
+import iotbx.phil
+import stomp
 
 phil_scope = iotbx.phil.parse("""\
 image_viewer {

@@ -1,11 +1,14 @@
-from libtbx.utils import Sorry
-from optparse import OptionParser, SUPPRESS_HELP
+from __future__ import division
+
 import datetime
 import os
 import re
 import shutil
 import sys
 import time
+from optparse import SUPPRESS_HELP, OptionParser
+
+from libtbx.utils import Sorry
 
 class FileCopier():
   def __init__(self, source, destination, maxwait=3*60*60, symlink=False, test=None):

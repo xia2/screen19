@@ -1,3 +1,5 @@
+from __future__ import division, print_function
+
 import itertools
 
 def Generator(pattern, begin, end):
