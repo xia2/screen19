@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
 import time
 
@@ -84,7 +84,7 @@ def stability_fft(imageset, params):
 
   t1 = time.time()
 
-  print 'Read data for %d images in %.1fs' % (len(indices), t1 - t0)
+  print('Read data for %d images in %.1fs' % (len(indices), t1 - t0))
 
   # scale data to give sensible FFT values
 
@@ -96,8 +96,8 @@ def stability_fft(imageset, params):
   f_hz = 1.0 / exposure
   f_scale = f_hz / counts.size()
 
-  print 'Sample frequency: %.2f Hz' % f_hz
-  print 'Writing output to: %s' % params.output_file
+  print('Sample frequency: %.2f Hz' % f_hz)
+  print('Writing output to: %s' % params.output_file)
 
   fout = open(params.output_file, 'w')
   for j in range(power.size()):

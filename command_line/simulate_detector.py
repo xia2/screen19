@@ -1,4 +1,4 @@
-from __future__ import division, print_function
+from __future__ import absolute_import, division, print_function
 
 import itertools
 import os
@@ -7,7 +7,6 @@ import sys
 import time
 
 # creates (copies) .cbf files at set speed
-
 
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 

@@ -1,5 +1,4 @@
-#!/usr/bin/env libtbx.python
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
 from scitbx.array_family import flex
 
@@ -28,17 +27,3 @@ def fft(d):
   p[0] = 0.0
 
   return p
-
-def test():
-  sample_rate_hz = [100, 200, 500, 100, 50]
-  length = [10000, 10000, 10000, 1000, 2000]
-  f_hz = [5, 10, 20, 20, 4]
-  for l, s, f in zip(length, sample_rate_hz, f_hz):
-    f_scale = s / l
-    d = source(length=l, sample_rate_hz=s, f_hz=f)
-    d = fft(d)
-    assert(flex.max(d) == d[int(round(f / f_scale))])
-  print 'OK'
-
-if __name__ == '__main__':
-  test()

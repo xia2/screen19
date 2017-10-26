@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
 import datetime
 import os
@@ -70,11 +70,11 @@ Run via {xia2}, {dials}, {i19}
     cif.show(out=fh)
 
 def main():
-  print "Finding AIMLESS log...",
+  print("Finding AIMLESS log...", end=' ')
   log = find_aimless_log()
-  print log
+  print(log)
 
-  print "Generating absorption surface"
+  print("Generating absorption surface")
   from xia2.Toolkit.AimlessSurface import evaluate_1degree, scrape_coefficients, generate_map
   absmap = evaluate_1degree(scrape_coefficients(log))
   assert absmap.max() - absmap.min() > 0.000001, "Cannot create absorption surface: map is too flat (min: %f, max: %f)" % (absmap.min(), absmap.max())

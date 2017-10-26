@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
 import json
 import sys
@@ -21,9 +21,9 @@ class Watch():
 
   def _report(self, file=None, success=False, wait=0, **kwargs):
     if success and self._opts.verbose:
-      print "Image %s arrived after %.2f seconds" % (file, wait)
+      print("Image %s arrived after %.2f seconds" % (file, wait))
     if not success:
-      print "Image %s failed to arrive after %.2f seconds" % (file, wait)
+      print("Image %s failed to arrive after %.2f seconds" % (file, wait))
     if self._upstream:
       self._upstream.image_arrived(file=file, success=success, wait=wait, **kwargs)
 
@@ -70,12 +70,12 @@ if __name__ == "__main__":
 #destination = '/queue/test'
 #key = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
 #
-#print "Producer %s producing into %s" % (key, destination)
+#print("Producer %s producing into %s" % (key, destination))
 #while True:
 #  block += 1
-#  print "Sending block %s-%d to %s" % (key, block, destination),
+#  print("Sending block %s-%d to %s" % (key, block, destination))
 #  conn.send(body='Block %s-%d' % (key, block), destination=destination)
-#  print "done"
+#  print("done")
 #  time.sleep(1.2)
 #
 #conn.subscribe(destination='/queue/test', id=1, ack='auto')

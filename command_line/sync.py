@@ -1,10 +1,9 @@
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
 import datetime
 import os
 import re
 import shutil
-import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
@@ -26,25 +25,25 @@ class FileCopier():
 
   def check(self):
     if os.path.exists(self._destination):
-      print "Destination %s exists." % self._destination
+      print("Destination %s exists." % self._destination)
       return False
     if os.path.exists(self._source):
       targetdir = os.path.dirname(self._destination)
       if self._test and self._test() == False:
-        print "Skipping %s (test)" % self._source
+        print("Skipping %s (test)" % self._source)
         return False
       if not self._test or self._test():
         if not os.path.exists(targetdir):
           os.makedirs(targetdir)
         if self._symlink:
-          print "Linking %s > %s" % (self._source, self._destination)
+          print("Linking %s > %s" % (self._source, self._destination))
           os.symlink(self._source, self._destination)
         else:
-          print "Copying %s > %s" % (self._source, self._destination)
+          print("Copying %s > %s" % (self._source, self._destination))
           shutil.copyfile(self._source, self._destination)
         return False
     if time.time() >= self._timeout:
-      print "Giving up on %s" % (self._source)
+      print("Giving up on %s" % (self._source))
       return False
 
     # maybe next time
@@ -72,7 +71,7 @@ class FolderCopier():
             os.path.join(self._source, f),
             os.path.join(self._destination, f),
             maxwait = 5*60))
-#       print "Seen new file", os.path.join(self._source, f)
+#       print("Seen new file", os.path.join(self._source, f))
     return time.time() < self._timeout
 
 class WaitForFolder():
@@ -90,7 +89,7 @@ class WaitForFolder():
 
   def check(self):
     if os.path.exists(self._folder):
-      print "Folder %s found" % self._folder
+      print("Folder %s found" % self._folder)
       self._callback(*self._callback_args)
       return False
     return time.time() < self._timeout
@@ -153,9 +152,9 @@ class FindProcessed():
             ))
       else:
         if newfolders > 1:
-          print "\nFound %d new data collection sweeps" % newfolders
+          print("\nFound %d new data collection sweeps" % newfolders)
         elif newfolders == 1:
-          print "\nFound a new data collection sweep"
+          print("\nFound a new data collection sweep")
         break
 
   def run(self):
@@ -174,20 +173,20 @@ class FindProcessed():
     self._visitpath = os.path.join(self._basepath, self._visit)
     if not os.path.exists(self._visitpath):
       raise Sorry("Could not find visit %s at %s" % (self._visit, self._visitpath))
-    print "Running for visit %s" % self._visit
+    print("Running for visit %s" % self._visit)
 
     # Step 2: Find process.dirs file, or wait for up to 25 minutes for it to appear
     processdirsfile = os.path.join(self._visitpath, 'spool/process.dirs')
     maxwait = 25
     while not os.path.exists(processdirsfile):
-      print "No data collections have been made in that visit folder yet."
-      print "Waiting %d minutes for first data collection." % maxwait
+      print("No data collections have been made in that visit folder yet.")
+      print("Waiting %d minutes for first data collection." % maxwait)
       time.sleep(60)
       maxwait = maxwait - 1
       if maxwait <= 0:
         raise Sorry('No data collections observed for visit %s' % self._visit)
     self._processfile = open(os.path.join(self._visitpath, 'spool/process.dirs'), 'r')
-    print "Data collection list found."
+    print("Data collection list found.")
 
     # Step 3: Generate and process copy tasks
     self._task_loop()
@@ -203,10 +202,10 @@ class FindProcessed():
           remaining_tasks.append(f)
         time.sleep(0.01)
       self._watch_tasks = remaining_tasks + self._added_tasks
-      print "\n%s: Waiting for new results in %d locations (%s)\n" % (datetime.datetime.now().strftime("%H:%M:%S"), len(self._watch_tasks), self._visit)
+      print("\n%s: Waiting for new results in %d locations (%s)\n" % (datetime.datetime.now().strftime("%H:%M:%S"), len(self._watch_tasks), self._visit))
       time.sleep(30)
 
-    print "Terminating script after one day."
+    print("Terminating script after one day.")
 
   def add_task(self, task):
     self._added_tasks.append(task)

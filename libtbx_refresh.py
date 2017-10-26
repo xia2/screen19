@@ -1,14 +1,8 @@
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
-try:
-  import i19.util.version as version
-  print version.i19_version()
-except ImportError:
-  pass
+import i19.util.version as version
+import libtbx.pkg_utils
 
-try:
-  import libtbx.pkg_utils
-  libtbx.pkg_utils.require('mock', '>=2.0')
-  libtbx.pkg_utils.require('pytest', '>=2')
-except ImportError:
-  print "\n" * 10 + "Could not verify dependencies: cctbx sources out of date" + "\n" * 10
+print(version.i19_version())
+libtbx.pkg_utils.require('mock', '>=2.0')
+libtbx.pkg_utils.require('pytest', '>=3.1')

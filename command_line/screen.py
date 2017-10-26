@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
 import json
 import logging
@@ -192,7 +192,7 @@ class i19_screen():
     with open('overload.json') as fh:
       overload_data = json.load(fh)
 
-    print "Pixel intensity distribution:"
+    print("Pixel intensity distribution:")
     count_sum = 0
     hist = {}
     if 'bins' in overload_data:
@@ -478,8 +478,8 @@ class i19_screen():
     start = timeit.default_timer()
 
     if len(args) == 0:
-      print help_message
-      print version_information
+      print(help_message)
+      print(version_information)
       return
 
     # Configure the logging

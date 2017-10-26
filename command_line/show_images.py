@@ -1,13 +1,11 @@
 # LIBTBX_PRE_DISPATCHER_INCLUDE_SH export PHENIX_GUI_ENVIRONMENT=1
 # LIBTBX_PRE_DISPATCHER_INCLUDE_SH export BOOST_ADAPTBX_FPE_DEFAULT=1
 
-from __future__ import division, print_function
+from __future__ import absolute_import, division, print_function
 
 import json
-import sys
 import threading
 import time
-from optparse import SUPPRESS_HELP, OptionParser
 
 import dials.command_line.image_viewer as iv
 import iotbx.phil

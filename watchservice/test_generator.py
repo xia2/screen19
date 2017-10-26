@@ -1,6 +1,6 @@
-from __future__ import division, print_function
+from __future__ import absolute_import, division, print_function
 
-from generator import Generator
+from i19.watchservice.generator import Generator
 
 def test_filename_generator():
   pattern = "./somefile_%05d.cbf"

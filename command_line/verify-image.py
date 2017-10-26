@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
 import fnmatch
 import os
@@ -103,11 +103,11 @@ for filename in sorted(filelist):
       result.append(e.message)
 
   if result != []:
-    print "\nFile %s failed the following checks:" % filename
+    print("\nFile %s failed the following checks:" % filename)
     sys.stdout.write('\033[1;31m ')
-    print "\n ".join(result)
+    print("\n ".join(result))
     sys.stdout.write('\033[0m')
-    print
+    print()
     break
 
-  print "Checking file %s" % filename
+  print("Checking file %s" % filename)
