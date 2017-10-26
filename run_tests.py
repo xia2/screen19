@@ -2,8 +2,15 @@ from __future__ import absolute_import, division, print_function
 
 from libtbx.test_utils.pytest import discover
 
-tst_list = [
-#  "$D/tests/tst_legacy.py",
-  ["$D/tests/tst_legacy_mult.py", "1"]
-#  ["$D/tests/tst_legacy_mult.py", "2"]
-] + discover()
+tst_list = discover()
+
+# To write tests:
+# 1. Test file should be named test_*.py
+# 2. Test methods should be named test_*()
+# 3. Nothing else needed. Rest happens by magic.
+
+# To run tests:
+# run 'pytest' inside module directory
+
+# For more information see:
+#   https://github.com/dials/dials/wiki/pytest
