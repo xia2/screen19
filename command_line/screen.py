@@ -57,8 +57,8 @@ class i19_screen():
         template = { 't': f, 'count': 1 }
         continue
       # Find positions where file names differ
-      template_positions = filter(lambda x: x is not None, \
-                             map(lambda (x,y,z):z if x!=y else None, \
+      template_positions = filter(None, \
+                             map(lambda ne: ne[2] if ne[0] != ne[1] else None, \
                                zip(template['t'], f, range(len(f)))))
       template_positions = (min(template_positions), max(template_positions))
       # This must not conflict with previously determined template information
