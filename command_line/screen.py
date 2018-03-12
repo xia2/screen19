@@ -10,7 +10,7 @@ import time
 import timeit
 import traceback
 
-from dials.util.procrunner import run_process
+from procrunner import run_process
 
 help_message = '''
 This program processes screening data obtained at Diamond Light Source
