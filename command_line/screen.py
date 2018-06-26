@@ -381,20 +381,6 @@ class i19_screen():
     os.rename("refined_experiments.json", "experiments.json")
     os.rename("refined.pickle", "indexed.pickle")
 
-  def _predict(self):
-    info("\nPredicting reflections...")
-    command = [ "dials.predict", "experiments_with_profile_model.json" ]
-    result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-    debug("result = %s" % self._prettyprint_dictionary(result))
-    if result['exitcode'] == 0:
-      info("To view predicted reflections run:")
-      info("  dials.image_viewer experiments_with_profile_model.json predicted.pickle")
-      info("Successfully completed (%.1f sec)" % result['runtime'])
-      return True
-    else:
-      warn("Failed with exit code %d" % result['exitcode'])
-      return False
-
   def _create_profile_model(self):
     info("\nCreating profile model...")
     command = [ "dials.create_profile_model", "experiments.json", "indexed.pickle" ]
@@ -517,7 +503,6 @@ at the reciprocal space by running:
         sys.exit(1)
     if not fast_mode:
       self._report()
-      self._predict()
       self._check_intensities()
     self._refine_bravais()
 
