@@ -10,7 +10,7 @@ import time
 import timeit
 import traceback
 
-from procrunner import run_process
+import procrunner
 
 help_message = '''
 This program processes screening data obtained at Diamond Light Source
@@ -136,7 +136,7 @@ class i19_screen():
     command = [ "dials.import" ] + parameters # + [ 'allow_multiple_sweeps=true' ]
     debug("running %s" % " ".join(command))
 
-    result = run_process(command, print_stdout=False, debug=procrunner_debug)
+    result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
 
     if result['exitcode'] == 0:
@@ -184,7 +184,7 @@ class i19_screen():
     info("\nTesting pixel intensities...")
     command = [ "xia2.overload", "nproc=%s" % self.nproc, self.json_file ]
     debug("running %s" % command)
-    result = run_process(command, print_stdout=False, debug=procrunner_debug)
+    result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     info("Successfully completed (%.1f sec)" % result['runtime'])
 
@@ -267,7 +267,7 @@ class i19_screen():
     columns, rows = 80, 25
     if sys.stdout.isatty():
       try:
-        result = run_process(['stty', 'size'], timeout=1, print_stdout=False, print_stderr=False, debug=procrunner_debug)
+        result = procrunner.run(['stty', 'size'], timeout=1, print_stdout=False, print_stderr=False, debug=procrunner_debug)
         rows, columns = [int(i) for i in result['stdout'].split()]
       except Exception: # ignore any errors and use default size
         pass
@@ -293,7 +293,7 @@ class i19_screen():
     debug("running %s with:\n  %s\n" % (" ".join(command), "\n  ".join(plot_commands)))
 
     try:
-      result = run_process(command, stdin="\n".join(plot_commands)+"\n", timeout=120,
+      result = procrunner.run(command, stdin="\n".join(plot_commands)+"\n", timeout=120,
         print_stdout=False, print_stderr=False, debug=procrunner_debug)
     except OSError:
       info(traceback.format_exc())
@@ -322,7 +322,7 @@ class i19_screen():
       additional_parameters = []
     info("\nSpot finding...")
     command = [ "dials.find_spots", self.json_file, "nproc=%s" % self.nproc ] + additional_parameters
-    result = run_process(command, print_stdout=False, debug=procrunner_debug)
+    result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] != 0:
       warn("Failed with exit code %d" % result['exitcode'])
@@ -350,7 +350,7 @@ class i19_screen():
     for message, command in runlist:
       info("\n%s..." % message)
 
-      result = run_process(command, print_stdout=False, debug=procrunner_debug)
+      result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
       debug("result = %s" % self._prettyprint_dictionary(result))
       if result['exitcode'] != 0:
         warn("Failed with exit code %d" % result['exitcode'])
@@ -368,7 +368,7 @@ class i19_screen():
   def _refine(self):
     info("\nIndexing...")
     command = [ "dials.refine", "experiments.json", "indexed.pickle" ]
-    result = run_process(command, print_stdout=False, debug=procrunner_debug)
+    result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] != 0:
       warn("Failed with exit code %d" % result['exitcode'])
@@ -384,7 +384,7 @@ class i19_screen():
   def _predict(self):
     info("\nPredicting reflections...")
     command = [ "dials.predict", "experiments_with_profile_model.json" ]
-    result = run_process(command, print_stdout=False, debug=procrunner_debug)
+    result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
       info("To view predicted reflections run:")
@@ -398,7 +398,7 @@ class i19_screen():
   def _create_profile_model(self):
     info("\nCreating profile model...")
     command = [ "dials.create_profile_model", "experiments.json", "indexed.pickle" ]
-    result = run_process(command, print_stdout=False, debug=procrunner_debug)
+    result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     self._sigma_m = None
     if result['exitcode'] == 0:
@@ -416,7 +416,7 @@ class i19_screen():
   def _refine_bravais(self):
     info("\nRefining bravais settings...")
     command = [ "dials.refine_bravais_settings", "experiments.json", "indexed.pickle" ]
-    result = run_process(command, print_stdout=False, debug=procrunner_debug)
+    result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
       m = re.search('---+\n[^\n]*\n---+\n(.*\n)*---+', result['stdout'])
@@ -429,7 +429,7 @@ class i19_screen():
   def _report(self):
     info("\nCreating report...")
     command = [ "dials.report", "experiments_with_profile_model.json", "indexed.pickle" ]
-    result = run_process(command, print_stdout=False, debug=procrunner_debug)
+    result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
     debug("result = %s" % self._prettyprint_dictionary(result))
     if result['exitcode'] == 0:
       info("Successfully completed (%.1f sec)" % result['runtime'])
