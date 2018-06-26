@@ -33,8 +33,6 @@ logger = logging.getLogger('dials.i19.screen')
 debug, info, warn = logger.debug, logger.info, logger.warn
 
 class i19_screen():
-  import libtbx.load_env
-
   def _prettyprint_dictionary(self, d):
     return "{\n%s\n}" % \
       "\n".join(["  %s: %s" % (k, str(d[k]).replace("\n", "\n%s" % (" " * (4 + len(k)))))
@@ -158,13 +156,18 @@ class i19_screen():
     if nproc is not None:
       self.nproc = nproc
       return
-    command = [ "libtbx.show_number_of_processors" ]
-    debug("running %s" % command)
-    result = run_process(command, print_stdout=False, debug=procrunner_debug)
-    debug("result = %s" % self._prettyprint_dictionary(result))
-    if result['exitcode'] == 0:
-      self.nproc = result['stdout'].strip()
-    else:
+
+    # if environmental variable NSLOTS is set to a number then use that
+    try:
+      self.nproc = int(os.environ.get('NSLOTS'))
+      return
+    except (ValueError, TypeError):
+      pass
+
+    from libtbx.introspection import number_of_processors
+    self.nproc = number_of_processors(return_value_if_unknown=-1)
+
+    if self.nproc <= 0:
       warn("Could not determine number of available processors. Error code %d" % result['exitcode'])
       sys.exit(1)
 
