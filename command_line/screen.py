@@ -745,11 +745,11 @@ class I19Screen(object):
     # Find any user-specified parameters for Wilson fit.
     for i, arg in enumerate(args):
       if arg.startswith('min_i_over_sigma='):
-        del args[i]
         self.min_i_over_sigma = float(arg.split('min_i_over_sigma=')[1])
-      if arg.startswith('desired_d='):
         del args[i]
+      if arg.startswith('desired_d='):
         self.desired_d = float(arg.split('desired_d=')[1])
+        del args[i]
 
     if len(args) == 1 and args[0].endswith('.json'):
       self.json_file = args[0]
