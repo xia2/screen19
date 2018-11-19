@@ -751,7 +751,7 @@ class I19Screen(object):
       elif arg.startswith('desired_d='):
         self.desired_d = float(arg.split('desired_d=')[1])
         params.append(i)
-    for i in params:
+    for i in sorted(params, reverse=True):
       del args[i]
 
     if len(args) == 1 and args[0].endswith('.json'):
