@@ -743,13 +743,16 @@ class I19Screen(object):
     self.min_i_over_sigma = 2
     self.desired_d = .84  # Å  Cut-off resolution for IUCr publication.
     # Find any user-specified parameters for Wilson fit.
+    params = []
     for i, arg in enumerate(args):
       if arg.startswith('min_i_over_sigma='):
         self.min_i_over_sigma = float(arg.split('min_i_over_sigma=')[1])
-        del args[i]
-      if arg.startswith('desired_d='):
+        params.append(i)
+      elif arg.startswith('desired_d='):
         self.desired_d = float(arg.split('desired_d=')[1])
-        del args[i]
+        params.append(i)
+    for i in params:
+      del args[i]
 
     if len(args) == 1 and args[0].endswith('.json'):
       self.json_file = args[0]
