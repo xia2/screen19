@@ -1,15 +1,15 @@
 from __future__ import absolute_import, division, print_function
 
 import pytest
-from i19.command_line.screen import i19_screen
+from i19.command_line.screen import I19Screen
 
 def test_i19screen_command_line_help_does_not_crash():
-  i19_screen().run('')
+  I19Screen().run('')
 
 def test_i19screen(regression_data, run_in_tmpdir):
   data_dir = regression_data('X4_wide').strpath
 
-  i19_screen().run([data_dir])
+  I19Screen().run([data_dir])
 
   logfile = run_in_tmpdir.join('i19.screen.log').read()
 
