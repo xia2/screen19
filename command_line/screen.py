@@ -203,7 +203,7 @@ class I19Screen(object):
         debug("You specified an image range in the xia2 format. Importing all "
               "specified files.")
         template, start, end = files[0].split(':')
-        template = make_template(template)
+        template = make_template(template)[0]
         start, end = int(start), int(end)
         if not self._quick_import_templates([(template, (start, end))]):
           warn("Could not import specified image range.")
