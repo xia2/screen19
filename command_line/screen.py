@@ -587,6 +587,7 @@ class I19Screen(object):
     ms = miller.set(crystal_symmetry=crystal_symmetry,
                     anomalous_flag=False, indices=indexed['miller_index'])
     ma = miller.array(ms, data=intensity, sigmas=sigma)
+    ma.set_observation_type_xray_intensity()
     ma.setup_binner_counting_sorted(n_bins=columns)
     wilson = ma.wilson_plot(use_binning=True)
     bins = dict(zip(wilson.binner.bin_centers(1), wilson.data[1:-1]))
@@ -596,7 +597,7 @@ class I19Screen(object):
     self._plot_intensities(bins, 1,
                            title="'Wilson plot'",
                            xlabel="'d (Angstrom) (inverse-square scale)'",
-                           ylabel="'I/sigma'",
+                           ylabel="'I (counts)'",
                            xticks=tick_positions,
                            style='with lines')
 
