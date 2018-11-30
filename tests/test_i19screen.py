@@ -1,11 +1,14 @@
 from __future__ import absolute_import, division, print_function
 
+import sys
+
 import mock
 import pytest
 from i19.command_line.screen import I19Screen
 
 def test_i19screen_command_line_help_does_not_crash():
-  I19Screen().run('')
+  sys.argv = ['i19.screen']
+  I19Screen().run()
 
 def test_i19screen(regression_data, run_in_tmpdir):
   data_dir = regression_data('X4_wide').strpath
@@ -23,7 +26,8 @@ def test_i19screen_calls(procrunner, run_in_tmpdir):
   files = 'dataset.cbf:1:100'
 
   with pytest.raises(SystemExit):
-    I19Screen().run([files])
+    sys.argv = ['i19.screen', files]
+    I19Screen().run()
 
   procrunner.run.assert_called_once_with([
           'dials.import',

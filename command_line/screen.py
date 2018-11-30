@@ -39,6 +39,9 @@ from __future__ import absolute_import, division, print_function
 
 import json
 import logging
+
+from typing import Dict, List, Tuple, Optional, Any
+
 import math
 import os
 import re
@@ -48,11 +51,99 @@ import timeit
 import traceback
 
 import procrunner
+import iotbx.phil
 from libtbx import easy_pickle
 from dxtbx.model.experiment_list import ExperimentListFactory
+from dials.util.options import OptionParser
 
 
 help_message = __doc__
+
+phil_scope = iotbx.phil.parse('''
+nproc = None
+  .type = int
+  .caption = 'Number of processors to use'
+  .help = 'The chosen value will apply to all the DIALS utilities with a ' \
+          "multi-processing option.  If 'None' is given, all available " \
+          'processors will be used.'
+
+lower_bound_estimate
+  .caption = 'Parameters for the calculation of the lower flux bound'
+  {
+  data = *indexed integrated
+    .type = choice
+    .caption = 'Choice of data for the displacement parameter fit'
+    .help = 'For the lower-bound flux estimate, choose whther to use ' \
+            'indexed (quicker) or integrated (better) data in fitting ' \
+            'the isotropic displacement parameter.'
+  desired_d = None
+    .multiple = True
+    .type = float
+    .caption = u'Desired resolution limit, in Ångströms, of diffraction data'
+    .help = 'This is the resolution target for the lower-bound flux ' \
+            'recommendation.'
+  min_i_over_sigma = 2
+    .type = float
+    .caption = u'Target I/σ value for lower-bound flux recommendation'
+    .help = u'The lower-bound flux recommendation provides an estimate of ' \
+            u'the flux required to ensure that the majority of expected ' \
+            u'reflections at the desired resolution limit have I/σ greater ' \
+            u'than or equal to this value.'
+  wilson_fit_max_d = 4  # Å
+    .type = float
+    .caption = u'Maximum d-value (in Ångströms) for displacement parameter fit'
+    .help = 'Reflections with lower resolution than this value will be ' \
+            'ignored for the purposes of the Wilson plot.'
+  }
+
+!dials_import
+  .caption = 'Options for dials.import'
+  {
+  include scope dials.command_line.dials_import.phil_scope
+  }
+
+!dials_find_spots
+  .caption = 'Options for dials.find_spots'
+  {
+  include scope dials.command_line.find_spots.phil_scope
+  }
+
+!dials_index
+  .caption = 'Options for dials.index'
+  {
+  include scope dials.command_line.index.phil_scope
+  }
+
+!dials_refine
+  .caption = 'Options for dials.refine'
+  {
+  include scope dials.command_line.refine.phil_scope
+  }
+
+!dials_refine_bravais
+  .caption = 'Options for dials.refine_bravais_settings'
+  {
+  include scope dials.command_line.refine_bravais_settings.phil_scope
+  }
+
+!dials_create_profile
+  .caption = 'Options for dials.create_profile_model'
+  {
+  include scope dials.command_line.create_profile_model.phil_scope
+  }
+
+!dials_integrate
+  .caption = 'Options for dials.integrate'
+  {
+  include scope dials.command_line.integrate.phil_scope
+  }
+
+!dials_report
+  .caption = 'Options for dials.report'
+  {
+  include scope dials.command_line.report.phil_scope
+  }
+''', process_includes=True)
 
 procrunner_debug = False
 logger = logging.getLogger('dials.i19.screen')
@@ -64,7 +155,7 @@ def terminal_size():
   Find the current size of the terminal window.
 
   :return: Number of columns; number of rows.
-  :rtype: tuple(int, int)
+  :rtype: Tuple[int]
   """
   columns, rows = 80, 25
   if sys.stdout.isatty():
@@ -86,7 +177,7 @@ def prettyprint_dictionary(d):
   Produce a nice string representation of a dictionary, for printing.
 
   :param d: Dictionary to be printed.
-  :type d: dict
+  :type d: Dict[Optional[Any]]
   :return: String representation of :param d:.
   :rtype: str
   """
@@ -136,6 +227,7 @@ class I19Screen(object):
     """
     TODO: Docstring
     :param files:
+    :type files: List[str]
     :return:
     """
     if len(files) == 1:
@@ -143,7 +235,7 @@ class I19Screen(object):
       return False
     debug("Attempting quick import...")
     files.sort()
-    templates = {}
+    templates = {}  # type: Dict[str, List[Optional[List[int]]]]
     for f in files:
       template, image = make_template(f)
       if template not in templates:
@@ -156,6 +248,7 @@ class I19Screen(object):
     # Return a tuple of template and image range for each unique image range
     templates = [(t, tuple(r))
                  for t, ranges in templates.items() for r in ranges]
+    # type: List[Tuple[str, Tuple[int]]]
     return self._quick_import_templates(templates)
 
   def _quick_import_templates(self, templates):
@@ -171,7 +264,7 @@ class I19Screen(object):
       return False
 
     try:
-      scan_range = templates[0][1]
+      scan_range = templates[0][1]  # type: Tuple[int]
       if not scan_range:
         raise IndexError
     except IndexError:
@@ -548,52 +641,73 @@ class I19Screen(object):
     The Wilson plot of I as a function of d is drawn.
     """
     from dials.array_family import flex
-    from numpy import exp, inf
+    import numpy as np
     from scipy.optimize import curve_fit
     from cctbx import miller
 
     info('\nEstimating lower flux bound...')
 
     # TODO Convert to PHIL parser input
-    wilson_fit_max_d = 4  # Å
 
-    indexed = easy_pickle.load('indexed.pickle')
-    indexed = indexed.select(indexed.get_flags(indexed.flags.indexed))
-    elist = ExperimentListFactory.from_json_file('experiments.json')
+    if self.params.lower_bound_estimate.data == 'indexed':
+      data = easy_pickle.load('indexed.pickle')
+      flag = data.flags.indexed
+      elist = ExperimentListFactory.from_json_file('experiments.json')
+    elif self.params.lower_bound_estimate.data == 'integrated':
+      data = easy_pickle.load('integrated.pickle')
+      flag = data.flags.integrated
+      elist = ExperimentListFactory.from_json_file(
+        'integrated_experiments.json')
+    else:
+      warn('Unknown data option for lower-bound flux estimate.')
+      sys.exit(1)
+    data = data.select(data.get_flags(flag))
     crystal_symmetry = elist[0].crystal.get_crystal_symmetry()
 
     # Get d-spacings of indexed spots.
     def d_star_sq(x): return 1 / crystal_symmetry.unit_cell().d(x) ** 2
-    d_star_sq = d_star_sq(indexed['miller_index'])
-    intensity = indexed['intensity.sum.value']
-    sigma = flex.sqrt(indexed['intensity.sum.variance'])
+    d_star_sq = d_star_sq(data['miller_index'])
+    intensity = data['intensity.sum.value']
+    sigma = flex.sqrt(data['intensity.sum.variance'])
 
-    # A poor estimate of isotropic Wilson B-factor, systematically
-    # under-estimating B due to using only strong spots.
-    def scaled_debye_waller(x, b, a): return a * exp(- b / 2 * x)
+    # Parameters for the lower-bound flux estimate:
+    min_i_over_sigma = self.params.lower_bound_estimate.min_i_over_sigma
+    desired_d = self.params.lower_bound_estimate.desired_d
+    desired_d.sort(reverse=True)
+    wilson_fit_max_d = self.params.lower_bound_estimate.wilson_fit_max_d
+
+    # Fit a simple Debye-Waller factor, assuming isotropic disorder parameter
+    def scaled_debye_waller(x, b, a): return a * np.exp(- b / 2 * x)
     sel = d_star_sq > 1 / wilson_fit_max_d**2
+    # Using 1/σ weighting has a tendency to fit to the floor.
     wilson_fit, cov = curve_fit(scaled_debye_waller,
                                 d_star_sq.select(sel),
                                 intensity.select(sel),
                                 sigma=sigma.select(sel),
-                                bounds=(0, inf))
+                                bounds=(0, np.inf))
     # Use the fact that σ² = I for indexed data, so I/σ = √̅I
-    desired_d_star_sq = 1 / self.desired_d**2
-    recommended_factor = (self.min_i_over_sigma**2 /
-                          scaled_debye_waller(desired_d_star_sq, *wilson_fit))
+    desired_d_star_sq = [1 / d**2 for d in desired_d]
+    recommended_factor = [
+      (min_i_over_sigma**2 / scaled_debye_waller(target, *wilson_fit))
+      for target in desired_d_star_sq]
 
     # Draw the Wilson plot, using existing functionality in cctbx.miller:
     columns, rows = terminal_size()
+    n_bins = min(columns, intensity.size())
     ms = miller.set(crystal_symmetry=crystal_symmetry,
-                    anomalous_flag=False, indices=indexed['miller_index'])
+                    anomalous_flag=False, indices=data['miller_index'])
     ma = miller.array(ms, data=intensity, sigmas=sigma)
     ma.set_observation_type_xray_intensity()
-    ma.setup_binner_counting_sorted(n_bins=columns)
+    ma.setup_binner_counting_sorted(n_bins=n_bins)
     wilson = ma.wilson_plot(use_binning=True)
-    bins = dict(zip(wilson.binner.bin_centers(1), wilson.data[1:-1]))
+    # Get the relevant plot data from the miller_array:
+    binned_intensity = [x if x else 0 for x in wilson.data[1:-1]]
+    bins = dict(zip(wilson.binner.bin_centers(1), binned_intensity))
+    # Set some tick positions manually, to account for the odd d-axis scaling:
     d_ticks = [5, 3, 2, 1.5, 1, .9, .8, .7, .6, .5]
     tick_positions = ', '.join(['"%g" %s' % (d, 1/d**2) for d in d_ticks])
     tick_positions = tick_positions.join(['(', ')'])
+    # Draw the plot:
     self._plot_intensities(bins, 1,
                            title="'Wilson plot'",
                            xlabel="'d (Angstrom) (inverse-square scale)'",
@@ -601,17 +715,33 @@ class I19Screen(object):
                            xticks=tick_positions,
                            style='with lines')
 
+    # TODO:  Remove block below for production:
+    # Plots for debugging:
+    import matplotlib
+    matplotlib.use('Agg')
+    from matplotlib import pyplot as plt
+    plt.xlabel(u'd (Å) (inverse-square scale)')
+    plt.ylabel(u'Intensity (counts)')
+    plt.xticks([1 / d ** 2 for d in d_ticks], ['%g' % d for d in d_ticks])
+    plt.semilogy()
+    plt.plot(d_star_sq, intensity, 'b.')
+    plt.plot(d_star_sq,
+             scaled_debye_waller(d_star_sq, *wilson_fit),
+             'r-')
+    plt.savefig('wilson_%s' % self.params.lower_bound_estimate.data)
+
     # Print a recommendation to the user.
-    info(u'Fitted isotropic displacement parameter, B = %.3gÅ²'
+    info('\nFitted isotropic displacement parameter, B = %.3g Angstrom^2'
          % wilson_fit[0])
-    if recommended_factor <= 1:
-      info('It is likely that you can achieve the desired resolution '
-           u'of %gÅ using a lower flux.' % self.desired_d)
-    else:
-      info('It is likely that you need a higher flux to achieve the desired '
-           u'resolution of %gÅ.' % self.desired_d)
-    info('The estimated minimal sufficient flux is %.3g times '
-         'the flux used for this data collection.' % recommended_factor)
+    for target, recommendation in zip(desired_d, recommended_factor):
+      if recommendation <= 1:
+        info('\nIt is likely that you can achieve a resolution of %g '
+             'Angstrom using a lower flux.' % target)
+      else:
+        info('It is likely that you need a higher flux to achieve a '
+             'resolution of %g Angstrom.' % target)
+      info('The estimated minimal sufficient flux is %.3g times the flux '
+           'used for this data collection.' % recommendation)
 
   def _refine(self):
     """
@@ -659,6 +789,44 @@ class I19Screen(object):
     warn("Failed with exit code %d" % result['exitcode'])
     return False
 
+  def _integrate(self):
+    """
+    TODO: Docstring
+    :return:
+    """
+    info('\nIntegrating...')
+    command = ['dials.integrate', 'experiments.json', 'indexed.pickle',
+               'integration.mp.nproc=%s' % self.nproc]
+    result = procrunner.run(command,
+                            print_stdout=False, debug=procrunner_debug)
+    debug("result = %s" % prettyprint_dictionary(result))
+
+    if result['exitcode'] != 0:
+      warn("Failed with exit code %d" % result['exitcode'])
+      return False
+    else:
+      info("Successfully completed (%.1f sec)" % result['runtime'])
+      return True
+
+  def _integrate(self):
+    """
+    TODO: Docstring
+    :return:
+    """
+    info('\nIntegrating...')
+    command = ['dials.integrate', 'experiments.json', 'indexed.pickle',
+               'integration.mp.nproc=%s' % self.nproc]
+    result = procrunner.run(command,
+                            print_stdout=False, debug=procrunner_debug)
+    debug("result = %s" % prettyprint_dictionary(result))
+
+    if result['exitcode'] != 0:
+      warn("Failed with exit code %d" % result['exitcode'])
+      return False
+    else:
+      info("Successfully completed (%.1f sec)" % result['runtime'])
+      return True
+
   def _refine_bravais(self):
     """
     TODO: Docstring
@@ -705,22 +873,40 @@ class I19Screen(object):
       warn("Failed with exit code %d" % result['exitcode'])
       sys.exit(1)
 
-  def run(self, args):
+  def run(self, args=None, phil=phil_scope):
     """
     TODO: Docstring
     :param args:
+    :param phil:
     :return:
     """
-    from dials.util.version import dials_version
+    import libtbx.load_env
     from i19.util.version import i19_version
+    from dials.util.version import dials_version
 
-    version_information = "%s using %s (%s)" % (i19_version(), dials_version(),
-                                                time.strftime(
-                                                    "%Y-%m-%d %H:%M:%S"))
+    usage = "%s [options] image_directory | image_files.cbf | " \
+            "datablock.json" % libtbx.env.dispatcher_name
+
+    parser = OptionParser(
+      usage=usage,
+      epilog=help_message,
+      phil=phil,
+      check_format=False)
+
+    self.params, options, unhandled = parser.parse_args(
+      args=args,
+      show_diff_phil=True,
+      return_unhandled=True,
+      quick_parse=True)
+
+    version_information = "%s using %s (%s)" % (
+      i19_version(),
+      dials_version(),
+      time.strftime("%Y-%m-%d %H:%M:%S"))
 
     start = timeit.default_timer()
 
-    if len(args) == 0:
+    if len(unhandled) == 0:
       print(help_message)
       print(version_information)
       return
@@ -730,35 +916,25 @@ class I19Screen(object):
     log.config(info='i19.screen.log', debug='i19.screen.debug.log')
 
     info(version_information)
-    debug('Run with %s' % str(args))
+    debug('Run with:')
+    debug('%s\n%s' % (' '.join(unhandled), parser.diff_phil.as_str()))
 
-    # FIXME use proper optionparser here. This works for now
-    nproc = None
-    if len(args) >= 1 and args[0].startswith('nproc='):
-      nproc = args[0][6:]
-      args = args[1:]
-    self._count_processors(nproc=nproc)
+    # If no target resolution is given, use the following defaults:
+    if not self.params.lower_bound_estimate.desired_d:
+      self.params.lower_bound_estimate.desired_d = [
+        1,     # Å
+        0.84,  # Å (IUCr publication requirement)
+        0.6,   # Å
+        0.4,   # Å
+      ]
+
+    self._count_processors(nproc=self.params.nproc)
     debug('Using %s processors' % self.nproc)
 
-    # Default parameters for Wilson fit
-    self.min_i_over_sigma = 2
-    self.desired_d = .84  # Å  Cut-off resolution for IUCr publication.
-    # Find any user-specified parameters for Wilson fit.
-    params = []
-    for i, arg in enumerate(args):
-      if arg.startswith('min_i_over_sigma='):
-        self.min_i_over_sigma = float(arg.split('min_i_over_sigma=')[1])
-        params.append(i)
-      elif arg.startswith('desired_d='):
-        self.desired_d = float(arg.split('desired_d=')[1])
-        params.append(i)
-    for i in sorted(params, reverse=True):
-      del args[i]
-
-    if len(args) == 1 and args[0].endswith('.json'):
-      self.json_file = args[0]
+    if len(unhandled) == 1 and unhandled[0].endswith('.json'):
+      self.json_file = unhandled[0]
     else:
-      self._import(args)
+      self._import(unhandled)
       self.json_file = 'datablock.json'
 
     n_images = self._count_images()
@@ -785,8 +961,6 @@ or, to only include stronger spots:
 """)
         sys.exit(1)
 
-    self._wilson_calculation()
-
     if not fast_mode and not self._create_profile_model():
       info("\nRefining model to attempt to increase number of valid spots...")
       self._refine()
@@ -799,9 +973,15 @@ look at the reciprocal space by running:
   dials.reciprocal_lattice_viewer experiments.json indexed.pickle
 """)
         sys.exit(1)
+
     if not fast_mode:
       self._report()
       self._check_intensities()
+
+    if self.params.lower_bound_estimate.data == 'integrated':
+      self._integrate()
+    self._wilson_calculation()
+
     self._refine_bravais()
 
     i19screen_runtime = timeit.default_timer() - start
@@ -811,4 +991,4 @@ look at the reciprocal space by running:
 
 
 if __name__ == '__main__':
-  I19Screen().run(sys.argv[1:])
+  I19Screen().run()

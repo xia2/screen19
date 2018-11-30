@@ -50,6 +50,9 @@ coverage.xml
 *.mo
 *.pot
 
+# Pytest stuff
+.pytest_cache/
+
 # Django stuff:
 *.log
 
