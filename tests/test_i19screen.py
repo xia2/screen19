@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+from os.path import join
 import mock
 import pytest
 from i19.command_line.screen import I19Screen
@@ -16,6 +17,16 @@ def test_i19screen(regression_data, run_in_tmpdir):
 
   assert 'i19.screen successfully completed' in logfile
   assert 'photon incidence rate is outside the linear response region' in logfile
+
+def test_i19screen_single_frame(regression_data, run_in_tmpdir):
+  data_dir = regression_data('X4_wide').strpath
+  image = join(data_dir, 'X4_wide_M1S4_2_0001.cbf')
+
+  I19Screen().run([image])
+
+  logfile = run_in_tmpdir.join('i19.screen.log').read()
+
+  assert 'i19.screen successfully completed' in logfile
 
 @mock.patch('i19.command_line.screen.procrunner')
 def test_i19screen_calls(procrunner, run_in_tmpdir):
