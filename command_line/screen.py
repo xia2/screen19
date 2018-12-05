@@ -591,7 +591,8 @@ class I19Screen(object):
     ma.set_observation_type_xray_intensity()
     ma.setup_binner_counting_sorted(n_bins=n_bins)
     wilson = ma.wilson_plot(use_binning=True)
-    bins = dict(zip(wilson.binner.bin_centers(1), wilson.data[1:-1]))
+    binned_intensity = [x if x else 0 for x in wilson.data[1:-1]]
+    bins = dict(zip(wilson.binner.bin_centers(1), binned_intensity))
     d_ticks = [5, 3, 2, 1.5, 1, .9, .8, .7, .6, .5]
     tick_positions = ', '.join(['"%g" %s' % (d, 1/d**2) for d in d_ticks])
     tick_positions = tick_positions.join(['(', ')'])
