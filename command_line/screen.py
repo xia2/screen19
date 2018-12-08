@@ -604,14 +604,14 @@ class I19Screen(object):
                            style='with lines')
 
     # Print a recommendation to the user.
-    info(u'Fitted isotropic displacement parameter, B = %.3gÅ²'
+    info('Fitted isotropic displacement parameter, B = %.3g Angstrom^2'
          % wilson_fit[0])
     if recommended_factor <= 1:
       info('It is likely that you can achieve the desired resolution '
-           u'of %gÅ using a lower flux.' % self.desired_d)
+           'of %g Angstrom using a lower flux.' % self.desired_d)
     else:
       info('It is likely that you need a higher flux to achieve the desired '
-           u'resolution of %gÅ.' % self.desired_d)
+           'resolution of %g Angstrom.' % self.desired_d)
     info('The estimated minimal sufficient flux is %.3g times '
          'the flux used for this data collection.' % recommended_factor)
 
