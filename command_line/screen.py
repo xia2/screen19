@@ -738,7 +738,7 @@ class I19Screen(object):
         info('\nIt is likely that you can achieve a resolution of %g '
              'Angstrom using a lower flux.' % target)
       else:
-        info('It is likely that you need a higher flux to achieve a '
+        info('\nIt is likely that you need a higher flux to achieve a '
              'resolution of %g Angstrom.' % target)
       info('The estimated minimal sufficient flux is %.3g times the flux '
            'used for this data collection.' % recommendation)
