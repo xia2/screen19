@@ -15,11 +15,16 @@ upper- and lower-bound estimate of suitable flux.
   * The lower-bound estimate is based on a linear fit of isotropic disorder
   parameter, B, to a Wilson plot of reflection intensities.  From this,
   an estimate is made of the minimum flux required to achieve a target I/σ
-  ratio (by default, target I/σ = 2) at a desired resolution, d,
-  (by default, desired d = 0.84 Å).
+  ratio (by default, target I/σ = 2) at one or more values of desired
+  resolution, d, (by default, desired d = 1 Å, 0.84 Å, 0.6 Å & 0.4 Å).
 
 Target I/σ and target d (in Ångström) can be set using the parameters
-min_i_over_sigma and desired_d.
+'min_i_over_sigma' and 'desired_d'.  One can set multiple values of the latter.
+
+By default, for speed, the disorder parameter fit is conducted on the
+indexed data (i.e. only the strong spots).  This may not provide a good
+estimate in some cases.  If you suspect the fit is poor, try using the
+integrated data instead, using 'lower_bound_estimate.data=integrated'
 
 Examples:
 
@@ -32,6 +37,8 @@ Examples:
   i19.screen /path/to/data/image0001.cbf:1:100
 
   i19.screen min_i_over_sigma=2 desired_d=0.84 <datablock.json | image_files>
+
+  i19.screen lower_bound_estimate.data=integrated <image_files>
 
 """
 
@@ -956,8 +963,8 @@ look at the reciprocal space by running:
         sys.exit(1)
 
     if not fast_mode:
-      self._report()
       self._check_intensities()
+      self._report()
 
     if self.params.lower_bound_estimate.data == 'integrated':
       self._integrate()
