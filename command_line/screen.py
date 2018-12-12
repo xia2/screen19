@@ -77,7 +77,7 @@ nproc = None
 lower_bound_estimate
   .caption = 'Parameters for the calculation of the lower flux bound'
   {
-  data = *indexed integrated
+  data = indexed *integrated
     .type = choice
     .caption = 'Choice of data for the displacement parameter fit'
     .help = 'For the lower-bound flux estimate, choose whther to use ' \
