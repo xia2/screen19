@@ -80,7 +80,7 @@ lower_bound_estimate
   data = indexed *integrated
     .type = choice
     .caption = 'Choice of data for the displacement parameter fit'
-    .help = 'For the lower-bound flux estimate, choose whther to use ' \
+    .help = 'For the lower-bound flux estimate, choose whether to use ' \
             'indexed (quicker) or integrated (better) data in fitting ' \
             'the isotropic displacement parameter.'
   desired_d = None
