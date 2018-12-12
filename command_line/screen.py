@@ -808,25 +808,6 @@ class I19Screen(object):
       info("Successfully completed (%.1f sec)" % result['runtime'])
       return True
 
-  def _integrate(self):
-    """
-    TODO: Docstring
-    :return:
-    """
-    info('\nIntegrating...')
-    command = ['dials.integrate', 'experiments.json', 'indexed.pickle',
-               'integration.mp.nproc=%s' % self.nproc]
-    result = procrunner.run(command,
-                            print_stdout=False, debug=procrunner_debug)
-    debug("result = %s" % prettyprint_dictionary(result))
-
-    if result['exitcode'] != 0:
-      warn("Failed with exit code %d" % result['exitcode'])
-      return False
-    else:
-      info("Successfully completed (%.1f sec)" % result['runtime'])
-      return True
-
   def _refine_bravais(self):
     """
     TODO: Docstring
