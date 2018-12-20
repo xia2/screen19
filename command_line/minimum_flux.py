@@ -143,7 +143,7 @@ def wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d):
 def wilson_plot_ascii(crystal_symmetry, indices, intensity, sigma, d_ticks=None):
     """
     TODO: Docstring
-    
+
     :param crystal_symmetry:
     :param indices:
     :param intensity:

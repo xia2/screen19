@@ -22,9 +22,10 @@ Target I/σ and target d (in Ångström) can be set using the parameters
 'min_i_over_sigma' and 'desired_d'.  One can set multiple values of the latter.
 
 By default, for speed, the disorder parameter fit is conducted on the
-indexed data (i.e. only the strong spots).  This may not provide a good
-estimate in some cases.  If you suspect the fit is poor, try using the
-integrated data instead, using 'lower_bound_estimate.data=integrated'
+integrated data.  This ought to provide a reasonably true fit, but requires
+an integration step, which can take some time.  You can achieve a quicker,
+dirtier answer by fitting to the indexed data (i.e. only the stronger
+spots), using'i19_minimum_flux.data=indexed'
 
 Examples:
 
@@ -38,7 +39,7 @@ Examples:
 
   i19.screen min_i_over_sigma=2 desired_d=0.84 <datablock.json | image_files>
 
-  i19.screen lower_bound_estimate.data=integrated <image_files>
+  i19.screen i19_minimum_flux.data=indexed <image_files>
 
 """
 
@@ -59,105 +60,112 @@ import traceback
 
 import procrunner
 import iotbx.phil
-from libtbx import easy_pickle
+from libtbx import easy_pickle, Auto
 from dxtbx.model.experiment_list import ExperimentListFactory
 from dials.util.options import OptionParser
+from i19.command_line import prettyprint_dictionary, make_template, plot_intensities
 
 
 help_message = __doc__
 
 phil_scope = iotbx.phil.parse(
-    """
-nproc = None
+    '''
+verbosity = 1
+  .type = int(value_min=0)
+  .caption = 'The verbosity level of the command-line output'
+  .help = """
+Possible values:
+    * 0: Suppress all command-line output;
+    * 1: Show regular output on the command line;
+    * 2: Show regular output, plus detailed debugging messages.
+"""
+
+output
+  .caption = 'Options to control the output files'
+  {
+  log = 'i19.screen.log'
+  .type = str
+  .caption = "The log filename"
+  .help = 'If False, no info log will be created.'
+
+  debug_log = 'i19.screen.debug.log'
+  .type = str
+  .caption = "The debug log filename"
+  .help = 'If False, no debug log will be created.'
+  }
+
+nproc = Auto
   .type = int
   .caption = 'Number of processors to use'
   .help = 'The chosen value will apply to all the DIALS utilities with a ' \
-          "multi-processing option.  If 'None' is given, all available " \
+          'multi-processing option.  If 'False' or 'Auto', all available ' \
           'processors will be used.'
 
-lower_bound_estimate
-    .caption = 'Parameters for the calculation of the lower flux bound'
-    {
-    data = indexed *integrated
-        .type = choice
-        .caption = 'Choice of data for the displacement parameter fit'
-        .help = 'For the lower-bound flux estimate, choose whether to use ' \
-                'indexed (quicker) or integrated (better) data in fitting ' \
-                'the isotropic displacement parameter.'
-    desired_d = None
-        .multiple = True
-        .type = float
-        .caption = u'Desired resolution limit, in Ångströms, of diffraction ' \
-                   u'data'
-        .help = 'This is the resolution target for the lower-bound flux ' \
-                'recommendation.'
-    min_i_over_sigma = 2
-        .type = float
-        .caption = u'Target I/σ value for lower-bound flux recommendation'
-        .help = u'The lower-bound flux recommendation provides an estimate ' \
-                u'of the flux required to ensure that the majority of' \
-                u'expected reflections at the desired resolution limit have ' \
-                u'I/σ greater than or equal to this value.'
-    wilson_fit_max_d = 4  # Å
-        .type = float
-        .caption = u'Maximum d-value (in Ångströms) for displacement ' \
-                   u'parameter fit'
-        .help = 'Reflections with lower resolution than this value will be ' \
-                'ignored for the purposes of the Wilson plot.'
-    }
+i19_minimum_flux
+  .caption = 'Options for i19.minimum_flux'
+  {
+  include scope i19.command_line.minimum_flux.phil_scope
+  data = indexed *integrated
+    .type = choice
+    .caption = 'Choice of data for the displacement parameter fit'
+    .help = 'For the lower-bound flux estimate, choose whether to use ' \
+            'indexed (quicker) or integrated (better) data in fitting ' \
+            'the isotropic displacement parameter.'
+  }
 
-!dials_import
+dials_import
   .caption = 'Options for dials.import'
   {
   include scope dials.command_line.dials_import.phil_scope
   }
 
-!dials_find_spots
+dials_find_spots
   .caption = 'Options for dials.find_spots'
   {
   include scope dials.command_line.find_spots.phil_scope
   }
 
-!dials_index
+dials_index
   .caption = 'Options for dials.index'
   {
   include scope dials.command_line.index.phil_scope
   }
 
-!dials_refine
+dials_refine
   .caption = 'Options for dials.refine'
   {
   include scope dials.command_line.refine.phil_scope
   }
 
-!dials_refine_bravais
+dials_refine_bravais
   .caption = 'Options for dials.refine_bravais_settings'
   {
   include scope dials.command_line.refine_bravais_settings.phil_scope
   }
 
-!dials_create_profile
+dials_create_profile
   .caption = 'Options for dials.create_profile_model'
   {
   include scope dials.command_line.create_profile_model.phil_scope
   }
 
-!dials_integrate
+dials_integrate
   .caption = 'Options for dials.integrate'
   {
   include scope dials.command_line.integrate.phil_scope
   }
 
-!dials_report
+dials_report
   .caption = 'Options for dials.report'
   {
   include scope dials.command_line.report.phil_scope
   }
-""",
+''',
     process_includes=True,
 )
 
 procrunner_debug = False
+
 logger = logging.getLogger("dials.i19.screen")
 debug, info, warn = logger.debug, logger.info, logger.warn
 
@@ -186,54 +194,6 @@ def terminal_size():
     rows = min(rows, int(columns / 3))
 
     return columns, rows
-
-
-def prettyprint_dictionary(d):
-    """
-    Produce a nice string representation of a dictionary, for printing.
-
-    :param d: Dictionary to be printed.
-    :type d: Dict[Optional[Any]]
-    :return: String representation of :param d:.
-    :rtype: str
-    """
-    return "{\n%s\n}" % "\n".join(
-        [
-            "  %s: %s" % (k, str(v).replace("\n", "\n%s" % (" " * (4 + len(k)))))
-            for k, v in d.items()
-        ]
-    )
-
-
-def make_template(f):
-    """
-    Generate a xia2-style filename template.
-
-    From a given filename, generate a template filename by substituting a hash
-    character (#) for each numeral in the last contiguous group of numerals
-    before the file extension.
-    For example, the filename example_01_0001.cbf becomes example_01_####.cbf.
-
-    :param f: Filename, with extension.
-    :type f: str
-    :return: Filename template, with extension.
-    :rtype: str
-    """
-    # Split the file from its path
-    directory, f = os.path.split(f)
-    # Split off the file extension, assuming it begins at the first full stop,
-    # also split the last contiguous group of digits off the filename root
-    parts = re.split("([0-9]+)(?=\.\w)", f, 1)
-    # Get the number of digits in the group we just isolated and their value
-    try:
-        # Combine the root, a hash for each digit and the extension
-        length = len(parts[1])
-        template = parts[0] + "#" * length + parts[2]
-        image = int(parts[1])
-    except IndexError:
-        template = parts[0]
-        image = None
-    return os.path.join(directory, template), image
 
 
 class I19Screen(object):
@@ -275,8 +235,7 @@ class I19Screen(object):
         :param templates:
         :return:
         """
-        debug("Quick import template summary:")
-        debug(templates)
+        debug("Quick import template summary:\n\t%s", templates)
         if len(templates) > 1:
             debug("Cannot currently run quick import on multiple templates")
             return False
@@ -287,7 +246,7 @@ class I19Screen(object):
                 raise IndexError
         except IndexError:
             debug(
-                "Cannot run quick import: could not determine image naming " "template"
+                "Cannot run quick import: could not determine image naming template"
             )
             return False
 
@@ -347,31 +306,26 @@ class I19Screen(object):
         :param parameters:
         :return:
         """
-        command = ["dials.import"] + parameters
-        # + ['allow_multiple_sweeps=true']
-        debug("running %s" % " ".join(command))
+        from dials.command_line.dials_import import Script as ImportScript
 
-        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s" % prettyprint_dictionary(result))
-
-        if result["exitcode"] == 0:
-            if os.path.isfile("datablock.json"):
-                info("Successfully completed (%.1f sec)" % result["runtime"])
-            else:
-                warn(
-                    "Could not import images. Do the specified images exist "
-                    "at that location?"
-                )
+        # Get the dials.import master scope
+        dials_import_master = iotbx.phil.parse(
+            "include scope dials.command_line.dials_import.phil_scope",
+            process_includes=True,
+        )
+        # Combine this with the working scope from the command-line input,
+        # having preference for the working scope where they differ
+        import_scope = dials_import_master.format(self.params.dials_import)
+        # Set up the dials.import script with these phil parameters
+        import_script = ImportScript(phil=import_scope)
+        # Run the script, suppressing stdout.
+        # TODO parameters += ['allow_multiple_sweeps=True']
+        try:
+            import_script.run(parameters)
+        except SystemExit as e:
+            if e.code:
+                warn("dials.import failed with exit code %d", e.code)
                 sys.exit(1)
-        else:
-            if "More than 1 sweep was found." in result["stderr"]:
-                warn(
-                    "The data contain multiple sweeps. i19.screen can only "
-                    "run on a single sweep of data."
-                )
-                sys.exit(1)
-            warn("Failed with exit code %d" % result["exitcode"])
-            sys.exit(1)
 
     def _count_processors(self, nproc=None):
         """
@@ -379,12 +333,11 @@ class I19Screen(object):
 
         The user may specify the number of processors to use.  If no value is
         given, the number of available processors is returned.
-        TODO: Once we're using the proper option parser, this becomes redundant?
 
         :param nproc: User-specified number of processors to use.
         :type nproc: int
         """
-        if nproc is not None:
+        if nproc and nproc is not Auto:
             self.nproc = nproc
             return
 
@@ -401,9 +354,8 @@ class I19Screen(object):
 
         if self.nproc <= 0:
             warn(
-                "Could not determine number of available processors. "
-                "Error code %d"
-                "" % self.nproc
+                "Could not determine number of available processors. Error code %d",
+                self.nproc,
             )
             sys.exit(1)
 
@@ -433,13 +385,13 @@ class I19Screen(object):
         """
         info("\nTesting pixel intensities...")
         command = ["xia2.overload", "nproc=%s" % self.nproc, self.json_file]
-        debug("running %s" % command)
+        debug("running %s", command)
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s" % prettyprint_dictionary(result))
-        info("Successfully completed (%.1f sec)" % result["runtime"])
+        debug("result = %s", prettyprint_dictionary(result))
+        info("Successfully completed (%.1f sec)", result["runtime"])
 
         if result["exitcode"] != 0:
-            warn("Failed with exit code %d" % result["exitcode"])
+            warn("Failed with exit code %d", result["exitcode"])
             sys.exit(1)
 
         with open("overload.json") as fh:
@@ -468,10 +420,10 @@ class I19Screen(object):
                     * math.erf(self._oscillation / (2 * self._sigma_m))
                 )
                 average_to_peak = M / self._oscillation
-                info("Average-to-peak intensity ratio: %f" % average_to_peak)
+                info("Average-to-peak intensity ratio: %f", average_to_peak)
 
         scale = 100 * overload_data["scale_factor"] / average_to_peak
-        info("Determined scale factor for intensities as %f" % scale)
+        info("Determined scale factor for intensities as %f", scale)
 
         debug(
             "intensity histogram: { %s }",
@@ -500,7 +452,7 @@ class I19Screen(object):
             ),
         )
 
-        self._plot_intensities(hist, 1 / hist_granularity)
+        plot_intensities(hist, 1 / hist_granularity, procrunner_debug=procrunner_debug)
 
         text = "".join(
             (
@@ -510,367 +462,228 @@ class I19Screen(object):
             )
         )
         if hist_max > 100:
-            warn("Warning: %s!" % text)
+            warn("Warning: %s!", text)
         else:
             info(text)
         if (
             "overload_limit" in overload_data
             and max_count >= overload_data["overload_limit"]
         ):
-            warn("Warning: THE DATA CONTAIN REGULAR OVERLOADS!")
             warn(
+                "Warning: THE DATA CONTAIN REGULAR OVERLOADS!\n"
                 "         The photon incidence rate is outside the specified "
-                "limits of the detector."
-            )
-            warn(
+                "limits of the detector.\n"
                 "         The built-in detector count rate correction cannot "
-                "adjust for this."
-            )
-            warn(
+                "adjust for this.\n"
                 "         You should aim for count rates below 25% of the "
                 "detector limit."
             )
         elif hist_max > 70:
             warn(
                 "Warning: The photon incidence rate is well outside the "
-                "linear response region of the detector (<25%)."
-            )
-            warn(
+                "linear response region of the detector (<25%).\n"
                 "    The built-in detector count rate correction may not be "
                 "able to adjust for this."
             )
         elif hist_max > 25:
             info(
                 "The photon incidence rate is outside the linear response "
-                "region of the detector (<25%)."
-            )
-            info(
+                "region of the detector (<25%).\n"
                 "The built-in detector count rate correction should be able "
                 "to adjust for this."
             )
         if not mosaicity_correction:
-            warn("Warning: Not enough data for proper profile estimation.")
-            warn("    The spot intensities are not corrected for mosaicity.")
             warn(
+                "Warning: Not enough data for proper profile estimation."
+                "    The spot intensities are not corrected for mosaicity.\n"
                 "    The true photon incidence rate will be higher than the "
                 "given estimate."
             )
 
-        info("Total sum of counts in dataset: %d" % count_sum)
+        info("Total sum of counts in dataset: %d", count_sum)
 
-    @staticmethod
-    def _plot_intensities(
-        bins,
-        hist_value_factor,
-        title="'Spot intensity distribution'",
-        xlabel="'% of maximum'",
-        ylabel="'Number of observed pixels'",
-        xticks="",
-        style="with boxes",
-    ):
-        """
-        TODO: Docstring
-        :param bins:
-        :param hist_value_factor:
-        :param title:
-        :param xlabel:
-        :param ylabel:
-        :param xticks:
-        :param style:
-        :return:
-        """
-        columns, rows = terminal_size()
-
-        command = ["gnuplot"]
-        plot_commands = [
-            "set term dumb %d %d" % (columns, rows - 2),
-            "set title %s" % title,
-            "set xlabel %s" % xlabel,
-            "set ylabel %s" % ylabel,
-            "set logscale y",
-            "set boxwidth %f" % hist_value_factor,
-            "set xtics %s out nomirror" % xticks,
-            "set ytics out",
-            "plot '-' using 1:2 title '' %s" % style,
-        ]
-        for x in sorted(bins.keys()):
-            plot_commands.append("%f %d" % (x * hist_value_factor, bins[x]))
-        plot_commands.append("e")
-
-        debug(
-            "running %s with:\n  %s\n" % (" ".join(command), "\n  ".join(plot_commands))
-        )
-
-        try:
-            result = procrunner.run(
-                command,
-                stdin="\n".join(plot_commands) + "\n",
-                timeout=120,
-                print_stdout=False,
-                print_stderr=False,
-                debug=procrunner_debug,
-            )
-        except OSError:
-            info(traceback.format_exc())
-
-        debug("result = %s" % prettyprint_dictionary(result))
-
-        if result["exitcode"] == 0:
-            star = re.compile(r"\*")
-            state = set()
-            for l in result["stdout"].split("\n"):
-                if l.strip() != "":
-                    stars = {m.start(0) for m in re.finditer(star, l)}
-                    if not stars:
-                        state = set()
-                    else:
-                        state |= stars
-                        l = list(l)
-                        for s in state:
-                            l[s] = "*"
-                    info("".join(l))
-        else:
-            warn(
-                "Error running gnuplot. Cannot plot intensity distribution. "
-                "Exit code %d" % result["exitcode"]
-            )
-
-    def _find_spots(self, additional_parameters=None):
+    def _find_spots(self, args=None):
         """
         TODO: Docstring
         :param additional_parameters:
+        :type additional_parameters: List[str]
         :return:
         """
-        if additional_parameters is None:
-            additional_parameters = []
-        info("\nSpot finding...")
-        command = [
-            "dials.find_spots",
-            self.json_file,
-            "nproc=%s" % self.nproc,
-        ] + additional_parameters
-        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s" % prettyprint_dictionary(result))
-        if result["exitcode"] != 0:
-            warn("Failed with exit code %d" % result["exitcode"])
-            sys.exit(1)
-        info(60 * "-")
+        info("\nFinding spots...")
+
+        dials_start = timeit.default_timer()
+
+        if not args:
+            args = []
+
+        from dials.command_line.find_spots import Script as SpotFinderScript
+
+        # Set the input file
+        args = [self.json_file] + args
+        # Get the dials.find_spots master scope
+        find_spots_master = iotbx.phil.parse(
+            "include scope dials.command_line.find_spots.phil_scope",
+            process_includes=True,
+        )
+        # Combine this with the working scope from the command-line input,
+        # having preference for the working scope where they differ
+        find_spots_scope = find_spots_master.format(self.params.dials_find_spots)
+        # Set up the dials.find_spots script with these phil parameters
+        finder_script = SpotFinderScript(phil=find_spots_scope)
+        # Run the script
+        try:
+            if self.params.dials_find_spots.output.datablock:
+                expts, refls = finder_script.run(args)
+            else:
+                refls = finder_script.run(args)
+        except SystemExit as e:
+            if e.code:
+                warn("dials.find_spots failed with exit code %d", e.code)
+                sys.exit(1)
+
         from dials.util.ascii_art import spot_counts_per_image_plot
 
-        refl = easy_pickle.load("strong.pickle")
-        info(spot_counts_per_image_plot(refl))
-        info(60 * "-")
-        info("Successfully completed (%.1f sec)" % result["runtime"])
+        info(
+            60 * "-" + "\n%s\n" + 60 * "-" + "\nSuccessfully completed (%.1f sec)",
+            spot_counts_per_image_plot(refls),
+            timeit.default_timer() - dials_start,
+        )
 
     def _index(self):
         """
         TODO: Docstring
         :return:
         """
-        base_command = [
-            "dials.index",
-            self.json_file,
-            "strong.pickle",
-            "indexing.nproc=%s" % self.nproc,
+        dials_start = timeit.default_timer()
+
+        from dials.command_line import index
+
+        # Set the input files
+        basic_args = [
+            self.params.dials_import.output.datablock,
+            self.params.dials_find_spots.output.reflections,
         ]
+
+        # Get the dials.index master scope
+        index_master = iotbx.phil.parse(
+            "include scope dials.command_line.index.phil_scope", process_includes=True
+        )
+        # Combine this with the working scope from the command-line input,
+        # having preference for the working scope where they differ
+        index_scope = index_master.format(self.params.dials_index)
+
         runlist = [
-            ("Indexing...", base_command),
-            ("Retrying with max_cell constraint", base_command + ["max_cell=20"]),
-            ("Retrying with 1D FFT", base_command + ["indexing.method=fft1d"]),
+            ("Indexing", []),
+            ("Retrying with max_cell constraint", ["max_cell=20"]),
+            ("Retrying with 1D FFT", ["indexing.method=fft1d"]),
         ]
 
-        for message, command in runlist:
-            info("\n%s..." % message)
-
-            result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-            debug("result = %s" % prettyprint_dictionary(result))
-            if result["exitcode"] != 0:
-                warn("Failed with exit code %d" % result["exitcode"])
-            else:
-                break
-
-        if result["exitcode"] != 0:
+        for message, args in runlist:
+            info("\n%s...", message)
+            try:
+                # Run indexing and get the indexer object
+                expts, refls = index.run(phil=index_scope, args=basic_args + args)
+                sys.exit(0)
+            except SystemExit as e:
+                if e.code == 0:
+                    break
+                else:
+                    warn("Failed with exit code %d", e)
+        if e.code != 0:
             return False
 
-        m = re.search(
-            "model [0-9]+ \(([0-9]+) [^\n]*\n[^\n]*\n[^\n]*"
-            "Unit cell: \(([^\n]*)\)\n[^\n]*Space group: ([^\n]*)\n",
-            result["stdout"],
-        )
+        sg_type = expts[0].crystal.get_crystal_symmetry().space_group().type()
+        symb = sg_type.universal_hermann_mauguin_symbol()
+        unit_cell = expts[0].crystal.get_unit_cell()
+
         info(
-            "Found primitive solution: %s (%s) using %s reflections"
-            % (m.group(3), m.group(2), m.group(1))
+            "Found primitive solution: %s %s using %s reflections\n"
+            "Successfully completed (%.1f sec)",
+            symb,
+            unit_cell,
+            refls["id"].count(0),
+            timeit.default_timer() - dials_start,
         )
-        info("Successfully completed (%.1f sec)" % result["runtime"])
+
         return True
 
-    def _wilson_calculation(self):
-        u"""
-        Perform straight-line Wilson plot fit.  Draw the Wilson plot.
-
-        Reflection d-spacings are determined from the crystal symmetry (from
-        indexing) and the Miller indices of the indexed reflections.  The
-        atomic displacement parameter is assumed isotropic.  Its value is
-        determined from a fit to the reflection data:
-          I = A * exp(-B /(2 * d^2)),
-        where I is the intensity and the scale factor, A, and isotropic
-        displacement parameter, B, are the fitted parameters.
-
-        An I/σ condition for 'good' diffraction statistics is set by the
-        instance variable min_i_over_sigma, and the user's desired
-        resolution is set by the instance variable desired_d.  A crude
-        error model is assumed, whereby σ² = I, and so the I/σ condition
-        translates trivially to a threshold I.
-
-        The value of the fitted intensity function at the desired
-        resolution is compared with the threshold I.  The ratio of these
-        values is used to determine a recommended flux for the full data
-        collection.
-
-        The Wilson plot of I as a function of d is drawn.
+    def _wilson_calculation(self, experiments, reflections):
         """
-        from dials.array_family import flex
-        import numpy as np
-        from scipy.optimize import curve_fit
-        from cctbx import miller
+        TODO: Docstring
 
+        :param experiments:
+        :param reflections:
+        :return:
+        """
+        dials_start = timeit.default_timer()
         info("\nEstimating lower flux bound...")
 
-        # TODO Convert to PHIL parser input
+        from i19.command_line import minimum_flux
 
-        if self.params.lower_bound_estimate.data == "indexed":
-            data = easy_pickle.load("indexed.pickle")
-            flag = data.flags.indexed
-            elist = ExperimentListFactory.from_json_file("experiments.json")
-        elif self.params.lower_bound_estimate.data == "integrated":
-            data = easy_pickle.load("integrated.pickle")
-            flag = data.flags.integrated
-            elist = ExperimentListFactory.from_json_file("integrated_experiments.json")
-        else:
-            warn("Unknown data option for lower-bound flux estimate.")
-            sys.exit(1)
-        data = data.select(data.get_flags(flag))
-        crystal_symmetry = elist[0].crystal.get_crystal_symmetry()
-
-        # Get d-spacings of indexed spots.
-        def d_star_sq(x):
-            return 1 / crystal_symmetry.unit_cell().d(x) ** 2
-
-        d_star_sq = d_star_sq(data["miller_index"])
-        intensity = data["intensity.sum.value"]
-        sigma = flex.sqrt(data["intensity.sum.variance"])
-
-        # Parameters for the lower-bound flux estimate:
-        min_i_over_sigma = self.params.lower_bound_estimate.min_i_over_sigma
-        desired_d = self.params.lower_bound_estimate.desired_d
-        desired_d.sort(reverse=True)
-        wilson_fit_max_d = self.params.lower_bound_estimate.wilson_fit_max_d
-
-        # Fit a simple Debye-Waller factor, assume isotropic disorder parameter
-        def scaled_debye_waller(x, b, a):
-            return a * np.exp(-b / 2 * x)
-
-        sel = d_star_sq > 1 / wilson_fit_max_d ** 2
-        # Using 1/σ weighting has a tendency to fit to the floor.
-        wilson_fit, cov = curve_fit(
-            scaled_debye_waller,
-            d_star_sq.select(sel),
-            intensity.select(sel),
-            sigma=sigma.select(sel),
-            bounds=(0, np.inf),
+        # Get the i19.minimum_flux master scope
+        min_flux_master = iotbx.phil.parse(
+            "include scope i19.command_line.minimum_flux.phil_scope",
+            process_includes=True,
         )
-        # Use the fact that σ² = I for indexed data, so I/σ = √̅I
-        desired_d_star_sq = [1 / d ** 2 for d in desired_d]
-        recommended_factor = [
-            (min_i_over_sigma ** 2 / scaled_debye_waller(target, *wilson_fit))
-            for target in desired_d_star_sq
-        ]
+        # Combine this with the working scope from the command-line input,
+        # having preference for the working scope where they differ
+        min_flux_scope = min_flux_master.format(self.params.i19_minimum_flux)
 
-        # Draw the Wilson plot, using existing functionality in cctbx.miller:
-        columns, rows = terminal_size()
-        n_bins = min(columns, intensity.size())
-        ms = miller.set(
-            crystal_symmetry=crystal_symmetry,
-            anomalous_flag=False,
-            indices=data["miller_index"],
-        )
-        ma = miller.array(ms, data=intensity, sigmas=sigma)
-        ma.set_observation_type_xray_intensity()
-        ma.setup_binner_counting_sorted(n_bins=n_bins)
-        wilson = ma.wilson_plot(use_binning=True)
-        # Get the relevant plot data from the miller_array:
-        binned_intensity = [x if x else 0 for x in wilson.data[1:-1]]
-        bins = dict(zip(wilson.binner.bin_centers(1), binned_intensity))
-        # Set some tick positions manually, accounts for odd d-axis scaling:
-        d_ticks = [5, 3, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5]
-        tick_positions = ", ".join(['"%g" %s' % (d, 1 / d ** 2) for d in d_ticks])
-        tick_positions = tick_positions.join(["(", ")"])
-        # Draw the plot:
-        self._plot_intensities(
-            bins,
-            1,
-            title="'Wilson plot'",
-            xlabel="'d (Angstrom) (inverse-square scale)'",
-            ylabel="'I (counts)'",
-            xticks=tick_positions,
-            style="with lines",
-        )
+        args = [experiments, reflections]
 
-        # TODO:  Remove block below for production:
-        # Plots for debugging:
-        import matplotlib
+        try:
+            # Run i19.minimum_flux
+            minimum_flux.run(phil=min_flux_scope, args=args)
+        except SystemExit as e:
+            if e.code:
+                warn("i19.minimum_flux failed with exit code %d\nGiving up.", e.code)
+                sys.exit(1)
 
-        matplotlib.use("Agg")
-        from matplotlib import pyplot as plt
-
-        plt.xlabel(u"d (Å) (inverse-square scale)")
-        plt.ylabel(u"Intensity (counts)")
-        plt.xticks([1 / d ** 2 for d in d_ticks], ["%g" % d for d in d_ticks])
-        plt.semilogy()
-        plt.plot(d_star_sq, intensity, "b.")
-        plt.plot(d_star_sq, scaled_debye_waller(d_star_sq, *wilson_fit), "r-")
-        plt.savefig("wilson_%s" % self.params.lower_bound_estimate.data)
-
-        # Print a recommendation to the user.
-        info(
-            "\nFitted isotropic displacement parameter, B = %.3g Angstrom^2"
-            % wilson_fit[0]
-        )
-        for target, recommendation in zip(desired_d, recommended_factor):
-            if recommendation <= 1:
-                info(
-                    "\nIt is likely that you can achieve a resolution of %g "
-                    "Angstrom using a lower flux." % target
-                )
-            else:
-                info(
-                    "\nIt is likely that you need a higher flux to achieve a "
-                    "resolution of %g Angstrom." % target
-                )
-            info(
-                "The estimated minimal sufficient flux is %.3g times the "
-                "flux used for this data collection." % recommendation
-            )
+        info("Successfully completed (%.1f sec)", timeit.default_timer() - dials_start)
 
     def _refine(self):
         """
         TODO: Docstring
         :return:
         """
-        info("\nIndexing...")
-        command = ["dials.refine", "experiments.json", "indexed.pickle"]
-        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s" % prettyprint_dictionary(result))
-        if result["exitcode"] != 0:
-            warn("Failed with exit code %d" % result["exitcode"])
-            warn("Giving up.")
-            sys.exit(1)
+        dials_start = timeit.default_timer()
+        info("\nRefining...")
 
-        info("Successfully refined (%.1f sec)" % result["runtime"])
-        os.rename("experiments.json", "experiments.unrefined.json")
-        os.rename("indexed.pickle", "indexed.unrefined.pickle")
-        os.rename("refined_experiments.json", "experiments.json")
-        os.rename("refined.pickle", "indexed.pickle")
+        from dials.command_line.refine import Script
+
+        os.rename(
+            self.params.dials_index.output.experiments, "experiments_unrefined.json"
+        )
+        os.rename(
+            self.params.dials_index.output.reflections, "indexed_unrefined.pickle"
+        )
+        args = ["experiments_unrefined.json", "indexed_unrefined.pickle"]
+        self.params.dials_refine.output.experiments = (
+            self.params.dials_index.output.experiments
+        )
+        self.params.dials_refine.output.reflections = (
+            self.params.dials_index.output.reflections
+        )
+
+        # Get the dials.refine master scope
+        refine_master = iotbx.phil.parse(
+            "include scope dials.command_line.refine.phil_scope", process_includes=True
+        )
+        # Combine this with the working scope from the command-line input,
+        # having preference for the working scope where they differ
+        refine_scope = refine_master.format(self.params.dials_refine)
+        # Set up the dials.refine script
+        refine = Script(phil=refine_scope)
+
+        try:
+            # Run dials.refine
+            refine.run(args)
+        except SystemExit as e:
+            if e.code:
+                warn("dials.refine failed with exit code %d\nGiving up.", e.code)
+                sys.exit(1)
+
+        info("Successfully refined (%.1f sec)", timeit.default_timer() - dials_start)
 
     def _create_profile_model(self):
         """
@@ -880,7 +693,7 @@ class I19Screen(object):
         info("\nCreating profile model...")
         command = ["dials.create_profile_model", "experiments.json", "indexed.pickle"]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s" % prettyprint_dictionary(result))
+        debug("result = %s", prettyprint_dictionary(result))
         self._sigma_m = None
         if result["exitcode"] == 0:
             db = ExperimentListFactory.from_json_file(
@@ -890,12 +703,14 @@ class I19Screen(object):
             self._oscillation = db.imageset.get_scan().get_oscillation()[1]
             self._sigma_m = db.profile.sigma_m()
             info(
-                "%d images, %s deg. oscillation, sigma_m=%.3f"
-                % (self._num_images, str(self._oscillation), self._sigma_m)
+                "%d images, %s deg. oscillation, sigma_m=%.3f",
+                self._num_images,
+                str(self._oscillation),
+                self._sigma_m,
             )
-            info("Successfully completed (%.1f sec)" % result["runtime"])
+            info("Successfully completed (%.1f sec)", result["runtime"])
             return True
-        warn("Failed with exit code %d" % result["exitcode"])
+        warn("Failed with exit code %d", result["exitcode"])
         return False
 
     def _integrate(self):
@@ -903,22 +718,39 @@ class I19Screen(object):
         TODO: Docstring
         :return:
         """
+        dials_start = timeit.default_timer()
         info("\nIntegrating...")
-        command = [
-            "dials.integrate",
-            "experiments.json",
-            "indexed.pickle",
-            "integration.mp.nproc=%s" % self.nproc,
-        ]
-        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s" % prettyprint_dictionary(result))
 
-        if result["exitcode"] != 0:
-            warn("Failed with exit code %d" % result["exitcode"])
-            return False
-        else:
-            info("Successfully completed (%.1f sec)" % result["runtime"])
-            return True
+        from dials.command_line.integrate import Script
+
+        args = [
+            self.params.dials_index.output.experiments,
+            self.params.dials_index.output.reflections,
+        ]
+
+        # Get the dials.integrate master scope
+        integrate_master = iotbx.phil.parse(
+            "include scope dials.command_line.integrate.phil_scope",
+            process_includes=True,
+        )
+        # Combine this with the working scope from the command-line input,
+        # having preference for the working scope where they differ
+        integrate_scope = integrate_master.format(self.params.dials_integrate)
+        # Set up the dials.integrate script
+        integrate = Script(phil=integrate_scope)
+
+        try:
+            # Run dials.refine
+            integrate.run(args)
+        except SystemExit as e:
+            if e.code:
+                warn("dials.refine failed with exit code %d\nGiving up.", e.code)
+                sys.exit(1)
+            else:
+                info(
+                    "Successfully completed (%.1f sec)",
+                    timeit.default_timer() - dials_start,
+                )
 
     def _refine_bravais(self):
         """
@@ -932,13 +764,13 @@ class I19Screen(object):
             "indexed.pickle",
         ]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s" % prettyprint_dictionary(result))
+        debug("result = %s", prettyprint_dictionary(result))
         if result["exitcode"] == 0:
             m = re.search("---+\n[^\n]*\n---+\n(.*\n)*---+", result["stdout"])
             info(m.group(0))
-            info("Successfully completed (%.1f sec)" % result["runtime"])
+            info("Successfully completed (%.1f sec)", result["runtime"])
         else:
-            warn("Failed with exit code %d" % result["exitcode"])
+            warn("Failed with exit code %d", result["exitcode"])
             sys.exit(1)
 
     def _report(self):
@@ -953,9 +785,9 @@ class I19Screen(object):
             "indexed.pickle",
         ]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s" % prettyprint_dictionary(result))
+        debug("result = %s", prettyprint_dictionary(result))
         if result["exitcode"] == 0:
-            info("Successfully completed (%.1f sec)" % result["runtime"])
+            info("Successfully completed (%.1f sec)", result["runtime"])
         #     if sys.stdout.isatty():
         #       info("Trying to start browser")
         #       try:
@@ -964,10 +796,9 @@ class I19Screen(object):
         #         d["LD_LIBRARY_PATH"] = ""
         #         subprocess.Popen(["xdg-open", "dials-report.html"], env=d)
         #       except Exception as e:
-        #         debug("Could not open browser")
-        #         debug(str(e))
+        #         debug("Could not open browser\n%s", str(e))
         else:
-            warn("Failed with exit code %d" % result["exitcode"])
+            warn("Failed with exit code %d", result["exitcode"])
             sys.exit(1)
 
     def run(self, args=None, phil=phil_scope):
@@ -1007,37 +838,48 @@ class I19Screen(object):
             print(version_information)
             return
 
-        # Configure the logging
-        from dials.util import log
+        if __name__ == "__main__":
+            from dials.util import log
 
-        log.config(info="i19.screen.log", debug="i19.screen.debug.log")
+            # Configure the logging
+            log.config(
+                self.params.verbosity,
+                info=self.params.output.log,
+                debug=self.params.output.debug_log,
+            )
+            # Filter the handlers for the info log file and stdout,
+            # such that no child log records from DIALS scripts end up
+            # there.  Retain child log records in the debug log file.
+            for handler in logging.getLogger("dials").handlers:
+                if handler.name in ("stream", "file_info"):
+                    handler.addFilter(logging.Filter("dials.i19"))
 
         info(version_information)
-        debug("Run with:")
-        debug("%s\n%s" % (" ".join(unhandled), parser.diff_phil.as_str()))
-
-        # If no target resolution is given, use the following defaults:
-        if not self.params.lower_bound_estimate.desired_d:
-            self.params.lower_bound_estimate.desired_d = [
-                1,  # Å
-                0.84,  # Å (IUCr publication requirement)
-                0.6,  # Å
-                0.4,  # Å
-            ]
+        debug("Run with:\n%s\n%s", " ".join(unhandled), parser.diff_phil.as_str())
 
         self._count_processors(nproc=self.params.nproc)
-        debug("Using %s processors" % self.nproc)
+        debug("Using %s processors", self.nproc)
+        # Set multiprocessing settings for spot-finding, indexing and
+        # integration to match the top-level specified number of processors
+        self.params.dials_find_spots.spotfinder.mp.nproc = self.nproc
+        self.params.dials_index.indexing.nproc = self.nproc
+        # Setting self.params.dials_refine.refinement.mp.nproc is not helpful
+        self.params.dials_integrate.integration.mp.nproc = self.nproc
 
+        # Set the input and output parameters for the DIALS components
+        # TODO: Compare to diff_phil and start from later in the pipeline if
+        #  appropriate
         if len(unhandled) == 1 and unhandled[0].endswith(".json"):
             self.json_file = unhandled[0]
         else:
-            self._import(unhandled)
             self.json_file = "datablock.json"
+            self.params.dials_import.output.datablock = self.json_file
+            self._import(unhandled)
 
         n_images = self._count_images()
         fast_mode = n_images < 10
         if fast_mode:
-            info("%d images found, skipping a lot of processing" % n_images)
+            info("%d images found, skipping a lot of processing", n_images)
 
         self._find_spots()
         if not self._index():
@@ -1047,51 +889,60 @@ class I19Screen(object):
             if not self._index():
                 warn("Giving up.")
                 info(
-                    """
-Could not find an indexing solution. You may want to have a look
-at the reciprocal space by running:
-
-  dials.reciprocal_lattice_viewer datablock.json all_spots.pickle
-
-or, to only include stronger spots:
-
-  dials.reciprocal_lattice_viewer datablock.json strong.pickle
-"""
+                    "Could not find an indexing solution. You may want to "
+                    "have a look at the reciprocal space by running:\n\n"
+                    "    dials.reciprocal_lattice_viewer datablock.json "
+                    "all_spots.pickle\n\n"
+                    "or, to only include stronger spots:\n\n"
+                    "    dials.reciprocal_lattice_viewer datablock.json "
+                    "strong.\n"
                 )
                 sys.exit(1)
 
         if not fast_mode and not self._create_profile_model():
-            info("\nRefining model to attempt to increase number of valid " "spots...")
+            info("\nRefining model to attempt to increase number of valid spots...")
             self._refine()
             if not self._create_profile_model():
                 warn("Giving up.")
                 info(
-                    """
-The identified indexing solution may not be correct. You may want to have a
-look at the reciprocal space by running:
-
-  dials.reciprocal_lattice_viewer experiments.json indexed.pickle
-"""
+                    "The identified indexing solution may not be correct. "
+                    "You may want to have a look at the reciprocal space by "
+                    "running:\n\n"
+                    "    dials.reciprocal_lattice_viewer experiments.json "
+                    "indexed.pickle\n"
                 )
                 sys.exit(1)
+
+        if self.params.i19_minimum_flux.data == "integrated":
+            self._integrate()
+            self._wilson_calculation(
+                self.params.dials_integrate.output.experiments,
+                self.params.dials_integrate.output.reflections,
+            )
+        else:
+            self._wilson_calculation(
+                self.params.dials_index.output.experiments,
+                self.params.dials_index.output.reflections,
+            )
 
         if not fast_mode:
             self._check_intensities()
             self._report()
 
-        if self.params.lower_bound_estimate.data == "integrated":
-            self._integrate()
-        self._wilson_calculation()
-
         self._refine_bravais()
 
         i19screen_runtime = timeit.default_timer() - start
         debug(
-            "Finished at %s, total runtime: %.1f"
-            % (time.strftime("%Y-%m-%d %H:%M:%S"), i19screen_runtime)
+            "Finished at %s, total runtime: %.1f",
+            time.strftime("%Y-%m-%d %H:%M:%S"),
+            i19screen_runtime,
         )
-        info("i19.screen successfully completed (%.1f sec)" % i19screen_runtime)
+        info("i19.screen successfully completed (%.1f sec)", i19screen_runtime)
 
 
 if __name__ == "__main__":
-    I19Screen().run()
+    from dials.util.version import dials_version
+    if dials_version().startswith("DIALS 1.12."):
+        I19ScreenLegacy().run()
+    else:
+        I19Screen().run()
