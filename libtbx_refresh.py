@@ -4,7 +4,7 @@ import i19.util.version as version
 import libtbx.pkg_utils
 
 print(version.i19_version())
-libtbx.pkg_utils.require('mock', '>=2.0')
-libtbx.pkg_utils.require('pytest', '>=3.1')
-libtbx.pkg_utils.require('procrunner')
-libtbx.pkg_utils.require('typing')
+libtbx.pkg_utils.require("mock", ">=2.0")
+libtbx.pkg_utils.require("pytest", ">=3.1")
+libtbx.pkg_utils.require("procrunner")
+libtbx.pkg_utils.require("typing")

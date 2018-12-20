@@ -12,40 +12,46 @@ __i19_version_default = "0"
 # from the git repository. Otherwise it is read from the file '.gitversion' in the
 # module directory.
 
+
 def i19_version():
-  '''Try to obtain the current git revision number
-     and store a copy in .gitversion'''
-  version = None
+    """Try to obtain the current git revision number
+     and store a copy in .gitversion"""
+    version = None
 
-  try:
-    import libtbx.load_env
-    import os
-    i19_path = libtbx.env.dist_path('i19')
-    version_file = os.path.join(i19_path, '.gitversion')
+    try:
+        import libtbx.load_env
+        import os
 
-    # 1. Try to access information in .git directory
-    #    Regenerate .gitversion if possible
-    if os.path.exists(os.path.join(i19_path, '.git')):
-      try:
-        import subprocess
-        with open(os.devnull, 'w') as devnull:
-          version = subprocess.check_output(["git", "describe"], cwd=i19_path, stderr=devnull).rstrip()
-          version = version.replace('-', '.', 1)
-        with open(version_file, 'w') as gv:
-          gv.write(version)
-      except Exception:
-        if version == "": version = None
+        i19_path = libtbx.env.dist_path("i19")
+        version_file = os.path.join(i19_path, ".gitversion")
 
-    # 2. If .git directory missing or 'git describe' failed, read .gitversion
-    if (version is None) and os.path.exists(version_file):
-      with open(version_file, 'r') as gv:
-        version = gv.read().rstrip()
-  except Exception: # ignore any errors, use default information instead
-    pass
+        # 1. Try to access information in .git directory
+        #    Regenerate .gitversion if possible
+        if os.path.exists(os.path.join(i19_path, ".git")):
+            try:
+                import subprocess
 
-  if version is None:
-    version = __i19_version_format % __i19_version_default
-  else:
-    version = __i19_version_format % version
+                with open(os.devnull, "w") as devnull:
+                    version = subprocess.check_output(
+                        ["git", "describe"], cwd=i19_path, stderr=devnull
+                    ).rstrip()
+                    version = version.replace("-", ".", 1)
+                with open(version_file, "w") as gv:
+                    gv.write(version)
+            except Exception:
+                if version == "":
+                    version = None
 
-  return version
+        # 2. If .git directory missing or 'git describe' failed, read .gitversion
+        if (version is None) and os.path.exists(version_file):
+            with open(version_file, "r") as gv:
+                version = gv.read().rstrip()
+    except Exception:  # ignore any errors, use default information instead
+        pass
+
+    if version is None:
+        version = __i19_version_format % __i19_version_default
+    else:
+        version = __i19_version_format % version
+
+    return version
