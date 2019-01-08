@@ -223,7 +223,7 @@ def make_template(f):
     directory, f = os.path.split(f)
     # Split off the file extension, assuming it begins at the first full stop,
     # also split the last contiguous group of digits off the filename root
-    parts = re.split("([0-9]+)([\.\w+]+)$", f, 1)
+    parts = re.split("([0-9]+)(?=\.\w)", f, 1)
     # Get the number of digits in the group we just isolated and their value
     try:
         # Combine the root, a hash for each digit and the extension
