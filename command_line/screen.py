@@ -244,11 +244,11 @@ class I19Screen(object):
     # TODO Make __init__ and declare instance variables in it.
     def _quick_import(self, files):
         """
-    TODO: Docstring
-    :param files:
-    :type files: List[str]
-    :return:
-    """
+        TODO: Docstring
+        :param files:
+        :type files: List[str]
+        :return:
+        """
         if len(files) == 1:
             # No point in quick-importing a single file
             return False
