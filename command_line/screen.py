@@ -265,8 +265,7 @@ class I19Screen(object):
             else:
                 templates[template].append([image, image])
         # Return tuple of template and image range for each unique image range
-        templates = [(t, tuple(r)) for t, ranges in templates.items()
-                     for r in ranges]
+        templates = [(t, tuple(r)) for t, ranges in templates.items() for r in ranges]
         # type: List[Tuple[str, Tuple[int]]]
         return self._quick_import_templates(templates)
 
@@ -287,8 +286,9 @@ class I19Screen(object):
             if not scan_range:
                 raise IndexError
         except IndexError:
-            debug("Cannot run quick import: could not determine image naming "
-                  "template")
+            debug(
+                "Cannot run quick import: could not determine image naming " "template"
+            )
             return False
 
         info("Running quick import")
@@ -328,9 +328,7 @@ class I19Screen(object):
                 template, start, end = files[0].split(":")
                 template = make_template(template)[0]
                 start, end = int(start), int(end)
-                if not self._quick_import_templates(
-                    [(template, (start, end))]
-                ):
+                if not self._quick_import_templates([(template, (start, end))]):
                     warn("Could not import specified image range.")
                     sys.exit(1)
                 info("Quick import successful")
@@ -353,9 +351,7 @@ class I19Screen(object):
         # + ['allow_multiple_sweeps=true']
         debug("running %s" % " ".join(command))
 
-        result = procrunner.run(
-            command, print_stdout=False, debug=procrunner_debug
-        )
+        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s" % prettyprint_dictionary(result))
 
         if result["exitcode"] == 0:
@@ -438,9 +434,7 @@ class I19Screen(object):
         info("\nTesting pixel intensities...")
         command = ["xia2.overload", "nproc=%s" % self.nproc, self.json_file]
         debug("running %s" % command)
-        result = procrunner.run(
-            command, print_stdout=False, debug=procrunner_debug
-        )
+        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s" % prettyprint_dictionary(result))
         info("Successfully completed (%.1f sec)" % result["runtime"])
 
@@ -460,8 +454,7 @@ class I19Screen(object):
                     hist[b] = overload_data["bins"][b]
                     count_sum += b * overload_data["bins"][b]
         else:
-            hist = {int(k): v for k, v in overload_data["counts"].items()
-                    if int(k) > 0}
+            hist = {int(k): v for k, v in overload_data["counts"].items() if int(k) > 0}
             count_sum = sum([k * v for k, v in hist.items()])
 
         average_to_peak = 1
@@ -495,8 +488,7 @@ class I19Screen(object):
         for x in hist.keys():
             rescaled = round(x * scale * hist_granularity)
             if rescaled > 0:
-                rescaled_hist[rescaled] = \
-                    hist[x] + rescaled_hist.get(rescaled, 0)
+                rescaled_hist[rescaled] = hist[x] + rescaled_hist.get(rescaled, 0)
         hist = rescaled_hist
         debug(
             "rescaled histogram: { %s }",
@@ -606,8 +598,7 @@ class I19Screen(object):
         plot_commands.append("e")
 
         debug(
-            "running %s with:\n  %s\n" %
-            (" ".join(command), "\n  ".join(plot_commands))
+            "running %s with:\n  %s\n" % (" ".join(command), "\n  ".join(plot_commands))
         )
 
         try:
@@ -658,9 +649,7 @@ class I19Screen(object):
             self.json_file,
             "nproc=%s" % self.nproc,
         ] + additional_parameters
-        result = procrunner.run(
-            command, print_stdout=False, debug=procrunner_debug
-        )
+        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s" % prettyprint_dictionary(result))
         if result["exitcode"] != 0:
             warn("Failed with exit code %d" % result["exitcode"])
@@ -686,22 +675,14 @@ class I19Screen(object):
         ]
         runlist = [
             ("Indexing...", base_command),
-            (
-                "Retrying with max_cell constraint",
-                base_command + ["max_cell=20"]
-            ),
-            (
-                "Retrying with 1D FFT",
-                base_command + ["indexing.method=fft1d"]
-            ),
+            ("Retrying with max_cell constraint", base_command + ["max_cell=20"]),
+            ("Retrying with 1D FFT", base_command + ["indexing.method=fft1d"]),
         ]
 
         for message, command in runlist:
             info("\n%s..." % message)
 
-            result = procrunner.run(
-                command, print_stdout=False, debug=procrunner_debug
-            )
+            result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
             debug("result = %s" % prettyprint_dictionary(result))
             if result["exitcode"] != 0:
                 warn("Failed with exit code %d" % result["exitcode"])
@@ -753,30 +734,31 @@ class I19Screen(object):
         from scipy.optimize import curve_fit
         from cctbx import miller
 
-        info('\nEstimating lower flux bound...')
+        info("\nEstimating lower flux bound...")
 
         # TODO Convert to PHIL parser input
 
-        if self.params.lower_bound_estimate.data == 'indexed':
-            data = easy_pickle.load('indexed.pickle')
+        if self.params.lower_bound_estimate.data == "indexed":
+            data = easy_pickle.load("indexed.pickle")
             flag = data.flags.indexed
-            elist = ExperimentListFactory.from_json_file('experiments.json')
-        elif self.params.lower_bound_estimate.data == 'integrated':
-            data = easy_pickle.load('integrated.pickle')
+            elist = ExperimentListFactory.from_json_file("experiments.json")
+        elif self.params.lower_bound_estimate.data == "integrated":
+            data = easy_pickle.load("integrated.pickle")
             flag = data.flags.integrated
-            elist = ExperimentListFactory.from_json_file(
-                'integrated_experiments.json')
+            elist = ExperimentListFactory.from_json_file("integrated_experiments.json")
         else:
-            warn('Unknown data option for lower-bound flux estimate.')
+            warn("Unknown data option for lower-bound flux estimate.")
             sys.exit(1)
         data = data.select(data.get_flags(flag))
         crystal_symmetry = elist[0].crystal.get_crystal_symmetry()
 
         # Get d-spacings of indexed spots.
-        def d_star_sq(x): return 1 / crystal_symmetry.unit_cell().d(x) ** 2
-        d_star_sq = d_star_sq(data['miller_index'])
-        intensity = data['intensity.sum.value']
-        sigma = flex.sqrt(data['intensity.sum.variance'])
+        def d_star_sq(x):
+            return 1 / crystal_symmetry.unit_cell().d(x) ** 2
+
+        d_star_sq = d_star_sq(data["miller_index"])
+        intensity = data["intensity.sum.value"]
+        sigma = flex.sqrt(data["intensity.sum.variance"])
 
         # Parameters for the lower-bound flux estimate:
         min_i_over_sigma = self.params.lower_bound_estimate.min_i_over_sigma
@@ -785,25 +767,33 @@ class I19Screen(object):
         wilson_fit_max_d = self.params.lower_bound_estimate.wilson_fit_max_d
 
         # Fit a simple Debye-Waller factor, assume isotropic disorder parameter
-        def scaled_debye_waller(x, b, a): return a * np.exp(- b / 2 * x)
-        sel = d_star_sq > 1 / wilson_fit_max_d**2
+        def scaled_debye_waller(x, b, a):
+            return a * np.exp(-b / 2 * x)
+
+        sel = d_star_sq > 1 / wilson_fit_max_d ** 2
         # Using 1/σ weighting has a tendency to fit to the floor.
-        wilson_fit, cov = curve_fit(scaled_debye_waller,
-                                    d_star_sq.select(sel),
-                                    intensity.select(sel),
-                                    sigma=sigma.select(sel),
-                                    bounds=(0, np.inf))
+        wilson_fit, cov = curve_fit(
+            scaled_debye_waller,
+            d_star_sq.select(sel),
+            intensity.select(sel),
+            sigma=sigma.select(sel),
+            bounds=(0, np.inf),
+        )
         # Use the fact that σ² = I for indexed data, so I/σ = √̅I
-        desired_d_star_sq = [1 / d**2 for d in desired_d]
+        desired_d_star_sq = [1 / d ** 2 for d in desired_d]
         recommended_factor = [
-            (min_i_over_sigma**2 / scaled_debye_waller(target, *wilson_fit))
-            for target in desired_d_star_sq]
+            (min_i_over_sigma ** 2 / scaled_debye_waller(target, *wilson_fit))
+            for target in desired_d_star_sq
+        ]
 
         # Draw the Wilson plot, using existing functionality in cctbx.miller:
         columns, rows = terminal_size()
         n_bins = min(columns, intensity.size())
-        ms = miller.set(crystal_symmetry=crystal_symmetry,
-                        anomalous_flag=False, indices=data['miller_index'])
+        ms = miller.set(
+            crystal_symmetry=crystal_symmetry,
+            anomalous_flag=False,
+            indices=data["miller_index"],
+        )
         ma = miller.array(ms, data=intensity, sigmas=sigma)
         ma.set_observation_type_xray_intensity()
         ma.setup_binner_counting_sorted(n_bins=n_bins)
@@ -812,44 +802,55 @@ class I19Screen(object):
         binned_intensity = [x if x else 0 for x in wilson.data[1:-1]]
         bins = dict(zip(wilson.binner.bin_centers(1), binned_intensity))
         # Set some tick positions manually, accounts for odd d-axis scaling:
-        d_ticks = [5, 3, 2, 1.5, 1, .9, .8, .7, .6, .5]
-        tick_positions = ', '.join(['"%g" %s' % (d, 1/d**2) for d in d_ticks])
-        tick_positions = tick_positions.join(['(', ')'])
+        d_ticks = [5, 3, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5]
+        tick_positions = ", ".join(['"%g" %s' % (d, 1 / d ** 2) for d in d_ticks])
+        tick_positions = tick_positions.join(["(", ")"])
         # Draw the plot:
-        self._plot_intensities(bins, 1,
-                               title="'Wilson plot'",
-                               xlabel="'d (Angstrom) (inverse-square scale)'",
-                               ylabel="'I (counts)'",
-                               xticks=tick_positions,
-                               style='with lines')
+        self._plot_intensities(
+            bins,
+            1,
+            title="'Wilson plot'",
+            xlabel="'d (Angstrom) (inverse-square scale)'",
+            ylabel="'I (counts)'",
+            xticks=tick_positions,
+            style="with lines",
+        )
 
         # TODO:  Remove block below for production:
         # Plots for debugging:
         import matplotlib
-        matplotlib.use('Agg')
+
+        matplotlib.use("Agg")
         from matplotlib import pyplot as plt
-        plt.xlabel(u'd (Å) (inverse-square scale)')
-        plt.ylabel(u'Intensity (counts)')
-        plt.xticks([1 / d ** 2 for d in d_ticks], ['%g' % d for d in d_ticks])
+
+        plt.xlabel(u"d (Å) (inverse-square scale)")
+        plt.ylabel(u"Intensity (counts)")
+        plt.xticks([1 / d ** 2 for d in d_ticks], ["%g" % d for d in d_ticks])
         plt.semilogy()
-        plt.plot(d_star_sq, intensity, 'b.')
-        plt.plot(d_star_sq,
-                 scaled_debye_waller(d_star_sq, *wilson_fit),
-                 'r-')
-        plt.savefig('wilson_%s' % self.params.lower_bound_estimate.data)
+        plt.plot(d_star_sq, intensity, "b.")
+        plt.plot(d_star_sq, scaled_debye_waller(d_star_sq, *wilson_fit), "r-")
+        plt.savefig("wilson_%s" % self.params.lower_bound_estimate.data)
 
         # Print a recommendation to the user.
-        info('\nFitted isotropic displacement parameter, B = %.3g Angstrom^2'
-             % wilson_fit[0])
+        info(
+            "\nFitted isotropic displacement parameter, B = %.3g Angstrom^2"
+            % wilson_fit[0]
+        )
         for target, recommendation in zip(desired_d, recommended_factor):
             if recommendation <= 1:
-                info('\nIt is likely that you can achieve a resolution of %g '
-                     'Angstrom using a lower flux.' % target)
+                info(
+                    "\nIt is likely that you can achieve a resolution of %g "
+                    "Angstrom using a lower flux." % target
+                )
             else:
-                info('\nIt is likely that you need a higher flux to achieve a '
-                     'resolution of %g Angstrom.' % target)
-            info('The estimated minimal sufficient flux is %.3g times the '
-                 'flux used for this data collection.' % recommendation)
+                info(
+                    "\nIt is likely that you need a higher flux to achieve a "
+                    "resolution of %g Angstrom." % target
+                )
+            info(
+                "The estimated minimal sufficient flux is %.3g times the "
+                "flux used for this data collection." % recommendation
+            )
 
     def _refine(self):
         """
@@ -858,9 +859,7 @@ class I19Screen(object):
         """
         info("\nIndexing...")
         command = ["dials.refine", "experiments.json", "indexed.pickle"]
-        result = procrunner.run(
-            command, print_stdout=False, debug=procrunner_debug
-        )
+        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s" % prettyprint_dictionary(result))
         if result["exitcode"] != 0:
             warn("Failed with exit code %d" % result["exitcode"])
@@ -879,12 +878,8 @@ class I19Screen(object):
         :return:
         """
         info("\nCreating profile model...")
-        command = [
-            "dials.create_profile_model", "experiments.json", "indexed.pickle"
-        ]
-        result = procrunner.run(
-            command, print_stdout=False, debug=procrunner_debug
-        )
+        command = ["dials.create_profile_model", "experiments.json", "indexed.pickle"]
+        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s" % prettyprint_dictionary(result))
         self._sigma_m = None
         if result["exitcode"] == 0:
@@ -915,9 +910,7 @@ class I19Screen(object):
             "indexed.pickle",
             "integration.mp.nproc=%s" % self.nproc,
         ]
-        result = procrunner.run(
-            command, print_stdout=False, debug=procrunner_debug
-        )
+        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s" % prettyprint_dictionary(result))
 
         if result["exitcode"] != 0:
@@ -938,9 +931,7 @@ class I19Screen(object):
             "experiments.json",
             "indexed.pickle",
         ]
-        result = procrunner.run(
-            command, print_stdout=False, debug=procrunner_debug
-        )
+        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s" % prettyprint_dictionary(result))
         if result["exitcode"] == 0:
             m = re.search("---+\n[^\n]*\n---+\n(.*\n)*---+", result["stdout"])
@@ -961,9 +952,7 @@ class I19Screen(object):
             "experiments_with_profile_model.json",
             "indexed.pickle",
         ]
-        result = procrunner.run(
-            command, print_stdout=False, debug=procrunner_debug
-        )
+        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s" % prettyprint_dictionary(result))
         if result["exitcode"] == 0:
             info("Successfully completed (%.1f sec)" % result["runtime"])
@@ -1002,10 +991,7 @@ class I19Screen(object):
         )
 
         self.params, options, unhandled = parser.parse_args(
-            args=args,
-            show_diff_phil=True,
-            return_unhandled=True,
-            quick_parse=True
+            args=args, show_diff_phil=True, return_unhandled=True, quick_parse=True
         )
 
         version_information = "%s using %s (%s)" % (
@@ -1075,10 +1061,7 @@ or, to only include stronger spots:
                 sys.exit(1)
 
         if not fast_mode and not self._create_profile_model():
-            info(
-                "\nRefining model to attempt to increase number of valid "
-                "spots..."
-            )
+            info("\nRefining model to attempt to increase number of valid " "spots...")
             self._refine()
             if not self._create_profile_model():
                 warn("Giving up.")
@@ -1107,9 +1090,7 @@ look at the reciprocal space by running:
             "Finished at %s, total runtime: %.1f"
             % (time.strftime("%Y-%m-%d %H:%M:%S"), i19screen_runtime)
         )
-        info(
-            "i19.screen successfully completed (%.1f sec)" % i19screen_runtime
-        )
+        info("i19.screen successfully completed (%.1f sec)" % i19screen_runtime)
 
 
 if __name__ == "__main__":
