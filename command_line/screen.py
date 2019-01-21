@@ -943,6 +943,5 @@ class I19Screen(object):
 if __name__ == "__main__":
     from dials.util.version import dials_version
     if dials_version().startswith("DIALS 1.12."):
-        I19ScreenLegacy().run()
-    else:
-        I19Screen().run()
+        from i19.util.screen_legacy import I19Screen
+    I19Screen().run()
