@@ -1,0 +1,170 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Common tools for the I19 module.
+"""
+
+import os
+import sys
+import re
+import logging
+import traceback
+import procrunner
+from typing import Dict, Tuple
+
+logger = logging.getLogger("dials.i19")
+debug, info, warn = logger.debug, logger.info, logger.warn
+
+
+def terminal_size(procrunner_debug=False):
+    """
+    Find the current size of the terminal window.
+
+    :param procrunner_debug:
+    :return: Number of columns; number of rows.
+    :rtype: Tuple[int]
+    """
+    columns, rows = 80, 25
+    if sys.stdout.isatty():
+        try:
+            result = procrunner.run(
+                ["stty", "size"],
+                timeout=1,
+                print_stdout=False,
+                print_stderr=False,
+                debug=procrunner_debug,
+            )
+            rows, columns = [int(i) for i in result["stdout"].split()]
+        except Exception:  # ignore any errors and use default size
+            pass  # FIXME: Can we be more specific about the type of exception?
+    columns = min(columns, 120)
+    rows = min(rows, int(columns / 3))
+
+    return columns, rows
+
+
+def prettyprint_dictionary(d):
+    """
+    Produce a nice string representation of a dictionary, for printing.
+
+    :param d: Dictionary to be printed.
+    :type d: Dict[Optional[Any]]
+    :return: String representation of :param d:.
+    :rtype: str
+    """
+    return "{\n%s\n}" % "\n".join(
+        [
+            "  %s: %s" % (k, str(v).replace("\n", "\n%s" % (" " * (4 + len(k)))))
+            for k, v in d.items()
+        ]
+    )
+
+
+def make_template(f):
+    """
+    Generate a xia2-style filename template.
+
+    From a given filename, generate a template filename by substituting a hash
+    character (#) for each numeral in the last contiguous group of numerals
+    before the file extension.
+    For example, the filename example_01_0001.cbf becomes example_01_####.cbf.
+
+    :param f: Filename, with extension.
+    :type f: str
+    :return: Filename template, with extension; image number.
+    :rtype: Tuple(str, int)
+    """
+    # Split the file from its path
+    directory, f = os.path.split(f)
+    # Split off the file extension, assuming it begins at the first full stop,
+    # also split the last contiguous group of digits off the filename root
+    parts = re.split(r"([0-9]+)(?=\.\w)", f, 1)
+    # Get the number of digits in the group we just isolated and their value
+    try:
+        # Combine the root, a hash for each digit and the extension
+        length = len(parts[1])
+        template = parts[0] + "#" * length + parts[2]
+        image = int(parts[1])
+    except IndexError:
+        template = parts[0]
+        image = None
+    return os.path.join(directory, template), image
+
+
+def plot_intensities(
+    bins,
+    hist_value_factor,
+    title="'Spot intensity distribution'",
+    xlabel="'% of maximum'",
+    ylabel="'Number of observed pixels'",
+    xticks="",
+    style="with boxes",
+    procrunner_debug=False,
+):
+    """
+    Create an ASCII art histogram of intensities.
+
+    :param bins:
+    :param hist_value_factor:
+    :param title:
+    :param xlabel:
+    :param ylabel:
+    :param xticks:
+    :param style:
+    :param procrunner_debug:
+    """
+    columns, rows = terminal_size()
+
+    command = ["gnuplot"]
+    plot_commands = [
+        "set term dumb %d %d" % (columns, rows - 2),
+        "set title %s" % title,
+        "set xlabel %s" % xlabel,
+        "set ylabel %s" % ylabel,
+        "set logscale y",
+        "set boxwidth %f" % hist_value_factor,
+        "set xtics %s out nomirror" % xticks,
+        "set ytics out",
+        "plot '-' using 1:2 title '' %s" % style,
+    ]
+    for x in sorted(bins.keys()):
+        plot_commands.append("%f %d" % (x * hist_value_factor, bins[x]))
+        plot_commands.append("e")
+
+    debug("running %s with:\n  %s\n", " ".join(command), "\n  ".join(plot_commands))
+
+    try:
+        result = procrunner.run(
+            command,
+            stdin="\n".join(plot_commands) + "\n",
+            timeout=120,
+            print_stdout=False,
+            print_stderr=False,
+            debug=procrunner_debug,
+        )
+    except OSError:
+        info(traceback.format_exc())
+
+    debug("result = %s", prettyprint_dictionary(result))
+
+    if result["exitcode"] == 0:
+        star = re.compile(r"\*")
+        state = set()
+        for l in result["stdout"].split("\n"):
+            if l.strip() != "":
+                stars = {m.start(0) for m in re.finditer(star, l)}
+                if not stars:
+                    state = set()
+                else:
+                    state |= stars
+                    l = list(l)
+                    for s in state:
+                        l[s] = "*"
+                info("".join(l))
+    else:
+        warn(
+            "Error running gnuplot. Cannot plot intensity distribution. "
+            "Exit code %d",
+            result["exitcode"],
+        )
