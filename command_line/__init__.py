@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """
@@ -14,7 +13,7 @@ import procrunner
 from typing import Dict, Tuple
 
 logger = logging.getLogger("dials.i19")
-debug, info, warn = logger.debug, logger.info, logger.warn
+debug, info, warn = logger.debug, logger.info, logger.warning
 
 
 def terminal_size(procrunner_debug=False):

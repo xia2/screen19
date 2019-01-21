@@ -96,7 +96,7 @@ verbosity = 1
 
 logger_name = "dials.i19.minimum_flux"
 logger = logging.getLogger(logger_name)
-debug, info, warn = logger.debug, logger.info, logger.warn
+debug, info, warn = logger.debug, logger.info, logger.warning
 
 
 # Set axis tick positions manually, accounts for reciprocal square d-scaling
