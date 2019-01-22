@@ -31,23 +31,3 @@ def test_i19screen_single_frame(regression_data, run_in_tmpdir):
     logfile = run_in_tmpdir.join("i19.screen.log").read()
 
     assert "i19.screen successfully completed" in logfile
-
-
-@mock.patch("i19.command_line.screen.procrunner")
-def test_i19screen_calls(procrunner, run_in_tmpdir):
-    procrunner.run.return_value = {"exitcode": 0, "runtime": 0}
-    files = "dataset.cbf:1:100"
-
-    with pytest.raises(SystemExit):
-        I19Screen().run([files])
-
-    procrunner.run.assert_called_once_with(
-        [
-            "dials.import",
-            "input.template=dataset.cbf",
-            "geometry.scan.image_range=1,100",
-            "geometry.scan.extrapolate_scan=True",
-        ],
-        debug=False,
-        print_stdout=False,
-    )
