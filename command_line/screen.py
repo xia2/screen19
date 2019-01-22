@@ -589,7 +589,7 @@ class I19Screen(object):
                     break
                 else:
                     warn("Failed with exit code %d", e)
-        if e.code != 0:
+        else:
             return False
 
         sg_type = expts[0].crystal.get_crystal_symmetry().space_group().type()
