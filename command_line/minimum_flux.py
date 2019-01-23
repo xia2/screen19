@@ -259,7 +259,11 @@ def run(phil=phil_scope, args=None):
     refls = params.input.reflections[0].data
     # The Wilson plot fit implicitly involves taking a logarithm of
     # intensities, so eliminate values that are going to cause problems
-    refls = refls.select(refls["intensity.sum.value"] > 0)
+    try:
+        # Work from profile-fitted intensities where possible
+        refls = refls.select(refls["intensity.prf.value"] > 0)
+    except RuntimeError:
+        refls = refls.select(refls["intensity.sum.value"] > 0)
 
     if len(expts) > 1:
         warn(
@@ -286,8 +290,13 @@ def run(phil=phil_scope, args=None):
     # Get d-spacings, intensity & std dev of reflections
     symmetry = expts[0].crystal.get_crystal_symmetry()
     d_star_sq = 1 / symmetry.unit_cell().d(refls["miller_index"]) ** 2
-    intensity = refls["intensity.sum.value"]
-    sigma = flex.sqrt(refls["intensity.sum.variance"])
+    try:
+        # Work from profile-fitted intensities and uncertainties where possible
+        intensity = refls["intensity.prf.value"]
+        sigma = flex.sqrt(refls["intensity.prf.variance"])
+    except RuntimeError:
+        intensity = refls["intensity.sum.value"]
+        sigma = flex.sqrt(refls["intensity.sum.variance"])
 
     # Perform the Wilson plot fit
     fit = wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d)
