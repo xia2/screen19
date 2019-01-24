@@ -181,7 +181,8 @@ def wilson_plot_ascii(crystal_symmetry, indices, intensity, sigma, d_ticks=None)
     )
 
 
-def wilson_plot_image(d_star_sq, intensity, fit, ticks=None, output="wilson_plot"):
+def wilson_plot_image(d_star_sq, intensity, fit, max_d=None, ticks=None,
+                      output="wilson_plot"):
     """
     Generate the Wilson plot as an image, default is .png
 
@@ -202,8 +203,13 @@ def wilson_plot_image(d_star_sq, intensity, fit, ticks=None, output="wilson_plot
     if d_ticks:
         plt.xticks([1 / d ** 2 for d in ticks], ["%g" % d for d in ticks])
     plt.semilogy()
-    plt.plot(d_star_sq, intensity, "b.")
-    plt.plot(d_star_sq, scaled_debye_waller(d_star_sq, *fit), "r-")
+    plt.plot(d_star_sq, intensity, "b.", label=None)
+    plt.plot(d_star_sq, scaled_debye_waller(d_star_sq, *fit), "r-",
+             label='Debye-Waller fit')
+    if max_d:
+        plt.fill_betweenx(plt.ylim(), 1/np.square(max_d),
+                          color='k', alpha=.5, zorder=2.1)
+    plt.legend(loc=0)
     plt.savefig(output)
 
 
@@ -335,7 +341,8 @@ def run(phil=phil_scope, args=None):
 
     # Draw the Wilson plot image and save to file
     wilson_plot_image(
-        d_star_sq, intensity, fit, ticks=d_ticks, output=params.output.wilson_plot
+        d_star_sq, intensity, fit, max_d=params.minimum_flux.wilson_fit_max_d,
+        ticks=d_ticks, output=params.output.wilson_plot
     )
 
     sys.exit(0)
