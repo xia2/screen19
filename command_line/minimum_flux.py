@@ -35,6 +35,7 @@ from __future__ import absolute_import, division, print_function
 import sys
 import logging
 from typing import Dict, List, Tuple, Optional
+from tabulate import tabulate
 
 import iotbx.phil
 from dials.array_family import flex
@@ -208,7 +209,8 @@ def wilson_plot_image(d_star_sq, intensity, fit, max_d=None, ticks=None,
              label='Debye-Waller fit')
     if max_d:
         plt.fill_betweenx(plt.ylim(), 1/np.square(max_d),
-                          color='k', alpha=.5, zorder=2.1)
+                          color='k', alpha=.5, zorder=2.1,
+                          label='Excluded from fit')
     plt.legend(loc=0)
     plt.savefig(output)
 
@@ -318,26 +320,34 @@ def run(phil=phil_scope, args=None):
     # Draw the ASCII art Wilson plot
     wilson_plot_ascii(symmetry, refls["miller_index"], intensity, sigma)
 
+    recommendations = zip(desired_d, recommended_factor)
+
     # Print a recommendation to the user.
     info("\nFitted isotropic displacement parameter, B = %.3g Angstrom^2", fit[0])
-    for target, recommendation in zip(desired_d, recommended_factor):
+    for target, recommendation in recommendations:
         if recommendation <= 1:
-            info(
+            debug(
                 "\nIt is likely that you can achieve a resolution of %g "
                 "Angstrom using a lower flux.",
                 target,
             )
         else:
-            info(
+            debug(
                 "\nIt is likely that you need a higher flux to achieve a "
                 "resolution of %g Angstrom.",
                 target,
             )
-        info(
+        debug(
             "The estimated minimal sufficient flux is %.3g times the "
             "flux used for this data collection.",
             recommendation,
         )
+
+    summary = '\nRecommendations, summarised:\n'
+    summary += tabulate(recommendations,
+                        ['Resolution\n(Angstrom)', 'Suggested\ndose factor'],
+                        floatfmt='.3g', tablefmt='rst')
+    info(summary)
 
     # Draw the Wilson plot image and save to file
     wilson_plot_image(
