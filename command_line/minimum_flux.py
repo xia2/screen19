@@ -169,7 +169,7 @@ def wilson_plot_ascii(crystal_symmetry, indices, intensity, sigma, d_ticks=None)
         tick_positions = ", ".join(['"%g" %s' % (d, 1 / d ** 2) for d in d_ticks])
         tick_positions = tick_positions.join(["(", ")"])
     else:
-        tick_positions = None
+        tick_positions = ''
     # Draw the plot:
     plot_intensities(
         bins,
