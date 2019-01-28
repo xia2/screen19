@@ -129,7 +129,7 @@ def plot_intensities(
     ]
     for x in sorted(bins.keys()):
         plot_commands.append("%f %d" % (x * hist_value_factor, bins[x]))
-        plot_commands.append("e")
+    plot_commands.append("e")
 
     debug("running %s with:\n  %s\n", " ".join(command), "\n  ".join(plot_commands))
 
