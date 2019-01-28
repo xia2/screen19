@@ -318,7 +318,8 @@ def run(phil=phil_scope, args=None):
     ]
 
     # Draw the ASCII art Wilson plot
-    wilson_plot_ascii(symmetry, refls["miller_index"], intensity, sigma)
+    wilson_plot_ascii(symmetry, refls["miller_index"],
+                      intensity, sigma, d_ticks)
 
     recommendations = zip(desired_d, recommended_factor)
 
