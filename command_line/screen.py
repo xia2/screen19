@@ -21,11 +21,11 @@ upper- and lower-bound estimate of suitable flux.
 Target I/σ and target d (in Ångström) can be set using the parameters
 'min_i_over_sigma' and 'desired_d'.  One can set multiple values of the latter.
 
-By default, for speed, the disorder parameter fit is conducted on the
+By default the disorder parameter fit is conducted on the
 integrated data.  This ought to provide a reasonably true fit, but requires
 an integration step, which can take some time.  You can achieve a quicker,
 dirtier answer by fitting to the indexed data (i.e. only the stronger
-spots), using'i19_minimum_flux.data=indexed'
+spots), using 'i19_minimum_flux.data=indexed'.
 
 Examples:
 
