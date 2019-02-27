@@ -692,7 +692,11 @@ class I19Screen(object):
         :return:
         """
         info("\nCreating profile model...")
-        command = ["dials.create_profile_model", "experiments.json", "indexed.pickle"]
+        command = [
+            "dials.create_profile_model",
+            self.params.dials_index.output.experiments,
+            self.params.dials_index.output.reflections
+        ]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s", prettyprint_dictionary(result))
         self._sigma_m = None
@@ -793,7 +797,7 @@ class I19Screen(object):
         # Return the number of reflections containing overloaded pixels
         return overloads.size()
 
-    def _refine_bravais(self):
+    def _refine_bravais(self, experiments, reflections):
         """
         TODO: Docstring
         :return:
@@ -801,8 +805,8 @@ class I19Screen(object):
         info("\nRefining bravais settings...")
         command = [
             "dials.refine_bravais_settings",
-            "experiments.json",
-            "indexed.pickle",
+            experiments,
+            reflections
         ]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s", prettyprint_dictionary(result))
@@ -814,7 +818,7 @@ class I19Screen(object):
             warn("Failed with exit code %d", result["exitcode"])
             sys.exit(1)
 
-    def _report(self):
+    def _report(self, experiments, reflections):
         """
         TODO: Docstring
         :return:
@@ -822,8 +826,8 @@ class I19Screen(object):
         info("\nCreating report...")
         command = [
             "dials.report",
-            "experiments_with_profile_model.json",
-            "indexed.pickle",
+            experiments,
+            reflections
         ]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s", prettyprint_dictionary(result))
@@ -976,11 +980,18 @@ class I19Screen(object):
                 self.params.dials_index.output.reflections,
             )
 
+        if self.params.i19_minimum_flux.data == "integrated":
+            experiments = self.params.dials_integrate.output.experiments
+            reflections = self.params.dials_integrate.output.reflections
+        else:
+            experiments = self.params.dials_create_profile.output
+            reflections = self.params.dials_index.output.reflections
+
         if not fast_mode:
             self._check_intensities()
-            self._report()
+            self._report(experiments, reflections)
 
-        self._refine_bravais()
+        self._refine_bravais(experiments, reflections)
 
         i19screen_runtime = timeit.default_timer() - start
         debug(
