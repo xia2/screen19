@@ -265,6 +265,8 @@ def run(phil=phil_scope, args=None):
 
     expts = params.input.experiments[0].data
     refls = params.input.reflections[0].data
+    # Ignore all spots flagged as overloaded
+    refls.del_selected(refls.get_flags(refls.flags.overloaded).iselection())
     # The Wilson plot fit implicitly involves taking a logarithm of
     # intensities, so eliminate values that are going to cause problems
     try:

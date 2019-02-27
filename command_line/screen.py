@@ -56,11 +56,10 @@ import re
 import sys
 import time
 import timeit
-import traceback
 
 import procrunner
 import iotbx.phil
-from libtbx import easy_pickle, Auto
+from libtbx import Auto
 from dxtbx.model.experiment_list import ExperimentListFactory
 from dials.util.options import OptionParser
 from i19.command_line import prettyprint_dictionary, make_template, plot_intensities
@@ -502,6 +501,8 @@ class I19Screen(object):
 
         info("Total sum of counts in dataset: %d", count_sum)
 
+    # TODO Introduce a dials.generate_mask call
+
     def _find_spots(self, args=None):
         """
         TODO: Docstring
@@ -733,6 +734,10 @@ class I19Screen(object):
             "include scope dials.command_line.integrate.phil_scope",
             process_includes=True,
         )
+        # Retain shoeboxes in order to determine reflections containing overloads
+        self.params.dials_integrate.integration.debug.output = True
+        self.params.dials_integrate.integration.debug.delete_shoeboxes = False
+        self.params.dials_integrate.integration.debug.separate_files = False
         # Combine this with the working scope from the command-line input,
         # having preference for the working scope where they differ
         integrate_scope = integrate_master.format(self.params.dials_integrate)
@@ -741,7 +746,7 @@ class I19Screen(object):
 
         try:
             # Run dials.refine
-            integrate.run(args)
+            integrated_experiments, integrated = integrate.run(args)
         except SystemExit as e:
             if e.code:
                 warn("dials.refine failed with exit code %d\nGiving up.", e.code)
@@ -751,6 +756,42 @@ class I19Screen(object):
                     "Successfully completed (%.1f sec)",
                     timeit.default_timer() - dials_start,
                 )
+
+        return integrated_experiments, integrated
+
+    def _find_overloads(self, integrated_experiments, integrated):
+        """
+        TODO: Docstring
+
+        :return:
+        """
+        from dials.array_family import flex
+
+        # Select those reflections having total summed intensity greater than
+        # 0.25 × the upper limit of the trusted range (that being the in-house limit)
+        # TODO: Make this limit not hard coded, based instead on dxtbx detector info
+        detector = integrated_experiments[0].detector.to_dict()
+        # Assumes all panels have same trusted range, presumably this isn't far-fetched
+        upper_limit = .25 * detector['panels'][0]['trusted_range'][1]
+        sel = (integrated['intensity.sum.value'] > upper_limit).iselection()
+        strongest = integrated.select(sel)
+
+        # Check the pixel values of all the high-intensity spots for pixel overloads
+        overloads = flex.bool(
+            [any(shoebox.values() > upper_limit) for shoebox in strongest['shoebox']]
+        ).iselection()
+
+        # Flag spots with overloaded pixels — also flag them for exclusion from scaling
+        bad_flag = strongest.flags.overloaded | strongest.flags.excluded_for_scaling
+        strongest.set_flags(overloads, bad_flag)
+        integrated.set_selected(sel, strongest)
+
+        # Delete the shoeboxes and overwrite the reflection table on disk, to save space
+        del integrated['shoebox']
+        integrated.as_pickle(self.params.dials_integrate.output.reflections)
+
+        # Return the number of reflections containing overloaded pixels
+        return overloads.size()
 
     def _refine_bravais(self):
         """
@@ -914,7 +955,17 @@ class I19Screen(object):
                 sys.exit(1)
 
         if self.params.i19_minimum_flux.data == "integrated":
-            self._integrate()
+            integrated_experiments, integrated = self._integrate()
+            num_overloaded = self._find_overloads(integrated_experiments, integrated)
+            if num_overloaded:
+                info(
+                    '%d reflections contain overloaded pixels and are excluded from '
+                    'further processing.',
+                    num_overloaded
+                )
+            else:
+                info('No reflections contain overloaded pixels.')
+
             self._wilson_calculation(
                 self.params.dials_integrate.output.experiments,
                 self.params.dials_integrate.output.reflections,
