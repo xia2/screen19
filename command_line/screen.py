@@ -29,7 +29,7 @@ spots), using 'i19_minimum_flux.data=indexed'.
 
 Examples:
 
-  i19.screen datablock.json
+  i19.screen imported_experiments.json
 
   i19.screen *.cbf
 
@@ -37,7 +37,7 @@ Examples:
 
   i19.screen /path/to/data/image0001.cbf:1:100
 
-  i19.screen min_i_over_sigma=2 desired_d=0.84 <datablock.json | image_files>
+  i19.screen min_i_over_sigma=2 desired_d=0.84 <imported_experiments.json | image_files>
 
   i19.screen i19_minimum_flux.data=indexed <image_files>
 
@@ -358,16 +358,17 @@ class I19Screen(object):
         """
         Attempt to determine the number of diffraction images.
 
-        The number of diffraction images is determined from the datablock JSON
-        file.
+        The number of diffraction images is determined from the imported_experiments
+        JSON file.
 
         :return: Number of images.
         :rtype: int
         """
-        with open(self.json_file) as fh:
-            datablock = json.load(fh)
+        from dxtbx.model.experiment_list import ExperimentListFactory
+
+        imported = ExperimentListFactory.from_json_file(self.json_file)
         try:
-            return sum(len(s["exposure_time"]) for s in datablock[0]["scan"])
+            return imported[0].imageset.size()
         except Exception:  # FIXME: Can we be specific?
             warn("Could not determine number of images in dataset")
             sys.exit(1)
@@ -525,7 +526,7 @@ class I19Screen(object):
         finder_script = SpotFinderScript(phil=find_spots_scope)
         # Run the script
         try:
-            if self.params.dials_find_spots.output.datablock:
+            if self.params.dials_find_spots.output.experiments:
                 expts, refls = finder_script.run(args)
             else:
                 refls = finder_script.run(args)
@@ -553,7 +554,7 @@ class I19Screen(object):
 
         # Set the input files
         basic_args = [
-            self.params.dials_import.output.datablock,
+            self.params.dials_import.output.experiments,
             self.params.dials_find_spots.output.reflections,
         ]
 
@@ -837,7 +838,7 @@ class I19Screen(object):
 
         usage = (
             "%s [options] image_directory | image_files.cbf | "
-            "datablock.json" % libtbx.env.dispatcher_name
+            "experiments.json" % libtbx.env.dispatcher_name
         )
 
         parser = OptionParser(
@@ -895,8 +896,8 @@ class I19Screen(object):
         if len(unhandled) == 1 and unhandled[0].endswith(".json"):
             self.json_file = unhandled[0]
         else:
-            self.json_file = "datablock.json"
-            self.params.dials_import.output.datablock = self.json_file
+            self.json_file = "imported_experiments.json"
+            self.params.dials_import.output.experiments = self.json_file
             self._import(unhandled)
 
         n_images = self._count_images()
@@ -914,10 +915,10 @@ class I19Screen(object):
                 info(
                     "Could not find an indexing solution. You may want to "
                     "have a look at the reciprocal space by running:\n\n"
-                    "    dials.reciprocal_lattice_viewer datablock.json "
+                    "    dials.reciprocal_lattice_viewer imported_experiments.json "
                     "all_spots.pickle\n\n"
                     "or, to only include stronger spots:\n\n"
-                    "    dials.reciprocal_lattice_viewer datablock.json "
+                    "    dials.reciprocal_lattice_viewer imported_experiments.json "
                     "strong.\n"
                 )
                 sys.exit(1)
