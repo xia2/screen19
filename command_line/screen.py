@@ -307,14 +307,10 @@ class I19Screen(object):
         """
         from dials.command_line.dials_import import Script as ImportScript
 
-        # Get the dials.import master scope
-        dials_import_master = iotbx.phil.parse(
-            "include scope dials.command_line.dials_import.phil_scope",
-            process_includes=True,
-        )
-        # Combine this with the working scope from the command-line input,
-        # having preference for the working scope where they differ
-        import_scope = dials_import_master.format(self.params.dials_import)
+        # Get the dials.import PHIL scope, populated with parsed input parameters
+        import_scope = phil_scope.get('dials_import').objects[0]
+        import_scope.name = ''
+        import_scope = import_scope.format(self.params.dials_import)
         # Set up the dials.import script with these phil parameters
         import_script = ImportScript(phil=import_scope)
         # Run the script, suppressing stdout.
@@ -521,14 +517,10 @@ class I19Screen(object):
 
         # Set the input file
         args = [self.json_file] + args
-        # Get the dials.find_spots master scope
-        find_spots_master = iotbx.phil.parse(
-            "include scope dials.command_line.find_spots.phil_scope",
-            process_includes=True,
-        )
-        # Combine this with the working scope from the command-line input,
-        # having preference for the working scope where they differ
-        find_spots_scope = find_spots_master.format(self.params.dials_find_spots)
+        # Get the dials.find_spots PHIL scope, populated with parsed input parameters
+        find_spots_scope = phil_scope.get('dials_find_spots').objects[0]
+        find_spots_scope.name = ''
+        find_spots_scope = find_spots_scope.format(self.params.dials_find_spots)
         # Set up the dials.find_spots script with these phil parameters
         finder_script = SpotFinderScript(phil=find_spots_scope)
         # Run the script
@@ -565,13 +557,10 @@ class I19Screen(object):
             self.params.dials_find_spots.output.reflections,
         ]
 
-        # Get the dials.index master scope
-        index_master = iotbx.phil.parse(
-            "include scope dials.command_line.index.phil_scope", process_includes=True
-        )
-        # Combine this with the working scope from the command-line input,
-        # having preference for the working scope where they differ
-        index_scope = index_master.format(self.params.dials_index)
+        # Get the dials.index PHIL scope, populated with parsed input parameters
+        index_scope = phil_scope.get('dials_index').objects[0]
+        index_scope.name = ''
+        index_scope = index_scope.format(self.params.dials_index)
 
         runlist = [
             ("Indexing", []),
@@ -621,14 +610,10 @@ class I19Screen(object):
 
         from i19.command_line import minimum_flux
 
-        # Get the i19.minimum_flux master scope
-        min_flux_master = iotbx.phil.parse(
-            "include scope i19.command_line.minimum_flux.phil_scope",
-            process_includes=True,
-        )
-        # Combine this with the working scope from the command-line input,
-        # having preference for the working scope where they differ
-        min_flux_scope = min_flux_master.format(self.params.i19_minimum_flux)
+        # Get the i19.minimum_flux PHIL scope, populated with parsed input parameters
+        min_flux_scope = phil_scope.get('i19_minimum_flux').objects[0]
+        min_flux_scope.name = ''
+        min_flux_scope = min_flux_scope.format(self.params.i19_minimum_flux)
 
         args = [experiments, reflections]
 
@@ -666,13 +651,10 @@ class I19Screen(object):
             self.params.dials_index.output.reflections
         )
 
-        # Get the dials.refine master scope
-        refine_master = iotbx.phil.parse(
-            "include scope dials.command_line.refine.phil_scope", process_includes=True
-        )
-        # Combine this with the working scope from the command-line input,
-        # having preference for the working scope where they differ
-        refine_scope = refine_master.format(self.params.dials_refine)
+        # Get the dials.refine PHIL scope, populated with parsed input parameters
+        refine_scope = phil_scope.get('dials_refine').objects[0]
+        refine_scope.name = ''
+        refine_scope = refine_scope.format(self.params.dials_refine)
         # Set up the dials.refine script
         refine = Script(phil=refine_scope)
 
@@ -733,18 +715,14 @@ class I19Screen(object):
             self.params.dials_index.output.reflections,
         ]
 
-        # Get the dials.integrate master scope
-        integrate_master = iotbx.phil.parse(
-            "include scope dials.command_line.integrate.phil_scope",
-            process_includes=True,
-        )
         # Retain shoeboxes in order to determine reflections containing overloads
         self.params.dials_integrate.integration.debug.output = True
         self.params.dials_integrate.integration.debug.delete_shoeboxes = False
         self.params.dials_integrate.integration.debug.separate_files = False
-        # Combine this with the working scope from the command-line input,
-        # having preference for the working scope where they differ
-        integrate_scope = integrate_master.format(self.params.dials_integrate)
+        # Get the dials.integrate PHIL scope, populated with parsed input parameters
+        integrate_scope = phil_scope.get('dials_integrate').objects[0]
+        integrate_scope.name = ''
+        integrate_scope = integrate_scope.format(self.params.dials_integrate)
         # Set up the dials.integrate script
         integrate = Script(phil=integrate_scope)
 
