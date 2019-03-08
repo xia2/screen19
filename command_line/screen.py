@@ -118,6 +118,12 @@ dials_import
   include scope dials.command_line.dials_import.phil_scope
   }
 
+dials_mask
+  .caption = 'Options for dials.generate_mask'
+  {
+  include scope dials.command_line.generate_mask.phil_scope
+  }
+
 dials_find_spots
   .caption = 'Options for dials.find_spots'
   {
@@ -322,6 +328,30 @@ class I19Screen(object):
                 warn("dials.import failed with exit code %d", e.code)
                 sys.exit(1)
 
+    def _run_dials_generate_mask(self):
+        """
+        Run dials.generate_mask, using user-specified parameters.
+
+        Overwrites the experiment list :attr:`json_file` with an experiment list that is
+        identical except for the addition of the user-specified mask.  Also saves a
+        mask.pickle file.
+        """
+        from dials.command_line.generate_mask import generate_mask
+
+        # Make sure the modified experiment list is returned
+        self.params.dials_mask.output.experiments = self.json_file
+        # We actually do want to examine pixels outside the trusted range, so don't mask
+        self.params.dials_mask.use_trusted_range = False
+        # Run the script, suppressing stdout logging
+        # TODO:  Pass imported_experiments through from import to save extra IO
+        imported = ExperimentListFactory.from_json_file(self.json_file)
+        try:
+            generate_mask(imported, self.params.dials_mask)
+        except SystemExit as e:
+            if e.code:
+                warn('dials.generate_mask failed with exit code %d', e.code)
+                sys.exit(1)
+
     def _count_processors(self, nproc=None):
         """
         Determine the number of processors and save it as an instance variable.
@@ -364,8 +394,6 @@ class I19Screen(object):
         :return: Number of images.
         :rtype: int
         """
-        from dxtbx.model.experiment_list import ExperimentListFactory
-
         imported = ExperimentListFactory.from_json_file(self.json_file)
         try:
             return imported[0].imageset.size()
@@ -497,8 +525,6 @@ class I19Screen(object):
             )
 
         info("Total sum of counts in dataset: %d", count_sum)
-
-    # TODO Introduce a dials.generate_mask call
 
     def _find_spots(self, args=None):
         """
@@ -899,6 +925,17 @@ class I19Screen(object):
             self.json_file = "imported_experiments.json"
             self.params.dials_import.output.experiments = self.json_file
             self._import(unhandled)
+
+        # If the user specifies a mask, generate it
+        if any([
+            self.params.dials_mask.border,
+            self.params.dials_mask.d_min,
+            self.params.dials_mask.d_max,
+            self.params.dials_mask.resolution_range,
+            self.params.dials_mask.untrusted,
+            self.params.dials_mask.ice_rings.filter
+        ]):
+            self._run_dials_generate_mask()
 
         n_images = self._count_images()
         fast_mode = n_images < 10
