@@ -213,7 +213,7 @@ def overloads_histogram(d_spacings, ticks=None, output="overloads"):
     if ticks:
         plt.xticks([1 / d for d in ticks], ["%g" % d for d in ticks])
     plt.semilogy()
-    plt.histogram(d_spacings, 100)
+    plt.hist(d_spacings, 100)
     plt.savefig(output)
     plt.close()
 
