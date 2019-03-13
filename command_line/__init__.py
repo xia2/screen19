@@ -94,7 +94,7 @@ def make_template(f):
 def plot_intensities(
     bins,
     hist_value_factor,
-    title="'Spot intensity distribution'",
+    title="'Pixel intensity distribution'",
     xlabel="'% of maximum'",
     ylabel="'Number of observed pixels'",
     xticks="",
