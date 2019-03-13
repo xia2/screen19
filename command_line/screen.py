@@ -949,22 +949,17 @@ class I19Screen(object):
             else:
                 info('No reflections contain overloaded pixels.')
 
-            self._wilson_calculation(
-                self.params.dials_integrate.output.experiments,
-                self.params.dials_integrate.output.reflections,
-            )
-        else:
-            self._wilson_calculation(
-                self.params.dials_index.output.experiments,
-                self.params.dials_index.output.reflections,
-            )
-
-        if self.params.i19_minimum_flux.data == "integrated":
             experiments = self.params.dials_integrate.output.experiments
             reflections = self.params.dials_integrate.output.reflections
+
+            self._wilson_calculation(experiments, reflections)
         else:
-            experiments = self.params.dials_create_profile.output
+            experiments = self.params.dials_index.output.experiments
             reflections = self.params.dials_index.output.reflections
+
+            self._wilson_calculation(experiments, reflections)
+
+            experiments = self.params.dials_create_profile.output
 
         if not fast_mode:
             self._check_intensities()
