@@ -16,6 +16,10 @@ logger = logging.getLogger("dials.i19")
 debug, info, warn = logger.debug, logger.info, logger.warning
 
 
+# Set axis tick positions manually.  Accounts for reciprocal(-square) d-scaling.
+d_ticks = [5, 3, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4]
+
+
 def terminal_size(procrunner_debug=False):
     """
     Find the current size of the terminal window.

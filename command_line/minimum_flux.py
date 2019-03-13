@@ -43,7 +43,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from cctbx import miller
 from dials.util.options import OptionParser
-from i19.command_line import terminal_size, plot_intensities
+from i19.command_line import terminal_size, plot_intensities, d_ticks
 
 
 help_message = __doc__
@@ -98,10 +98,6 @@ verbosity = 1
 logger_name = "dials.i19.minimum_flux"
 logger = logging.getLogger(logger_name)
 debug, info, warn = logger.debug, logger.info, logger.warning
-
-
-# Set axis tick positions manually, accounts for reciprocal square d-scaling
-d_ticks = [5, 3, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5]
 
 
 def scaled_debye_waller(x, b, a):
@@ -192,7 +188,6 @@ def wilson_plot_image(d_star_sq, intensity, fit, max_d=None, ticks=None,
     :param fit:
     :param ticks:
     :param output:
-    :return:
     """
     import matplotlib
 
@@ -201,7 +196,7 @@ def wilson_plot_image(d_star_sq, intensity, fit, max_d=None, ticks=None,
 
     plt.xlabel(u"d (Å) (inverse-square scale)")
     plt.ylabel(u"Intensity (counts)")
-    if d_ticks:
+    if ticks:
         plt.xticks([1 / d ** 2 for d in ticks], ["%g" % d for d in ticks])
     plt.semilogy()
     plt.plot(d_star_sq, intensity, "b.", label=None)
@@ -213,6 +208,7 @@ def wilson_plot_image(d_star_sq, intensity, fit, max_d=None, ticks=None,
                           label='Excluded from fit')
     plt.legend(loc=0)
     plt.savefig(output)
+    plt.close()
 
 
 def run(phil=phil_scope, args=None):

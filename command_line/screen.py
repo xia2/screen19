@@ -51,6 +51,9 @@ import logging
 from typing import Dict, List, Tuple, Optional
 
 import math
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
 import os
 import re
 import sys
@@ -62,7 +65,9 @@ import iotbx.phil
 from libtbx import Auto
 from dxtbx.model.experiment_list import ExperimentListFactory
 from dials.util.options import OptionParser
-from i19.command_line import prettyprint_dictionary, make_template, plot_intensities
+from i19.command_line import (
+    prettyprint_dictionary, make_template, plot_intensities, d_ticks
+)
 
 
 help_message = __doc__
@@ -193,6 +198,24 @@ def terminal_size():
     rows = min(rows, int(columns / 3))
 
     return columns, rows
+
+
+def overloads_histogram(d_spacings, ticks=None, output="overloads"):
+    """
+    Generate a histogram of reflection d-spacings as an image, default is .png
+
+    :param d_spacings:
+    :param ticks:
+    :param output:
+    """
+    plt.xlabel(u"d (Å) (inverse scale)")
+    plt.ylabel(u"Number of overloaded reflections")
+    if ticks:
+        plt.xticks([1 / d for d in ticks], ["%g" % d for d in ticks])
+    plt.semilogy()
+    plt.histogram(d_spacings, 100)
+    plt.savefig(output)
+    plt.close()
 
 
 class I19Screen(object):
@@ -730,17 +753,15 @@ class I19Screen(object):
         try:
             # Run dials.refine
             integrated_experiments, integrated = integrate.run(args)
+            info(
+                "Successfully completed (%.1f sec)",
+                timeit.default_timer() - dials_start
+            )
+            return integrated_experiments, integrated
         except SystemExit as e:
             if e.code:
                 warn("dials.refine failed with exit code %d\nGiving up.", e.code)
                 sys.exit(1)
-            else:
-                info(
-                    "Successfully completed (%.1f sec)",
-                    timeit.default_timer() - dials_start,
-                )
-
-        return integrated_experiments, integrated
 
     def _find_overloads(self, integrated_experiments, integrated):
         """
@@ -756,25 +777,52 @@ class I19Screen(object):
         detector = integrated_experiments[0].detector.to_dict()
         # Assumes all panels have same trusted range, presumably this isn't far-fetched
         upper_limit = .25 * detector['panels'][0]['trusted_range'][1]
+
+        # Get the strongest spots, i.e. all those that could contain overloads
         sel = (integrated['intensity.sum.value'] > upper_limit).iselection()
         strongest = integrated.select(sel)
 
         # Check the pixel values of all the high-intensity spots for pixel overloads
-        overloads = flex.bool(
+        overloaded = flex.bool(
             [any(shoebox.values() > upper_limit) for shoebox in strongest['shoebox']]
         ).iselection()
 
-        # Flag spots with overloaded pixels — also flag them for exclusion from scaling
-        bad_flag = strongest.flags.overloaded | strongest.flags.excluded_for_scaling
-        strongest.set_flags(overloads, bad_flag)
-        integrated.set_selected(sel, strongest)
-
-        # Delete the shoeboxes and overwrite the reflection table on disk, to save space
+        # We're done with the shoeboxes, delete them to save space
         del integrated['shoebox']
-        integrated.as_pickle(self.params.dials_integrate.output.reflections)
 
-        # Return the number of reflections containing overloaded pixels
-        return overloads.size()
+        num_overloads = overloaded.size()
+        if num_overloads:
+            # Flag spots with overloaded pixels — also flag them as bad for scaling
+            bad_flag = strongest.flags.overloaded | strongest.flags.excluded_for_scaling
+            strongest.set_flags(overloaded, bad_flag)
+            integrated.set_selected(sel, strongest)
+            # Overwrite the integrated reflection table on disk to include flags
+            integrated.as_pickle(self.params.dials_integrate.output.reflections)
+            # Write a table of just the overloaded reflections
+            overloads = strongest.select(overloaded)
+            overloads_file = '_overloaded'.join(
+                os.path.splitext(self.params.dials_integrate.output.reflections)
+            )
+            overloads.as_pickle(overloads_file)
+            # Draw a histogram of the overloaded reflections
+            overloads_histogram(1 / overloads['d'], ticks=d_ticks)
+
+            info(
+                '%d reflections contain overloaded pixels and are excluded from '
+                'further processing.\n'
+                'A histogram of number of overloaded reflections vs. resolution '
+                'has been saved as %s.\n'
+                'A reflection table of overloaded reflections has been saved as %s.  '
+                'You can view it by calling\n'
+                '    dials.image_viewer integrated_experiments.json %s\n'
+                'or\n'
+                '    dials.reciprocal_lattice_viewer integrated_experiments.json %s',
+                num_overloads, 'overload.png', *(3 * [overloads_file])
+            )
+        else:
+            info('No reflections contain overloaded pixels.')
+
+        return num_overloads, integrated
 
     def _refine_bravais(self, experiments, reflections):
         """
@@ -939,15 +987,7 @@ class I19Screen(object):
 
         if self.params.i19_minimum_flux.data == "integrated":
             integrated_experiments, integrated = self._integrate()
-            num_overloaded = self._find_overloads(integrated_experiments, integrated)
-            if num_overloaded:
-                info(
-                    '%d reflections contain overloaded pixels and are excluded from '
-                    'further processing.',
-                    num_overloaded
-                )
-            else:
-                info('No reflections contain overloaded pixels.')
+            self._find_overloads(integrated_experiments, integrated)
 
             experiments = self.params.dials_integrate.output.experiments
             reflections = self.params.dials_integrate.output.reflections
