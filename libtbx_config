@@ -1,5 +1,0 @@
-{
-  "modules_required_for_build": ["dials","xia2"],
-  "modules_required_for_use" : [],
-  "optional_modules": [],
-}
