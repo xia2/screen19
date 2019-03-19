@@ -67,7 +67,10 @@ from libtbx import Auto
 from dxtbx.model.experiment_list import ExperimentListFactory
 from dials.util.options import OptionParser
 from i19.command_line import (
-    prettyprint_dictionary, make_template, plot_intensities, d_ticks
+    prettyprint_dictionary,
+    make_template,
+    plot_intensities,
+    d_ticks,
 )
 
 
@@ -213,7 +216,7 @@ def overloads_histogram(d_spacings, ticks=None, output="overloads"):
     plt.ylabel(u"Number of overloaded reflections")
     if ticks:
         plt.xticks([1 / d for d in ticks], ["%g" % d for d in ticks])
-    plt.semilogy(nonposy='clip')
+    plt.semilogy(nonposy="clip")
     plt.hist(d_spacings, min(100, d_spacings.size()))
     plt.savefig(output)
     plt.close()
@@ -268,9 +271,7 @@ class I19Screen(object):
             if not scan_range:
                 raise IndexError
         except IndexError:
-            debug(
-                "Cannot run quick import: could not determine image naming template"
-            )
+            debug("Cannot run quick import: could not determine image naming template")
             return False
 
         info("Running quick import")
@@ -332,8 +333,8 @@ class I19Screen(object):
         from dials.command_line.dials_import import Script as ImportScript
 
         # Get the dials.import PHIL scope, populated with parsed input parameters
-        import_scope = phil_scope.get('dials_import').objects[0]
-        import_scope.name = ''
+        import_scope = phil_scope.get("dials_import").objects[0]
+        import_scope.name = ""
         import_scope = import_scope.format(self.params.dials_import)
         # Set up the dials.import script with these phil parameters
         import_script = ImportScript(phil=import_scope)
@@ -543,8 +544,8 @@ class I19Screen(object):
         # Set the input file
         args = [self.json_file] + args
         # Get the dials.find_spots PHIL scope, populated with parsed input parameters
-        find_spots_scope = phil_scope.get('dials_find_spots').objects[0]
-        find_spots_scope.name = ''
+        find_spots_scope = phil_scope.get("dials_find_spots").objects[0]
+        find_spots_scope.name = ""
         find_spots_scope = find_spots_scope.format(self.params.dials_find_spots)
         # Set up the dials.find_spots script with these phil parameters
         finder_script = SpotFinderScript(phil=find_spots_scope)
@@ -583,8 +584,8 @@ class I19Screen(object):
         ]
 
         # Get the dials.index PHIL scope, populated with parsed input parameters
-        index_scope = phil_scope.get('dials_index').objects[0]
-        index_scope.name = ''
+        index_scope = phil_scope.get("dials_index").objects[0]
+        index_scope.name = ""
         index_scope = index_scope.format(self.params.dials_index)
 
         runlist = [
@@ -636,8 +637,8 @@ class I19Screen(object):
         from i19.command_line import minimum_flux
 
         # Get the i19.minimum_flux PHIL scope, populated with parsed input parameters
-        min_flux_scope = phil_scope.get('i19_minimum_flux').objects[0]
-        min_flux_scope.name = ''
+        min_flux_scope = phil_scope.get("i19_minimum_flux").objects[0]
+        min_flux_scope.name = ""
         min_flux_scope = min_flux_scope.format(self.params.i19_minimum_flux)
 
         args = [experiments, reflections]
@@ -677,8 +678,8 @@ class I19Screen(object):
         )
 
         # Get the dials.refine PHIL scope, populated with parsed input parameters
-        refine_scope = phil_scope.get('dials_refine').objects[0]
-        refine_scope.name = ''
+        refine_scope = phil_scope.get("dials_refine").objects[0]
+        refine_scope.name = ""
         refine_scope = refine_scope.format(self.params.dials_refine)
         # Set up the dials.refine script
         refine = Script(phil=refine_scope)
@@ -702,7 +703,7 @@ class I19Screen(object):
         command = [
             "dials.create_profile_model",
             self.params.dials_index.output.experiments,
-            self.params.dials_index.output.reflections
+            self.params.dials_index.output.reflections,
         ]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s", prettyprint_dictionary(result))
@@ -745,8 +746,8 @@ class I19Screen(object):
         self.params.dials_integrate.integration.debug.delete_shoeboxes = False
         self.params.dials_integrate.integration.debug.separate_files = False
         # Get the dials.integrate PHIL scope, populated with parsed input parameters
-        integrate_scope = phil_scope.get('dials_integrate').objects[0]
-        integrate_scope.name = ''
+        integrate_scope = phil_scope.get("dials_integrate").objects[0]
+        integrate_scope.name = ""
         integrate_scope = integrate_scope.format(self.params.dials_integrate)
         # Set up the dials.integrate script
         integrate = Script(phil=integrate_scope)
@@ -756,7 +757,7 @@ class I19Screen(object):
             integrated_experiments, integrated = integrate.run(args)
             info(
                 "Successfully completed (%.1f sec)",
-                timeit.default_timer() - dials_start
+                timeit.default_timer() - dials_start,
             )
             return integrated_experiments, integrated
         except SystemExit as e:
@@ -774,22 +775,22 @@ class I19Screen(object):
 
         # Select those reflections having total summed intensity greater than
         # 0.25 × the upper limit of the trusted range (that being the in-house limit)
-        # TODO: Make this limit not hard coded, based instead on dxtbx detector info
+        #  TODO: Make this limit not hard coded, based instead on dxtbx detector info
         detector = integrated_experiments[0].detector.to_dict()
         # Assumes all panels have same trusted range, presumably this isn't far-fetched
-        upper_limit = .25 * detector['panels'][0]['trusted_range'][1]
+        upper_limit = 0.25 * detector["panels"][0]["trusted_range"][1]
 
         # Get the strongest spots, i.e. all those that could contain overloads
-        sel = (integrated['intensity.sum.value'] > upper_limit).iselection()
+        sel = (integrated["intensity.sum.value"] > upper_limit).iselection()
         strongest = integrated.select(sel)
 
         # Check the pixel values of all the high-intensity spots for pixel overloads
         overloaded = flex.bool(
-            [any(shoebox.values() > upper_limit) for shoebox in strongest['shoebox']]
+            [any(shoebox.values() > upper_limit) for shoebox in strongest["shoebox"]]
         ).iselection()
 
         # We're done with the shoeboxes, delete them to save space
-        del integrated['shoebox']
+        del integrated["shoebox"]
 
         num_overloads = overloaded.size()
         if num_overloads:
@@ -801,27 +802,29 @@ class I19Screen(object):
             integrated.as_pickle(self.params.dials_integrate.output.reflections)
             # Write a table of just the overloaded reflections
             overloads = strongest.select(overloaded)
-            overloads_file = '_overloaded'.join(
+            overloads_file = "_overloaded".join(
                 os.path.splitext(self.params.dials_integrate.output.reflections)
             )
             overloads.as_pickle(overloads_file)
             # Draw a histogram of the overloaded reflections
-            overloads_histogram(1 / overloads['d'], ticks=d_ticks)
+            overloads_histogram(1 / overloads["d"], ticks=d_ticks)
 
             info(
-                '%d reflections contain overloaded pixels and are excluded from '
-                'further processing.\n'
-                'A histogram of number of overloaded reflections vs. resolution '
-                'has been saved as %s.\n'
-                'A reflection table of overloaded reflections has been saved as %s.  '
-                'You can view it by calling\n'
-                '    dials.image_viewer integrated_experiments.json %s\n'
-                'or\n'
-                '    dials.reciprocal_lattice_viewer integrated_experiments.json %s',
-                num_overloads, 'overload.png', *(3 * [overloads_file])
+                "%d reflections contain overloaded pixels and are excluded from "
+                "further processing.\n"
+                "A histogram of number of overloaded reflections vs. resolution "
+                "has been saved as %s.\n"
+                "A reflection table of overloaded reflections has been saved as %s.  "
+                "You can view it by calling\n"
+                "    dials.image_viewer integrated_experiments.json %s\n"
+                "or\n"
+                "    dials.reciprocal_lattice_viewer integrated_experiments.json %s",
+                num_overloads,
+                "overload.png",
+                *(3 * [overloads_file])
             )
         else:
-            info('No reflections contain overloaded pixels.')
+            info("No reflections contain overloaded pixels.")
 
         return num_overloads, integrated
 
@@ -831,11 +834,7 @@ class I19Screen(object):
         :return:
         """
         info("\nRefining bravais settings...")
-        command = [
-            "dials.refine_bravais_settings",
-            experiments,
-            reflections
-        ]
+        command = ["dials.refine_bravais_settings", experiments, reflections]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s", prettyprint_dictionary(result))
         if result["exitcode"] == 0:
@@ -852,11 +851,7 @@ class I19Screen(object):
         :return:
         """
         info("\nCreating report...")
-        command = [
-            "dials.report",
-            experiments,
-            reflections
-        ]
+        command = ["dials.report", experiments, reflections]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s", prettyprint_dictionary(result))
         if result["exitcode"] == 0:
@@ -1019,6 +1014,7 @@ class I19Screen(object):
 
 if __name__ == "__main__":
     from dials.util.version import dials_version
+
     if dials_version().startswith("DIALS 1.12."):
         from i19.util.screen_legacy import I19Screen
     I19Screen().run()

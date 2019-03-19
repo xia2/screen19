@@ -145,7 +145,7 @@ def plot_intensities(
             print_stdout=False,
             print_stderr=False,
             debug=procrunner_debug,
-            environment_override={'LD_LIBRARY_PATH': ''}
+            environment_override={"LD_LIBRARY_PATH": ""},
         )
     except OSError:
         info(traceback.format_exc())
