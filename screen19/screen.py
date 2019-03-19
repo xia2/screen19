@@ -52,6 +52,7 @@ from typing import Dict, List, Tuple, Optional
 
 import math
 import matplotlib
+
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 import os
