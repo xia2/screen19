@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 from os.path import join
 import mock
 import pytest
-from i19.command_line.screen import I19Screen
+from screen19.screen import I19Screen
 
 
 def test_i19screen_command_line_help_does_not_crash():

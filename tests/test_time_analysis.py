@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
-import i19.util.time_analysis
+import screen19.util.time_analysis
 from scitbx.array_family import flex
 
 
@@ -10,6 +10,6 @@ def test_time_analysis():
     f_hz = [5, 10, 20, 20, 4]
     for l, s, f in zip(length, sample_rate_hz, f_hz):
         f_scale = s / l
-        d = i19.util.time_analysis.source(length=l, sample_rate_hz=s, f_hz=f)
-        d = i19.util.time_analysis.fft(d)
+        d = screen19.util.time_analysis.source(length=l, sample_rate_hz=s, f_hz=f)
+        d = screen19.util.time_analysis.fft(d)
         assert flex.max(d) == d[int(round(f / f_scale))]
