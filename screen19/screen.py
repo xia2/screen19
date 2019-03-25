@@ -29,17 +29,17 @@ spots), using 'i19_minimum_flux.data=indexed'.
 
 Examples:
 
-  i19.screen imported_experiments.json
+  screen19 imported_experiments.json
 
-  i19.screen *.cbf
+  screen19 *.cbf
 
-  i19.screen /path/to/data/
+  screen19 /path/to/data/
 
-  i19.screen /path/to/data/image0001.cbf:1:100
+  screen19 /path/to/data/image0001.cbf:1:100
 
-  i19.screen min_i_over_sigma=2 desired_d=0.84 <imported_experiments.json | image_files>
+  screen19 min_i_over_sigma=2 desired_d=0.84 <imported_experiments.json | image_files>
 
-  i19.screen i19_minimum_flux.data=indexed <image_files>
+  screen19 i19_minimum_flux.data=indexed <image_files>
 
 """
 
@@ -88,12 +88,12 @@ Possible values:
 output
   .caption = 'Options to control the output files'
   {
-  log = 'i19.screen.log'
+  log = 'screen19.log'
   .type = str
   .caption = "The log filename"
   .help = 'If False, no info log will be created.'
 
-  debug_log = 'i19.screen.debug.log'
+  debug_log = 'screen19.debug.log'
   .type = str
   .caption = "The debug log filename"
   .help = 'If False, no debug log will be created.'
@@ -171,7 +171,7 @@ dials_report
 
 procrunner_debug = False
 
-logger = logging.getLogger("dials.i19.screen")
+logger = logging.getLogger("dials.screen19")
 debug, info, warn = logger.debug, logger.info, logger.warn
 
 
@@ -1004,7 +1004,7 @@ class I19Screen(object):
             time.strftime("%Y-%m-%d %H:%M:%S"),
             i19screen_runtime,
         )
-        info("i19.screen successfully completed (%.1f sec)", i19screen_runtime)
+        info("screen19 successfully completed (%.1f sec)", i19screen_runtime)
 
 
 if __name__ == "__main__":
