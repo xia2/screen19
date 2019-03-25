@@ -47,32 +47,29 @@ from __future__ import absolute_import, division, print_function
 
 import json
 import logging
-
-from typing import Dict, List, Tuple, Optional
-
 import math
-import matplotlib
-
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
 import os
 import re
 import sys
 import time
 import timeit
 
-import procrunner
+from dials.util.options import OptionParser
+from dxtbx.model.experiment_list import ExperimentListFactory
+from typing import Dict, List, Tuple, Optional
 import iotbx.phil
 from libtbx import Auto
-from dxtbx.model.experiment_list import ExperimentListFactory
-from dials.util.options import OptionParser
-from i19.command_line import (
+import matplotlib
+from matplotlib import pyplot as plt
+import procrunner
+from screen19.command_line import (
     prettyprint_dictionary,
     make_template,
     plot_intensities,
     d_ticks,
 )
 
+matplotlib.use("Agg")
 
 help_message = __doc__
 
@@ -876,13 +873,11 @@ class I19Screen(object):
         :param phil:
         :return:
         """
-        import libtbx.load_env
-        from i19.util.version import i19_version
         from dials.util.version import dials_version
 
         usage = (
-            "%s [options] image_directory | image_files.cbf | "
-            "experiments.json" % libtbx.env.dispatcher_name
+            "screen19 [options] image_directory | image_files.cbf | "
+            "experiments.json"
         )
 
         parser = OptionParser(
@@ -893,8 +888,8 @@ class I19Screen(object):
             args=args, show_diff_phil=True, return_unhandled=True, quick_parse=True
         )
 
-        version_information = "%s using %s (%s)" % (
-            i19_version(),
+        version_information = "screen19 v%s using %s (%s)" % (
+            screen19.__version__(),
             dials_version(),
             time.strftime("%Y-%m-%d %H:%M:%S"),
         )
