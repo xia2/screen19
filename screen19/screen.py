@@ -59,12 +59,8 @@ from dxtbx.model.experiment_list import ExperimentListFactory
 from typing import Dict, List, Tuple, Optional
 import iotbx.phil
 from libtbx import Auto
-import matplotlib
-from matplotlib import pyplot as plt
 import procrunner
-from screen19 import prettyprint_dictionary, make_template, plot_intensities, d_ticks
-
-matplotlib.use("Agg")
+import screen19
 
 help_message = __doc__
 
@@ -204,6 +200,9 @@ def overloads_histogram(d_spacings, ticks=None, output="overloads"):
     :param ticks:
     :param output:
     """
+    import matplotlib
+    matplotlib.use("Agg")
+    from matplotlib import pyplot as plt
     plt.xlabel(u"d (Å) (inverse scale)")
     plt.ylabel(u"Number of overloaded reflections")
     if ticks:
@@ -234,7 +233,7 @@ class Screen19(object):
         files.sort()
         templates = {}  # type: Dict[str, List[Optional[List[int]]]]
         for f in files:
-            template, image = make_template(f)
+            template, image = screen19.make_template(f)
             if template not in templates:
                 image_range = [image, image] if image else []
                 templates.update({template: [image_range]})
@@ -301,7 +300,7 @@ class Screen19(object):
                     "Importing all specified files."
                 )
                 template, start, end = files[0].split(":")
-                template = make_template(template)[0]
+                template = screen19.make_template(template)[0]
                 start, end = int(start), int(end)
                 if not self._quick_import_templates([(template, (start, end))]):
                     warn("Could not import specified image range.")
@@ -400,7 +399,7 @@ class Screen19(object):
         command = ["xia2.overload", "nproc=%s" % self.nproc, self.json_file]
         debug("running %s", command)
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s", prettyprint_dictionary(result))
+        debug("result = %s", screen19.prettyprint_dictionary(result))
         info("Successfully completed (%.1f sec)", result["runtime"])
 
         if result["exitcode"] != 0:
@@ -465,7 +464,7 @@ class Screen19(object):
             ),
         )
 
-        plot_intensities(hist, 1 / hist_granularity, procrunner_debug=procrunner_debug)
+        screen19.plot_intensities(hist, 1 / hist_granularity, procrunner_debug=procrunner_debug)
 
         text = "".join(
             (
@@ -699,7 +698,7 @@ class Screen19(object):
             self.params.dials_index.output.reflections,
         ]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s", prettyprint_dictionary(result))
+        debug("result = %s", screen19.prettyprint_dictionary(result))
         self._sigma_m = None
         if result["exitcode"] == 0:
             db = ExperimentListFactory.from_json_file(
@@ -800,7 +799,7 @@ class Screen19(object):
             )
             overloads.as_pickle(overloads_file)
             # Draw a histogram of the overloaded reflections
-            overloads_histogram(1 / overloads["d"], ticks=d_ticks)
+            overloads_histogram(1 / overloads["d"], ticks=screen19.d_ticks)
 
             info(
                 "%d reflections contain overloaded pixels and are excluded from "
@@ -829,7 +828,7 @@ class Screen19(object):
         info("\nRefining bravais settings...")
         command = ["dials.refine_bravais_settings", experiments, reflections]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s", prettyprint_dictionary(result))
+        debug("result = %s", screen19.prettyprint_dictionary(result))
         if result["exitcode"] == 0:
             m = re.search("---+\n[^\n]*\n---+\n(.*\n)*---+", result["stdout"])
             info(m.group(0))
@@ -846,7 +845,7 @@ class Screen19(object):
         info("\nCreating report...")
         command = ["dials.report", experiments, reflections]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s", prettyprint_dictionary(result))
+        debug("result = %s", screen19.prettyprint_dictionary(result))
         if result["exitcode"] == 0:
             info("Successfully completed (%.1f sec)", result["runtime"])
         #     if sys.stdout.isatty():
@@ -884,7 +883,7 @@ class Screen19(object):
         )
 
         version_information = "screen19 v%s using %s (%s)" % (
-            screen19.__version__(),
+            screen19.__version__,
             dials_version(),
             time.strftime("%Y-%m-%d %H:%M:%S"),
         )
@@ -1002,5 +1001,5 @@ class Screen19(object):
         info("screen19 successfully completed (%.1f sec)", runtime)
 
 
-if __name__ == "__main__":
+def main():
     Screen19().run()

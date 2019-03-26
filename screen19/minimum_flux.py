@@ -43,7 +43,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from cctbx import miller
 from dials.util.options import OptionParser
-from i19.command_line import terminal_size, plot_intensities, d_ticks
+from screen19 import terminal_size, plot_intensities, d_ticks
 
 
 help_message = __doc__
