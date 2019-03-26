@@ -1,2 +1,0 @@
-# Do not run quantifiedcode checks on tests
-tests/*

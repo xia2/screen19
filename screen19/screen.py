@@ -201,8 +201,10 @@ def overloads_histogram(d_spacings, ticks=None, output="overloads"):
     :param output:
     """
     import matplotlib
+
     matplotlib.use("Agg")
     from matplotlib import pyplot as plt
+
     plt.xlabel(u"d (Å) (inverse scale)")
     plt.ylabel(u"Number of overloaded reflections")
     if ticks:
@@ -464,7 +466,9 @@ class Screen19(object):
             ),
         )
 
-        screen19.plot_intensities(hist, 1 / hist_granularity, procrunner_debug=procrunner_debug)
+        screen19.plot_intensities(
+            hist, 1 / hist_granularity, procrunner_debug=procrunner_debug
+        )
 
         text = "".join(
             (

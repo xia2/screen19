@@ -20,7 +20,7 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
     ],
-    description="Infrastructure components for automated data processing at Diamond Light Source",
+    description="Screening program for small-molecule single-crystal X-ray diffraction data",
     entry_points={
         "console_scripts": [
             "i19.screen = screen19.screen:main",
