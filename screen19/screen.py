@@ -219,7 +219,7 @@ def overloads_histogram(d_spacings, ticks=None, output="overloads"):
     plt.close()
 
 
-class I19Screen(object):
+class Screen19(object):
     """
     Encapsulates the screening script.
     """
@@ -631,7 +631,7 @@ class I19Screen(object):
         dials_start = timeit.default_timer()
         info("\nEstimating lower flux bound...")
 
-        from i19.command_line import minimum_flux
+        import screen19.minimum_flux
 
         # Get the i19.minimum_flux PHIL scope, populated with parsed input parameters
         min_flux_scope = phil_scope.get("i19_minimum_flux").objects[0]
@@ -641,11 +641,12 @@ class I19Screen(object):
         args = [experiments, reflections]
 
         try:
-            # Run i19.minimum_flux
-            minimum_flux.run(phil=min_flux_scope, args=args)
+            screen19.minimum_flux.run(phil=min_flux_scope, args=args)
         except SystemExit as e:
             if e.code:
-                warn("i19.minimum_flux failed with exit code %d\nGiving up.", e.code)
+                warn(
+                    "screen19.minimum_flux failed with exit code %d\nGiving up.", e.code
+                )
                 sys.exit(1)
 
         info("Successfully completed (%.1f sec)", timeit.default_timer() - dials_start)
@@ -876,8 +877,7 @@ class I19Screen(object):
         from dials.util.version import dials_version
 
         usage = (
-            "screen19 [options] image_directory | image_files.cbf | "
-            "experiments.json"
+            "screen19 [options] image_directory | image_files.cbf | experiments.json"
         )
 
         parser = OptionParser(
@@ -998,18 +998,14 @@ class I19Screen(object):
 
         self._refine_bravais(experiments, reflections)
 
-        i19screen_runtime = timeit.default_timer() - start
+        runtime = timeit.default_timer() - start
         debug(
             "Finished at %s, total runtime: %.1f",
             time.strftime("%Y-%m-%d %H:%M:%S"),
-            i19screen_runtime,
+            runtime,
         )
-        info("screen19 successfully completed (%.1f sec)", i19screen_runtime)
+        info("screen19 successfully completed (%.1f sec)", runtime)
 
 
 if __name__ == "__main__":
-    from dials.util.version import dials_version
-
-    if dials_version().startswith("DIALS 1.12."):
-        from i19.util.screen_legacy import I19Screen
-    I19Screen().run()
+    Screen19().run()
