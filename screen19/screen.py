@@ -62,12 +62,7 @@ from libtbx import Auto
 import matplotlib
 from matplotlib import pyplot as plt
 import procrunner
-from screen19.command_line import (
-    prettyprint_dictionary,
-    make_template,
-    plot_intensities,
-    d_ticks,
-)
+from screen19 import prettyprint_dictionary, make_template, plot_intensities, d_ticks
 
 matplotlib.use("Agg")
 
@@ -109,7 +104,7 @@ nproc = Auto
 i19_minimum_flux
   .caption = 'Options for i19.minimum_flux'
   {
-  include scope i19.command_line.minimum_flux.phil_scope
+  include scope screen19.minimum_flux.phil_scope
   data = indexed *integrated
     .type = choice
     .caption = 'Choice of data for the displacement parameter fit'
