@@ -12,7 +12,7 @@ import traceback
 import procrunner
 from typing import Dict, Tuple
 
-__version__ = "0.200"
+__version__ = "0.201"
 
 logger = logging.getLogger("dials.i19")
 debug, info, warn = logger.debug, logger.info, logger.warning
