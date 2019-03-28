@@ -25,7 +25,7 @@ By default the disorder parameter fit is conducted on the
 integrated data.  This ought to provide a reasonably true fit, but requires
 an integration step, which can take some time.  You can achieve a quicker,
 dirtier answer by fitting to the indexed data (i.e. only the stronger
-spots), using 'i19_minimum_flux.data=indexed'.
+spots), using 'minimum_flux.data=indexed'.
 
 Examples:
 
@@ -39,7 +39,7 @@ Examples:
 
   screen19 min_i_over_sigma=2 desired_d=0.84 <imported_experiments.json | image_files>
 
-  screen19 i19_minimum_flux.data=indexed <image_files>
+  screen19 minimum_flux.data=indexed <image_files>
 
 """
 
@@ -97,8 +97,8 @@ nproc = Auto
           'multi-processing option.  If 'False' or 'Auto', all available ' \
           'processors will be used.'
 
-i19_minimum_flux
-  .caption = 'Options for i19.minimum_flux'
+minimum_flux
+  .caption = 'Options for screen19.minimum_flux'
   {
   include scope screen19.minimum_flux.phil_scope
   data = indexed *integrated
@@ -411,7 +411,7 @@ class Screen19(object):
         with open("overload.json") as fh:
             overload_data = json.load(fh)
 
-        print("Pixel intensity distribution:")
+        info("Pixel intensity distribution:")
         count_sum = 0
         hist = {}
         if "bins" in overload_data:
@@ -631,10 +631,10 @@ class Screen19(object):
 
         import screen19.minimum_flux
 
-        # Get the i19.minimum_flux PHIL scope, populated with parsed input parameters
-        min_flux_scope = phil_scope.get("i19_minimum_flux").objects[0]
+        # Get the screen19.minimum_flux PHIL scope, populated with parsed input
+        min_flux_scope = phil_scope.get("minimum_flux").objects[0]
         min_flux_scope.name = ""
-        min_flux_scope = min_flux_scope.format(self.params.i19_minimum_flux)
+        min_flux_scope = min_flux_scope.format(self.params.minimum_flux)
 
         args = [experiments, reflections]
 
@@ -911,9 +911,9 @@ class Screen19(object):
             # Filter the handlers for the info log file and stdout,
             # such that no child log records from DIALS scripts end up
             # there.  Retain child log records in the debug log file.
-#            for handler in logging.getLogger("dials").handlers:
-#                if handler.name in ("stream", "file_info"):
-#                    handler.addFilter(logging.Filter("dials.i19"))
+            for handler in logging.getLogger("dials").handlers:
+                if handler.name in ("stream", "file_info"):
+                    handler.addFilter(logging.Filter("dials.screen19"))
 
         info(version_information)
         debug("Run with:\n%s\n%s", " ".join(unhandled), parser.diff_phil.as_str())
@@ -974,7 +974,7 @@ class Screen19(object):
                 )
                 sys.exit(1)
 
-        if self.params.i19_minimum_flux.data == "integrated":
+        if self.params.minimum_flux.data == "integrated":
             integrated_experiments, integrated = self._integrate()
             self._find_overloads(integrated_experiments, integrated)
 

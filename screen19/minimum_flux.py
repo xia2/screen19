@@ -75,10 +75,10 @@ minimum_flux
 output
   .caption = 'Parameters to control the output'
   {
-  log = 'i19.minimum_flux.log'
+  log = 'screen19.minimum_flux.log'
     .type = str
     .caption = 'Location for the info log'
-  debug_log = 'i19.minimum_flux.debug.log'
+  debug_log = 'screen19.minimum_flux.debug.log'
     .type = str
     .caption = 'Location for the debug log'
   wilson_plot = 'wilson_plot'
@@ -95,7 +95,7 @@ verbosity = 1
     process_includes=True,
 )
 
-logger_name = "dials.i19.minimum_flux"
+logger_name = "dials.screen19.minimum_flux"
 logger = logging.getLogger(logger_name)
 debug, info, warn = logger.debug, logger.info, logger.warning
 
@@ -350,6 +350,8 @@ def run(phil=phil_scope, args=None):
             "flux used for this data collection.",
             recommendation,
         )
+
+    # TODO: SUggest what resolution is possible?
 
     summary = "\nRecommendations, summarised:\n"
     summary += tabulate(
