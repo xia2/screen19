@@ -865,7 +865,7 @@ class Screen19(object):
             warn("Failed with exit code %d", result["exitcode"])
             sys.exit(1)
 
-    def run(self, args=None, phil=phil_scope):
+    def run(self, args=None, phil=phil_scope, set_up_logging=False):
         """
         TODO: Docstring
         :param args:
@@ -899,7 +899,7 @@ class Screen19(object):
             print(version_information)
             return
 
-        if __name__ == "__main__":
+        if set_up_logging:
             from dials.util import log
 
             # Configure the logging
@@ -911,9 +911,9 @@ class Screen19(object):
             # Filter the handlers for the info log file and stdout,
             # such that no child log records from DIALS scripts end up
             # there.  Retain child log records in the debug log file.
-            for handler in logging.getLogger("dials").handlers:
-                if handler.name in ("stream", "file_info"):
-                    handler.addFilter(logging.Filter("dials.i19"))
+#            for handler in logging.getLogger("dials").handlers:
+#                if handler.name in ("stream", "file_info"):
+#                    handler.addFilter(logging.Filter("dials.i19"))
 
         info(version_information)
         debug("Run with:\n%s\n%s", " ".join(unhandled), parser.diff_phil.as_str())
@@ -1006,4 +1006,4 @@ class Screen19(object):
 
 
 def main():
-    Screen19().run()
+    Screen19().run(set_up_logging=True)
