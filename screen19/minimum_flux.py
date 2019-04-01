@@ -241,7 +241,7 @@ def run(phil=phil_scope, args=None):
         epilog=help_message,
     )
 
-    params, options = parser.parse_args(args=args, show_diff_phil=True)
+    params, options = parser.parse_args(args=args)
 
     if __name__ == "__main__":
         from dials.util import log
