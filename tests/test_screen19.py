@@ -11,7 +11,7 @@ def test_screen19_command_line_help_does_not_crash():
 def test_screen19(dials_data, tmpdir):
     data_dir = dials_data("x4wide").strpath
     with tmpdir.as_cwd():
-        Screen19().run([data_dir])
+        Screen19().run([data_dir], set_up_logging=True)
 
     logfile = tmpdir.join("screen19.log").read()
 
@@ -25,7 +25,7 @@ def test_screen19_single_frame(dials_data, tmpdir):
     image = dials_data("x4wide").join("X4_wide_M1S4_2_0001.cbf").strpath
 
     with tmpdir.as_cwd():
-       Screen19().run([image])
+        Screen19().run([image], set_up_logging=True)
 
     logfile = tmpdir.join("screen19.log").read()
 
