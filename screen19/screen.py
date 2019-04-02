@@ -738,9 +738,9 @@ class Screen19(object):
         ]
 
         # Retain shoeboxes in order to determine reflections containing overloads
-        self.params.dials_integrate.integration.debug.output = True
-        self.params.dials_integrate.integration.debug.delete_shoeboxes = False
-        self.params.dials_integrate.integration.debug.separate_files = False
+        # self.params.dials_integrate.integration.debug.output = True
+        # self.params.dials_integrate.integration.debug.delete_shoeboxes = False
+        # self.params.dials_integrate.integration.debug.separate_files = False
         # Get the dials.integrate PHIL scope, populated with parsed input parameters
         integrate_scope = phil_scope.get("dials_integrate").objects[0]
         integrate_scope.name = ""
@@ -976,7 +976,7 @@ class Screen19(object):
 
         if self.params.minimum_flux.data == "integrated":
             integrated_experiments, integrated = self._integrate()
-            self._find_overloads(integrated_experiments, integrated)
+            # self._find_overloads(integrated_experiments, integrated)
 
             experiments = self.params.dials_integrate.output.experiments
             reflections = self.params.dials_integrate.output.reflections
