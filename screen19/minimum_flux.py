@@ -36,6 +36,7 @@ import sys
 import logging
 from tabulate import tabulate
 
+import boost.python
 import iotbx.phil
 from dials.array_family import flex
 import numpy as np
@@ -44,6 +45,9 @@ from cctbx import miller
 from dials.util.options import OptionParser
 from screen19 import terminal_size, plot_intensities, d_ticks
 
+
+# Suppress unhelpful matplotlib crash due to boost.python's overzealous allergy to FPEs
+boost.python.floating_point_exceptions.division_by_zero_trapped = False
 
 help_message = __doc__
 
@@ -198,8 +202,7 @@ def wilson_plot_image(
     plt.ylabel(u"Intensity (counts)")
     if ticks:
         plt.xticks([1 / d ** 2 for d in ticks], ["%g" % d for d in ticks])
-    #  plt.semilogy()
-    #  This crashes on Matplotlib 2.2.3/2.2.4
+    plt.yscale("log", nonposy="clip")
     plt.plot(d_star_sq, intensity, "b.", label=None)
     plt.plot(
         d_star_sq, scaled_debye_waller(d_star_sq, *fit), "r-", label="Debye-Waller fit"
