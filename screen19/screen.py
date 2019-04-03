@@ -209,7 +209,7 @@ def overloads_histogram(d_spacings, ticks=None, output="overloads"):
     plt.ylabel(u"Number of overloaded reflections")
     if ticks:
         plt.xticks([1 / d for d in ticks], ["%g" % d for d in ticks])
-    plt.yscale(nonposy="clip")
+    plt.yscale("log", nonposy="clip")
     plt.hist(d_spacings, min(100, d_spacings.size()))
     plt.savefig(output)
     plt.close()
