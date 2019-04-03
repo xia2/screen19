@@ -34,7 +34,6 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 import logging
-from typing import Dict, List, Tuple, Optional
 from tabulate import tabulate
 
 import iotbx.phil
@@ -219,7 +218,7 @@ def wilson_plot_image(
     plt.close()
 
 
-def run(phil=phil_scope, args=None):
+def run(phil=phil_scope, args=None, set_up_logging=False):
     """
     TODO: Docstring
 
@@ -244,7 +243,7 @@ def run(phil=phil_scope, args=None):
 
     params, options = parser.parse_args(args=args)
 
-    if __name__ == "__main__":
+    if set_up_logging:
         from dials.util import log
 
         # Configure the logging
@@ -377,4 +376,4 @@ def run(phil=phil_scope, args=None):
 
 
 if __name__ == "__main__":
-    run()
+    run(set_up_logging=True)
