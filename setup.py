@@ -27,7 +27,7 @@ setup(
             "screen19 = screen19.screen:main",
             "i19.stability_fft = screen19.stability_fft:main",
             "i19.sync = screen19.sync:main",
-            "i19.minimum_flux = screen19.minimum_flux:main",
+            "i19.minimum_flux = screen19.minimum_flux:run",
         ],
         "libtbx.dispatcher.script": [
             "i19.screen = i19.screen",
