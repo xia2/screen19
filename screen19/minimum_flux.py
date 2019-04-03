@@ -254,6 +254,10 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
             params.verbosity, info=params.output.log, debug=params.output.debug_log
         )
 
+    if not (params.input.experiments and params.input.reflections):
+        print(help_message)
+        sys.exit(1)
+
     if len(params.input.experiments) > 1:
         warn(
             "You provided more than one experiment list (%s).  Only the "
