@@ -114,9 +114,8 @@ def stability_fft(imageset, params):
 def main():
     from dials.util.options import OptionParser
     from dials.util.options import flatten_datablocks
-    import libtbx.load_env
 
-    usage = "%s [options] image_*.cbf" % (libtbx.env.dispatcher_name)
+    usage = "%prog [options] image_*.cbf"
 
     parser = OptionParser(
         usage=usage,

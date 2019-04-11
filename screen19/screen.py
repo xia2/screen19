@@ -894,9 +894,7 @@ class Screen19(object):
         """
         from dials.util.version import dials_version
 
-        usage = (
-            "screen19 [options] image_directory | image_files.cbf | experiments.json"
-        )
+        usage = "%prog [options] image_directory | image_files.cbf | experiments.json"
 
         parser = OptionParser(
             usage=usage, epilog=help_message, phil=phil, check_format=False

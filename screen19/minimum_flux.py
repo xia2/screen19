@@ -229,11 +229,7 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
     :param args:
     :return:
     """
-    import libtbx.load_env
-
-    usage = (
-        "%s [options] experiments.json reflections.pickle" % libtbx.env.dispatcher_name
-    )
+    usage = "%prog [options] experiments.json reflections.pickle"
 
     parser = OptionParser(
         usage=usage,
