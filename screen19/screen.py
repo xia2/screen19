@@ -54,13 +54,14 @@ import sys
 import time
 import timeit
 
-from dials.util.options import OptionParser
-from dxtbx.model.experiment_list import ExperimentListFactory
-from typing import Dict, List, Tuple, Optional
+import dials.util.version
 import iotbx.phil
-from libtbx import Auto
 import procrunner
 import screen19
+from dials.util.options import OptionParser
+from dxtbx.model.experiment_list import ExperimentListFactory
+from libtbx import Auto
+from typing import Dict, List, Tuple, Optional
 
 help_message = __doc__
 
@@ -160,6 +161,7 @@ dials_report
     process_includes=True,
 )
 
+dials_v1 = dials.util.version.__dials_version_default.startswith("1.")
 procrunner_debug = False
 
 logger = logging.getLogger("dials.screen19")
@@ -382,6 +384,16 @@ class Screen19(object):
         :return: Number of images.
         :rtype: int
         """
+
+        if dials_v1:
+            with open(self.json_file) as fh:
+                datablock = json.load(fh)
+            try:
+                return sum(len(s["exposure_time"]) for s in datablock[0]["scan"])
+            except Exception:
+                warn("Could not determine number of images in dataset")
+                sys.exit(1)
+
         from dxtbx.model.experiment_list import ExperimentListFactory
 
         imported = ExperimentListFactory.from_json_file(self.json_file)
@@ -546,7 +558,9 @@ class Screen19(object):
         finder_script = SpotFinderScript(phil=find_spots_scope)
         # Run the script
         try:
-            if self.params.dials_find_spots.output.experiments:
+            if (dials_v1 and self.params.dials_find_spots.output.datablock) or (
+                not dials_v1 and self.params.dials_find_spots.output.experiments
+            ):
                 expts, refls = finder_script.run(args)
             else:
                 refls = finder_script.run(args)
@@ -573,10 +587,16 @@ class Screen19(object):
         from dials.command_line import index
 
         # Set the input files
-        basic_args = [
-            self.params.dials_import.output.experiments,
-            self.params.dials_find_spots.output.reflections,
-        ]
+        if dials_v1:
+            basic_args = [
+                self.params.dials_import.output.datablock,
+                self.params.dials_find_spots.output.reflections,
+            ]
+        else:
+            basic_args = [
+                self.params.dials_import.output.experiments,
+                self.params.dials_find_spots.output.reflections,
+            ]
 
         # Get the dials.index PHIL scope, populated with parsed input parameters
         index_scope = phil_scope.get("dials_index").objects[0]
@@ -933,8 +953,12 @@ class Screen19(object):
         if len(unhandled) == 1 and unhandled[0].endswith(".json"):
             self.json_file = unhandled[0]
         else:
-            self.json_file = "imported_experiments.json"
-            self.params.dials_import.output.experiments = self.json_file
+            if dials_v1:
+                self.json_file = "datablock.json"
+                self.params.dials_import.output.datablock = self.json_file
+            else:
+                self.json_file = "imported_experiments.json"
+                self.params.dials_import.output.experiments = self.json_file
             self._import(unhandled)
 
         n_images = self._count_images()
@@ -952,11 +976,13 @@ class Screen19(object):
                 info(
                     "Could not find an indexing solution. You may want to "
                     "have a look at the reciprocal space by running:\n\n"
-                    "    dials.reciprocal_lattice_viewer imported_experiments.json "
+                    "    dials.reciprocal_lattice_viewer %s "
                     "all_spots.pickle\n\n"
                     "or, to only include stronger spots:\n\n"
-                    "    dials.reciprocal_lattice_viewer imported_experiments.json "
-                    "strong.\n"
+                    "    dials.reciprocal_lattice_viewer %s "
+                    "strong.\n",
+                    self.json_file,
+                    self.json_file,
                 )
                 sys.exit(1)
 
