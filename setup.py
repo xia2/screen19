@@ -45,6 +45,6 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/xia2/screen19",
-    version="0.202",
+    version="0.203",
     zip_safe=False,
 )
