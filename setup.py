@@ -13,7 +13,7 @@ setup(
     author="Diamond Light Source",
     author_email="scientificsoftware@diamond.ac.uk",
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "License :: OSI Approved :: BSD License",
         "Natural Language :: English",
         "Programming Language :: Python :: 2",

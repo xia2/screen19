@@ -18,6 +18,14 @@ screen19
         :target: https://github.com/ambv/black
         :alt: Code style: black
 
+.. image:: https://img.shields.io/lgtm/grade/python/g/xia2/screen19.svg?logo=lgtm&logoWidth=18
+        :target: https://lgtm.com/projects/g/xia2/screen19/context:python
+        :alt: Language grade: Python
+
+.. image:: https://img.shields.io/lgtm/alerts/g/xia2/screen19.svg?logo=lgtm&logoWidth=18
+        :target: https://lgtm.com/projects/g/xia2/screen19/alerts/
+        :alt: Total alerts
+
 Screening program for small-molecule single-crystal X-ray diffraction data
 
 You need to have a Python environment containing DIALS to use it. You can then install it with::
