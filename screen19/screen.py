@@ -110,6 +110,22 @@ minimum_flux
             'the isotropic displacement parameter.'
   }
 
+maximum_flux
+  .caption = 'Options for avoiding detector paralysation'
+  {
+  trusted_range_correction = 0.25
+    .type = float(value_min=0, value_max=1)
+    .caption = 'Factor by which to multiply the upper limit of the trusted range.'
+    .help = "The detector manufacturer's photon count correction, to correct for " \
+            "pixel paralysation, is often found to be unreliable at photon counts " \
+            "in the upper part of the nominal trusted range.  In such cases, this " \
+            "factor can be used to adjust the upper limit of the trusted range.  " \
+            "Pilatus detectors, for example, have been found not to give reliable " \
+            u"correction for photon counts greater than 0.25 × the manufacturer's " \
+            "trusted range.  It is therefore sensible to present the user with a " \
+            "correspondingly reduced upper-limit flux recommendation."
+  }
+
 dials_import
   .caption = 'Options for dials.import'
   {
@@ -482,6 +498,9 @@ class Screen19(object):
             hist, 1 / hist_granularity, procrunner_debug=procrunner_debug
         )
 
+        linear_response_limit = 100 * self.params.maximum_flux.trusted_range_correction
+        marginal_limit = max(70, linear_response_limit)
+
         text = "".join(
             (
                 "Strongest pixel (%d counts) " % max_count,
@@ -503,22 +522,28 @@ class Screen19(object):
                 "limits of the detector.\n"
                 "         The built-in detector count rate correction cannot "
                 "adjust for this.\n"
-                "         You should aim for count rates below 25% of the "
-                "detector limit."
+                "         You should aim for count rates below {:.0%} of the "
+                "detector limit.".format(
+                    self.params.maximum_flux.trusted_range_correction
+                )
             )
-        elif hist_max > 70:
+        elif hist_max > marginal_limit:
             warn(
                 "Warning: The photon incidence rate is well outside the "
-                "linear response region of the detector (<25%).\n"
+                "linear response region of the detector (<{:.0%}).\n"
                 "    The built-in detector count rate correction may not be "
-                "able to adjust for this."
+                "able to adjust for this.".format(
+                    self.params.maximum_flux.trusted_range_correction
+                )
             )
-        elif hist_max > 25:
+        elif hist_max > linear_response_limit:
             info(
                 "The photon incidence rate is outside the linear response "
-                "region of the detector (<25%).\n"
-                "The built-in detector count rate correction should be able "
-                "to adjust for this."
+                "region of the detector (<{:.0%}).\n"
+                "    The built-in detector count rate correction may be able "
+                "to adjust for this.".format(
+                    self.params.maximum_flux.trusted_range_correction
+                )
             )
         if not mosaicity_correction:
             warn(
@@ -720,13 +745,14 @@ class Screen19(object):
             "dials.create_profile_model",
             self.params.dials_index.output.experiments,
             self.params.dials_index.output.reflections,
+            "output = %s" % self.params.dials_index.output.experiments,
         ]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s", screen19.prettyprint_dictionary(result))
         self._sigma_m = None
         if result["exitcode"] == 0:
             db = ExperimentListFactory.from_json_file(
-                "experiments_with_profile_model.json"
+                self.params.dials_index.output.experiments
             )[0]
             self._num_images = db.imageset.get_scan().get_num_images()
             self._oscillation = db.imageset.get_scan().get_oscillation()[1]
@@ -761,6 +787,8 @@ class Screen19(object):
         # self.params.dials_integrate.integration.debug.output = True
         # self.params.dials_integrate.integration.debug.delete_shoeboxes = False
         # self.params.dials_integrate.integration.debug.separate_files = False
+        # Don't waste time recreating the profile model
+        self.params.dials_integrate.create_profile_model = False
         # Get the dials.integrate PHIL scope, populated with parsed input parameters
         integrate_scope = phil_scope.get("dials_integrate").objects[0]
         integrate_scope.name = ""
@@ -794,7 +822,8 @@ class Screen19(object):
         #  TODO: Make this limit not hard coded, based instead on dxtbx detector info
         detector = integrated_experiments[0].detector.to_dict()
         # Assumes all panels have same trusted range, presumably this isn't far-fetched
-        upper_limit = 0.25 * detector["panels"][0]["trusted_range"][1]
+        upper_limit = detector["panels"][0]["trusted_range"][1]
+        upper_limit *= self.params.maximum_flux.trusted_range_correction
 
         # Get the strongest spots, i.e. all those that could contain overloads
         sel = (integrated["intensity.sum.value"] > upper_limit).iselection()
@@ -1000,6 +1029,7 @@ class Screen19(object):
 
         if self.params.minimum_flux.data == "integrated":
             integrated_experiments, integrated = self._integrate()
+            # FIXME: Find overloads algorithm hogs memory because of integration shoebxs
             # self._find_overloads(integrated_experiments, integrated)
 
             experiments = self.params.dials_integrate.output.experiments
