@@ -185,6 +185,16 @@ logger = logging.getLogger("dials.screen19")
 debug, info, warn = logger.debug, logger.info, logger.warn
 
 
+def _reset_cache():
+    # Work around DIALS <1.14.4 phil cache issue
+    import dials.util.phil
+
+    dcr = dials.util.phil.default_converter_registry
+    for k in dcr.values():
+        if hasattr(k, "cache"):
+            k.cache.clear()
+
+
 def terminal_size():
     """
     Find the current size of the terminal window.
@@ -997,6 +1007,7 @@ class Screen19(object):
         if not self._index():
             info("\nRetrying for stronger spots only...")
             os.rename("strong.pickle", "all_spots.pickle")
+            _reset_cache()
             self._find_spots(["sigma_strong=15"])
             if not self._index():
                 warn("Giving up.")
