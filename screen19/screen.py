@@ -58,6 +58,7 @@ import dials.util.version
 import iotbx.phil
 import procrunner
 import screen19
+from dials.util import Sorry
 from dials.util.options import OptionParser
 from dxtbx.model.experiment_list import ExperimentListFactory
 from libtbx import Auto
@@ -639,12 +640,11 @@ class Screen19(object):
             try:
                 # Run indexing and get the indexer object
                 expts, refls = index.run(phil=index_scope, args=basic_args + args)
-                sys.exit(0)
+                break
+            except Sorry as e:
+                warn("Failed: %s", str(e))
             except SystemExit as e:
-                if e.code == 0:
-                    break
-                else:
-                    warn("Failed with exit code %d", e)
+                warn("Failed with exit code %d", e)
         else:
             return False
 
@@ -1007,7 +1007,7 @@ class Screen19(object):
                     "all_spots.pickle\n\n"
                     "or, to only include stronger spots:\n\n"
                     "    dials.reciprocal_lattice_viewer %s "
-                    "strong.\n",
+                    "strong.pickle\n",
                     self.json_file,
                     self.json_file,
                 )
