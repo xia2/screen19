@@ -35,6 +35,7 @@ setup(
             "i19.sync = i19.sync",
             "i19.minimum_flux = i19.minimum_flux",
         ],
+        "libtbx.precommit": ["screen19 = screen19"],
     },
     install_requires=requirements,
     license="BSD license",
