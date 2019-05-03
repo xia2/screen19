@@ -27,24 +27,43 @@ The Wilson plot of I as a function of d is drawn as the file
 'wilson_plot.png'.  The plot can optionally be saved in other formats.
 
 Examples:
-  TODO add examples
+
+    screen19.minimum_flux integrated_experiments.json integrated.pickle
+
+    screen19.minimum_flux indexed_experiments.json indexed.pickle
+
+    screen19.minimum_flux min_i_over_sigma=2 desired_d=0.84 wilson_fit_max_d=4 \
+        integrated_experiments.json integrated.pickle
+
 """
 
 from __future__ import absolute_import, division, print_function
 
 import sys
 import logging
+import numpy as np
 from tabulate import tabulate
 
 import boost.python
-import iotbx.phil
-from dials.array_family import flex
-import numpy as np
-from scipy.optimize import curve_fit
 from cctbx import miller
+from dials.array_family import flex
 from dials.util.options import OptionParser
+import iotbx.phil
+from scipy.optimize import curve_fit
 from screen19 import terminal_size, plot_intensities, d_ticks
 
+# Typing imports and custom types
+try:
+    from typing import Iterable, List, Sequence, Tuple, Union
+
+    from cctbx import crystal
+    from dxtbx.model import Experiment, ExperimentList
+    from libtbx.phil import scope, scope_extract
+
+    FloatSequence = Sequence[float]
+    Fit = Union[np.ndarray, Iterable, int, float]
+except ImportError:
+    pass
 
 # Suppress unhelpful matplotlib crash due to boost.python's overzealous allergy to FPEs
 boost.python.floating_point_exceptions.division_by_zero_trapped = False
@@ -53,48 +72,48 @@ help_message = __doc__
 
 phil_scope = iotbx.phil.parse(
     """
-minimum_flux
-  .caption = 'Parameters for the calculation of the lower flux bound'
-  {
-  desired_d = None
-    .multiple = True
-    .type = float
-    .caption = u'Desired resolution limit, in Ångströms, of diffraction data'
-    .help = 'This is the resolution target for the lower-bound flux ' \
-            'recommendation.'
-  min_i_over_sigma = 2
-    .type = float
-    .caption = u'Target I/σ value for lower-bound flux recommendation'
-    .help = u'The lower-bound flux recommendation provides an estimate of ' \
-            u'the flux required to ensure that the majority of expected ' \
-            u'reflections at the desired resolution limit have I/σ greater ' \
-            u'than or equal to this value.'
-  wilson_fit_max_d = 4  # Å
-    .type = float
-    .caption = u'Maximum d-value (in Ångströms) for displacement parameter fit'
-    .help = 'Reflections with lower resolution than this value will be ' \
-            'ignored for the purposes of the Wilson plot.'
-  }
-output
-  .caption = 'Parameters to control the output'
-  {
-  log = 'screen19.minimum_flux.log'
-    .type = str
-    .caption = 'Location for the info log'
-  debug_log = 'screen19.minimum_flux.debug.log'
-    .type = str
-    .caption = 'Location for the debug log'
-  wilson_plot = 'wilson_plot'
-    .type = str
-    .caption = 'Filename for the Wilson plot image'
-    .help = "By default, the extension '.png' is appended.  If you include " \
-            "a different extension, either '.pdf', '.ps', '.eps' or '.svg', " \
-            "a file of that format will be created instead."
-  }
-verbosity = 1
-  .type = int(value_min=0)
-  .caption = "The verbosity level"
-""",
+    minimum_flux
+        .caption = 'Parameters for the calculation of the lower flux bound'
+        {
+        desired_d = None
+            .multiple = True
+            .type = float
+            .caption = u'Desired resolution limit, in Ångströms, of diffraction data'
+            .help = 'This is the resolution target for the lower-bound flux ' \
+                    'recommendation.'
+        min_i_over_sigma = 2
+            .type = float
+            .caption = u'Target I/σ value for lower-bound flux recommendation'
+            .help = 'The lower-bound flux recommendation provides an estimate of ' \
+                    'the flux required to ensure that the majority of expected ' \
+                    u'reflections at the desired resolution limit have I/σ greater ' \
+                    'than or equal to this value.'
+        wilson_fit_max_d = 4  # Å
+            .type = float
+            .caption = u'Maximum d-value (in Ångströms) for displacement parameter fit'
+            .help = 'Reflections with lower resolution than this value will be ' \
+                    'ignored for the purposes of the Wilson plot.'
+        }
+    output
+        .caption = 'Parameters to control the output'
+        {
+        log = 'screen19.minimum_flux.log'
+            .type = str
+            .caption = 'Location for the info log'
+        debug_log = 'screen19.minimum_flux.debug.log'
+            .type = str
+            .caption = 'Location for the debug log'
+        wilson_plot = 'wilson_plot'
+            .type = str
+            .caption = 'Filename for the Wilson plot image'
+            .help = "By default, the extension '.png' is appended.  If you include " \
+                    "a different extension, either '.pdf', '.ps', '.eps' or '.svg', " \
+                    "a file of that format will be created instead."
+        }
+    verbosity = 1
+        .type = int(value_min=0)
+        .caption = "The verbosity level"
+    """,
     process_includes=True,
 )
 
@@ -104,26 +123,44 @@ debug, info, warn = logger.debug, logger.info, logger.warning
 
 
 def scaled_debye_waller(x, b, a):
-    """
-    TODO: Docstring
+    # type: (float, float, float) -> float
+    u"""
+    A scaled isotropic Debye-Waller factor
 
-    :param x:
-    :param b:
-    :param a:
-    :return:
+    By assuming a single isotropic disorder parameter, :param:`b`, this factor
+    approximates the decay of diffracted X-ray intensity increasing resolution (
+    decreasing d, increasing sin(θ)).
+
+    Args:
+        x: Equivalent to 1/d².
+        b: Isotropic displacement parameter.
+        a: A scale factor.
+
+    Returns:
+        Estimated value of scaled isotropic Debye-Waller factor.
     """
     return a * np.exp(-b / 2 * x)
 
 
 def wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d):
-    """
-    Fit a simple Debye-Waller factor, assume isotropic disorder parameter
+    # type: (FloatSequence, FloatSequence, FloatSequence, float) -> Fit
+    u"""
+    Fit a simple Debye-Waller factor, assume isotropic disorder parameter.
 
-    :param d_star_sq:
-    :param intensity:
-    :param sigma:
-    :param wilson_fit_max_d:
-    :return:
+    Reflections with d ≥ :param:`wilson_fit_max_d` are ignored.
+
+    Args:
+        d_star_sq: 1/d² (equivalently d*²), sequence of values for the observed
+            reflections (units of Å⁻² assumed).
+        intensity: Sequence of reflection intensities.
+        sigma: Sequence of uncertainties in reflection intensity.
+        wilson_fit_max_d: The minimum resolution for reflections against which to
+            fit.
+
+    Returns:
+        - The fitted isotropic displacement parameter (units of Å² assumed);
+        - The fitted scale factor.
+
     """
     # Eliminate reflections with d > wilson_fit_max_d from the fit
     sel = d_star_sq > 1 / wilson_fit_max_d ** 2
@@ -140,16 +177,25 @@ def wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d):
     return fit
 
 
-def wilson_plot_ascii(crystal_symmetry, indices, intensity, sigma, d_ticks=None):
-    """
-    TODO: Docstring
+def wilson_plot_ascii(
+        crystal_symmetry,  # type: crystal.symmetry
+        indices,  # type: Sequence[flex.miller_index, ...]
+        intensity,  # type: FloatSequence
+        sigma,  # type: FloatSequence
+        d_ticks=None,  # type: FloatSequence
+):
+    # type: (...) -> None
+    u"""
+    Print an ASCII-art Wilson plot of reflection intensities.
 
-    :param crystal_symmetry:
-    :param indices:
-    :param intensity:
-    :param sigma:
-    :param d_ticks:
-    :return:
+    Equivalent reflections will be merged according to the crystal symmetry.
+
+    Args:
+        crystal_symmetry: Crystal symmetry.
+        indices: Miller indices of reflections.
+        intensity: Intensities of reflections.
+        sigma: Standard uncertainties in reflection intensities.
+        d_ticks: d location of ticks on 1/d² axis.
     """
     # Draw the Wilson plot, using existing functionality in cctbx.miller
     columns, rows = terminal_size()
@@ -182,16 +228,28 @@ def wilson_plot_ascii(crystal_symmetry, indices, intensity, sigma, d_ticks=None)
 
 
 def wilson_plot_image(
-    d_star_sq, intensity, fit, max_d=None, ticks=None, output="wilson_plot"
+    d_star_sq,  # type: FloatSequence
+    intensity,  # type: FloatSequence
+    fit,  # type: Fit
+    max_d=None,  # type: float
+    ticks=None,  # type: FloatSequence
+    output="wilson_plot"  # type: str
 ):
-    """
-    Generate the Wilson plot as an image, default is .png
+    # type: (...) -> None
+    u"""
+    Generate the Wilson plot as a PNG image.
 
-    :param d_star_sq:
-    :param intensity:
-    :param fit:
-    :param ticks:
-    :param output:
+    :param:`max_d` allows greying out of the reflections not included in the
+    isotropic Debye-Waller fit.
+
+    Args:
+        d_star_sq: 1/d² values of reflections.
+        intensity: Intensities of reflections.
+        fit: Fitted parameters (tuple of fitted isotropic displacement parameter and
+            fitted scale factor).
+        max_d: The minimum resolution for reflections used in the Debye-Waller fit.
+        ticks: d location of ticks on 1/d² axis.
+        output: Output filename.  The extension `.png` will be added automatically.
     """
     import matplotlib
 
@@ -221,13 +279,139 @@ def wilson_plot_image(
     plt.close()
 
 
-def run(phil=phil_scope, args=None, set_up_logging=False):
-    """
-    TODO: Docstring
+def suggest_minimum_flux(expts, refls, params):
+    # type: (ExperimentList[Experiment], flex.reflection_table, scope_extract) -> None
+    u"""
+    Suggest an estimated minimum sufficient flux to achieve a certain resolution.
 
-    :param phil:
-    :param args:
-    :return:
+    The estimate is based on a fit of a Debye-Waller factor under the assumption that a
+    single isotropic displacement parameter can be used to adequately describe the
+    decay of intensities with increasing sin(θ).
+
+    An ASCII-art Wilson plot is printed, along with minimum flux recommendations for
+    a number of different resolution targets.  The Wilson plot, including the fitted
+    isotropic Debye-Waller factor, is saved as a PNG image.
+
+    Args:
+        expts: Experiment list containing a single experiment, from which the crystal
+            symmetry will be extracted.
+        refls: Reflection table of observed reflections.
+        params: Parameters for calculation of minimum flux estimate.
+    """
+    # Ignore reflections without an index, since uctbx.unit_cell.d returns spurious
+    # d == -1 values, rather than None, for unindexed reflections.
+    refls.del_selected(refls["id"] == -1)
+    # Ignore all spots flagged as overloaded
+    refls.del_selected(refls.get_flags(refls.flags.overloaded).iselection())
+    # The Wilson plot fit implicitly involves taking a logarithm of
+    # intensities, so eliminate values that are going to cause problems
+    try:
+        # Work from profile-fitted intensities where possible
+        refls = refls.select(refls["intensity.prf.value"] > 0)
+    except RuntimeError:
+        refls = refls.select(refls["intensity.sum.value"] > 0)
+
+    # Parameters for the lower-bound flux estimate:
+    min_i_over_sigma = params.minimum_flux.min_i_over_sigma
+    wilson_fit_max_d = params.minimum_flux.wilson_fit_max_d
+    desired_d = params.minimum_flux.desired_d
+    # If no target resolution is given, use the following defaults:
+    if not params.minimum_flux.desired_d:
+        desired_d = [
+            1,  # Å
+            0.84,  # Å (IUCr publication requirement)
+            0.6,  # Å
+            0.4,  # Å
+        ]
+    desired_d.sort(reverse=True)
+
+    # Get d-spacings, intensity & std dev of reflections
+    symmetry = expts[0].crystal.get_crystal_symmetry()
+    d_star_sq = 1 / symmetry.unit_cell().d(refls["miller_index"]) ** 2
+    try:
+        # Work from profile-fitted intensities and uncertainties where possible
+        intensity = refls["intensity.prf.value"]
+        sigma = flex.sqrt(refls["intensity.prf.variance"])
+    except RuntimeError:
+        intensity = refls["intensity.sum.value"]
+        sigma = flex.sqrt(refls["intensity.sum.variance"])
+
+    # Perform the Wilson plot fit
+    fit = wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d)
+
+    # Get recommended dose factors
+    # Use the fact that σ² = I for indexed data, so I/σ = √̅I
+    desired_d_star_sq = [1 / d ** 2 for d in desired_d]
+    target_i = min_i_over_sigma ** 2
+    recommended_factor = [
+        (target_i / scaled_debye_waller(target_d, *fit))
+        for target_d in desired_d_star_sq
+    ]
+
+    # Get the achievable resolution at the current dose
+    desired_d += [np.sqrt(fit[0] / (2 * np.log(fit[1] / target_i)))]
+    recommended_factor += [1]
+
+    # Draw the ASCII art Wilson plot
+    wilson_plot_ascii(symmetry, refls["miller_index"], intensity, sigma, d_ticks)
+
+    recommendations = zip(desired_d, recommended_factor)
+    recommendations = sorted(recommendations, key=lambda rec: rec[0], reverse=True)
+
+    # Print a recommendation to the user.
+    info("\nFitted isotropic displacement parameter, B = %.3g Angstrom^2", fit[0])
+    for target, recommendation in recommendations:
+        if recommendation < 1:
+            debug(
+                "\nIt is likely that you can achieve a resolution of %g "
+                "Angstrom using a lower flux.",
+                target,
+            )
+        elif recommendation > 1:
+            debug(
+                "\nIt is likely that you need a higher flux to achieve a "
+                "resolution of %g Angstrom.",
+                target,
+            )
+        debug(
+            "The estimated minimal sufficient flux to achieve a resolution of %.2g "
+            "Angstrom is %.3g times the flux used for this data collection.",
+            target, recommendation,
+        )
+
+    summary = "\nRecommendations, summarised:\n"
+    summary += tabulate(
+        recommendations,
+        ["Resolution\n(Angstrom)", "Suggested\ndose factor"],
+        floatfmt=(".2g", ".3g"),
+        tablefmt="rst",
+    )
+    info(summary)
+
+    # Draw the Wilson plot image and save to file
+    wilson_plot_image(
+        d_star_sq,
+        intensity,
+        fit,
+        max_d=params.minimum_flux.wilson_fit_max_d,
+        ticks=d_ticks,
+        output=params.output.wilson_plot,
+    )
+
+
+def run(phil=phil_scope, args=None, set_up_logging=False):
+    # type: (scope, List[str, ...], bool) -> None
+    """
+    Parse command-line arguments, run the script.
+
+    Uses the DIALS option parser to extract an experiment list, reflection table and
+    parameters, then passes them to :func:`suggest_minimum_flux`.
+    Optionally, sets up the logger.
+
+    Args:
+        phil: PHIL scope for option parser.
+        args: Arguments to parse. If None, :data:`sys.argv[1:]` will be used.
+        set_up_logging: Choose whether to configure :module:`screen19` logging.
     """
     usage = "%prog [options] experiments.json reflections.pickle"
 
@@ -271,18 +455,6 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
 
     expts = params.input.experiments[0].data
     refls = params.input.reflections[0].data
-    # Ignore reflections without an index, since uctbx.unit_cell.d returns spurious
-    # d == -1 values, rather than None, for unindexed reflections.
-    refls.del_selected(refls["id"] == -1)
-    # Ignore all spots flagged as overloaded
-    refls.del_selected(refls.get_flags(refls.flags.overloaded).iselection())
-    # The Wilson plot fit implicitly involves taking a logarithm of
-    # intensities, so eliminate values that are going to cause problems
-    try:
-        # Work from profile-fitted intensities where possible
-        refls = refls.select(refls["intensity.prf.value"] > 0)
-    except RuntimeError:
-        refls = refls.select(refls["intensity.sum.value"] > 0)
 
     if len(expts) > 1:
         warn(
@@ -292,91 +464,12 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
             params.input.experiments[0].filename,
         )
 
-    # Parameters for the lower-bound flux estimate:
-    min_i_over_sigma = params.minimum_flux.min_i_over_sigma
-    wilson_fit_max_d = params.minimum_flux.wilson_fit_max_d
-    desired_d = params.minimum_flux.desired_d
-    # If no target resolution is given, use the following defaults:
-    if not params.minimum_flux.desired_d:
-        desired_d = [
-            1,  # Å
-            0.84,  # Å (IUCr publication requirement)
-            0.6,  # Å
-            0.4,  # Å
-        ]
-    desired_d.sort(reverse=True)
-
-    # Get d-spacings, intensity & std dev of reflections
-    symmetry = expts[0].crystal.get_crystal_symmetry()
-    d_star_sq = 1 / symmetry.unit_cell().d(refls["miller_index"]) ** 2
-    try:
-        # Work from profile-fitted intensities and uncertainties where possible
-        intensity = refls["intensity.prf.value"]
-        sigma = flex.sqrt(refls["intensity.prf.variance"])
-    except RuntimeError:
-        intensity = refls["intensity.sum.value"]
-        sigma = flex.sqrt(refls["intensity.sum.variance"])
-
-    # Perform the Wilson plot fit
-    fit = wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d)
-
-    # Get recommended dose factors
-    # Use the fact that σ² = I for indexed data, so I/σ = √̅I
-    desired_d_star_sq = [1 / d ** 2 for d in desired_d]
-    recommended_factor = [
-        (min_i_over_sigma ** 2 / scaled_debye_waller(target, *fit))
-        for target in desired_d_star_sq
-    ]
-
-    # Draw the ASCII art Wilson plot
-    wilson_plot_ascii(symmetry, refls["miller_index"], intensity, sigma, d_ticks)
-
-    recommendations = zip(desired_d, recommended_factor)
-
-    # Print a recommendation to the user.
-    info("\nFitted isotropic displacement parameter, B = %.3g Angstrom^2", fit[0])
-    for target, recommendation in recommendations:
-        if recommendation <= 1:
-            debug(
-                "\nIt is likely that you can achieve a resolution of %g "
-                "Angstrom using a lower flux.",
-                target,
-            )
-        else:
-            debug(
-                "\nIt is likely that you need a higher flux to achieve a "
-                "resolution of %g Angstrom.",
-                target,
-            )
-        debug(
-            "The estimated minimal sufficient flux is %.3g times the "
-            "flux used for this data collection.",
-            recommendation,
-        )
-
-    # TODO: SUggest what resolution is possible?
-
-    summary = "\nRecommendations, summarised:\n"
-    summary += tabulate(
-        recommendations,
-        ["Resolution\n(Angstrom)", "Suggested\ndose factor"],
-        floatfmt=".3g",
-        tablefmt="rst",
-    )
-    info(summary)
-
-    # Draw the Wilson plot image and save to file
-    wilson_plot_image(
-        d_star_sq,
-        intensity,
-        fit,
-        max_d=params.minimum_flux.wilson_fit_max_d,
-        ticks=d_ticks,
-        output=params.output.wilson_plot,
-    )
-
-    sys.exit(0)
+    suggest_minimum_flux(expts, refls, params)
 
 
-if __name__ == "__main__":
+def main():
+    # type: () -> None
+    """
+    Dispatcher for command-line call.
+    """
     run(set_up_logging=True)

@@ -19,14 +19,16 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
     ],
-    description="Screening program for small-molecule single-crystal X-ray diffraction data",
+    description="Screening program for small-molecule single-crystal X-ray diffraction "
+                "data",
     entry_points={
         "console_scripts": [
             "i19.screen = screen19.screen:main",
             "screen19 = screen19.screen:main",
             "i19.stability_fft = screen19.stability_fft:main",
             "i19.sync = screen19.sync:main",
-            "i19.minimum_flux = screen19.minimum_flux:run",
+            "i19.minimum_flux = screen19.minimum_flux:main",
+            "screen19.minimum_flux = screen19.minimum_flux:main"
         ],
         "libtbx.dispatcher.script": [
             "i19.screen = i19.screen",
@@ -34,6 +36,7 @@ setup(
             "i19.stability_fft = i19.stability_fft",
             "i19.sync = i19.sync",
             "i19.minimum_flux = i19.minimum_flux",
+            "screen19.minimum_flux = screen19.minimum_flux"
         ],
         "libtbx.precommit": ["screen19 = screen19"],
     },
