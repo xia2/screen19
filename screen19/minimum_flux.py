@@ -54,7 +54,7 @@ from screen19 import terminal_size, plot_intensities, d_ticks
 
 # Typing imports and custom types
 try:
-    from typing import Iterable, List, Sequence, Tuple, Union
+    from typing import Iterable, List, Optional, Sequence, Tuple, Union
 
     from cctbx import crystal
     from dxtbx.model import Experiment, ExperimentList
@@ -182,7 +182,7 @@ def wilson_plot_ascii(
         indices,  # type: Sequence[flex.miller_index, ...]
         intensity,  # type: FloatSequence
         sigma,  # type: FloatSequence
-        d_ticks=None,  # type: FloatSequence
+        d_ticks=None,  # type: Optional[FloatSequence]
 ):
     # type: (...) -> None
     u"""
@@ -231,8 +231,8 @@ def wilson_plot_image(
     d_star_sq,  # type: FloatSequence
     intensity,  # type: FloatSequence
     fit,  # type: Fit
-    max_d=None,  # type: float
-    ticks=None,  # type: FloatSequence
+    max_d=None,  # type: Optional[float]
+    ticks=None,  # type: Optional[FloatSequence]
     output="wilson_plot"  # type: str
 ):
     # type: (...) -> None
@@ -400,7 +400,7 @@ def suggest_minimum_flux(expts, refls, params):
 
 
 def run(phil=phil_scope, args=None, set_up_logging=False):
-    # type: (scope, List[str, ...], bool) -> None
+    # type: (scope, Optional[List[str, ...]], bool) -> None
     """
     Parse command-line arguments, run the script.
 

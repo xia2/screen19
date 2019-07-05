@@ -53,16 +53,22 @@ import re
 import sys
 import time
 import timeit
+from typing import Dict, List, Tuple, Optional, Sequence
 
+from dials.array_family import flex
+from dials.util import log, Sorry
+from dials.util.ascii_art import spot_counts_per_image_plot
+from dials.util.options import OptionParser
 import dials.util.version
+from dxtbx.model.experiment_list import ExperimentList, ExperimentListFactory
 import iotbx.phil
+from libtbx import Auto
+from libtbx.introspection import number_of_processors
+from libtbx.phil import scope, scope_extract
 import procrunner
 import screen19
-from dials.util import Sorry
-from dials.util.options import OptionParser
-from dxtbx.model.experiment_list import ExperimentListFactory
-from libtbx import Auto
-from typing import Dict, List, Tuple, Optional
+
+Templates = List[Tuple[str, Tuple[int, int]]]
 
 help_message = __doc__
 
@@ -185,8 +191,10 @@ logger = logging.getLogger("dials.screen19")
 debug, info, warn = logger.debug, logger.info, logger.warn
 
 
-def _reset_cache():
-    # Work around DIALS <1.14.4 phil cache issue
+def _reset_cache():  # type: () -> None
+    """
+    Work around DIALS <1.14.4 phil cache issue
+    """
     import dials.util.phil
 
     dcr = dials.util.phil.default_converter_registry
@@ -195,39 +203,16 @@ def _reset_cache():
             k.cache.clear()
 
 
-def terminal_size():
-    """
-    Find the current size of the terminal window.
-
-    :return: Number of columns; number of rows.
-    :rtype: Tuple[int]
-    """
-    columns, rows = 80, 25
-    if sys.stdout.isatty():
-        try:
-            result = procrunner.run(
-                ["stty", "size"],
-                timeout=1,
-                print_stdout=False,
-                print_stderr=False,
-                debug=procrunner_debug,
-            )
-            rows, columns = [int(i) for i in result["stdout"].split()]
-        except Exception:  # ignore any errors and use default size
-            pass  # FIXME: Can we be more specific about the type of exception?
-    columns = min(columns, 120)
-    rows = min(rows, int(columns / 3))
-
-    return columns, rows
-
-
 def overloads_histogram(d_spacings, ticks=None, output="overloads"):
+    # type: (Sequence[float], Optional[Sequence[float]], Optional[str]) -> None
     """
     Generate a histogram of reflection d-spacings as an image, default is .png
 
-    :param d_spacings:
-    :param ticks:
-    :param output:
+    Args:
+        d_spacings:  d-spacings of the reflections.
+        ticks (optional):  d-values for the tick positions on the 1/d axis.
+        output (optional):  Output filename root, to which the extension `.png` will
+                            be appended.  Default is `overloads`.
     """
     import matplotlib
 
@@ -250,12 +235,27 @@ class Screen19(object):
     """
 
     # TODO Make __init__ and declare instance variables in it.
-    def _quick_import(self, files):
+    def _quick_import(self, files):  # type: (List[str]) -> bool
         """
-        TODO: Docstring
-        :param files:
-        :type files: List[str]
-        :return:
+        Generate a xia2-style templates from filenames and attempt a quick import.
+
+        From each given filename, generate a filename template by substituting a hash
+        character (#) for each numeral in the last contiguous group of numerals
+        before the file extension.  For example, the filename `example_01_0001.cbf`
+        becomes `example_01_####.cbf`.
+
+        Contiguous image ranges are recorded by associating the start and end image
+        number of the range with the relevant filename template.
+
+        dials.import is then run with options to extrapolate header information from
+        the first image file, thereby running more quickly than reading each image
+        header individually.
+
+        Args:
+            files:  List of image filenames.
+
+        Returns:
+            Boolean flag indicating whether the quick import has succeeded.
         """
         if len(files) == 1:
             # No point in quick-importing a single file
@@ -274,14 +274,24 @@ class Screen19(object):
                 templates[template].append([image, image])
         # Return tuple of template and image range for each unique image range
         templates = [(t, tuple(r)) for t, ranges in templates.items() for r in ranges]
-        # type: List[Tuple[str, Tuple[int]]]
+        # type: Templates
         return self._quick_import_templates(templates)
 
-    def _quick_import_templates(self, templates):
+    def _quick_import_templates(self, templates):  # type: (Templates) -> bool
         """
-        TODO: Docstring
-        :param templates:
-        :return:
+        Take image file templates and frame number ranges and try to run dials.import.
+
+        dials.import is run with options to extrapolate header information from
+        the first image file, thereby running more quickly than reading each image
+        header individually.
+
+        Args:
+            templates:  A list of tuples, each tuple containing a xia2-style filename
+                        template and the start and end image numbers of the associated
+                        sweep.
+
+        Returns:
+            Boolean flag indicating whether the quick import has succeeded.
         """
         debug("Quick import template summary:\n\t%s", templates)
         if len(templates) > 1:
@@ -289,7 +299,7 @@ class Screen19(object):
             return False
 
         try:
-            scan_range = templates[0][1]  # type: Tuple[int]
+            scan_range = templates[0][1]  # type: Tuple[int, int]
             if not scan_range:
                 raise IndexError
         except IndexError:
@@ -306,11 +316,12 @@ class Screen19(object):
         )
         return True
 
-    def _import(self, files):
+    def _import(self, files):  # type: (List[str]) -> None
         """
-        TODO: Docstring
-        :param files:
-        :return:
+        Try to run a quick call of dials.import.  Failing that, run a slow call.
+
+        Args:
+            files:  List of image filenames.
         """
         info("\nImporting data...")
         if len(files) == 1:
@@ -346,11 +357,13 @@ class Screen19(object):
 
         self._run_dials_import(files)
 
-    def _run_dials_import(self, parameters):
+    def _run_dials_import(self, parameters):  # type: (Optional[List[str]]) -> None
         """
-        TODO: Docstring
-        :param parameters:
-        :return:
+        Call dials.import on the parameters provided.
+
+        Args:
+            parameters:  List of parameters to be accepted by dials.import.  May
+                         include image filenames and/or PHIL parameters.
         """
         from dials.command_line.dials_import import Script as ImportScript
 
@@ -369,15 +382,15 @@ class Screen19(object):
                 warn("dials.import failed with exit code %d", e.code)
                 sys.exit(1)
 
-    def _count_processors(self, nproc=None):
+    def _count_processors(self, nproc=None):  # type: (Optional[int]) -> None
         """
         Determine the number of processors and save it as an instance variable.
 
         The user may specify the number of processors to use.  If no value is
         given, the number of available processors is returned.
 
-        :param nproc: User-specified number of processors to use.
-        :type nproc: int
+        Args:
+            nproc (optional):  Number of processors.
         """
         if nproc and nproc is not Auto:
             self.nproc = nproc
@@ -390,8 +403,6 @@ class Screen19(object):
         except (ValueError, TypeError):
             pass
 
-        from libtbx.introspection import number_of_processors
-
         self.nproc = number_of_processors(return_value_if_unknown=-1)
 
         if self.nproc <= 0:
@@ -401,15 +412,15 @@ class Screen19(object):
             )
             sys.exit(1)
 
-    def _count_images(self):
+    def _count_images(self):  # type: () -> int
         """
         Attempt to determine the number of diffraction images.
 
         The number of diffraction images is determined from the imported_experiments
         JSON file.
 
-        :return: Number of images.
-        :rtype: int
+        Returns:
+            Number of images.
         """
 
         if dials_v1:
@@ -421,8 +432,6 @@ class Screen19(object):
                 warn("Could not determine number of images in dataset")
                 sys.exit(1)
 
-        from dxtbx.model.experiment_list import ExperimentListFactory
-
         imported = ExperimentListFactory.from_json_file(self.json_file)
         try:
             return imported[0].imageset.size()
@@ -430,11 +439,16 @@ class Screen19(object):
             warn("Could not determine number of images in dataset")
             sys.exit(1)
 
-    def _check_intensities(self, mosaicity_correction=True):
+    def _check_intensities(self, mosaicity_correction=True):  # type: (bool) -> None
         """
-        TODO: Docstring
-        :param mosaicity_correction:
-        :return:
+        Run xia2.overload and plot a histogram pixel intensities.
+
+        If `mosaicity_correction` is true, the pixel intensities are approximately
+        adjusted to take account of a systematic defect in the detector count rate
+        correction.  See https://github.com/xia2/screen19/wiki#mosaicity-correction
+
+        Args:
+            mosaicity_correction (optional):  , default is `True`.
         """
         info("\nTesting pixel intensities...")
         command = ["xia2.overload", "nproc=%s" % self.nproc, self.json_file]
@@ -464,8 +478,7 @@ class Screen19(object):
 
         average_to_peak = 1
         if mosaicity_correction:
-            # For detailed documentation on how this is calculated, see
-            # https://github.com/xia2/screen19/wiki#mosaicity-correction
+            # Adjust for the detector count rate correction
             if self._sigma_m:
                 delta_z = self._oscillation / self._sigma_m / math.sqrt(2)
                 average_to_peak = (
@@ -570,12 +583,13 @@ class Screen19(object):
 
     # TODO Introduce a dials.generate_mask call
 
-    def _find_spots(self, args=None):
+    def _find_spots(self, args=None):  # type: (Optional[List[str]]) -> None
         """
-        TODO: Docstring
-        :param additional_parameters:
-        :type additional_parameters: List[str]
-        :return:
+        Call `dials.find_spots` on the datablock/imported experiment list.
+
+        Args:
+            args (optional):  List of any additional PHIL parameters to be used by
+                              dials.import.
         """
         info("\nFinding spots...")
 
@@ -607,18 +621,18 @@ class Screen19(object):
                 warn("dials.find_spots failed with exit code %d", e.code)
                 sys.exit(1)
 
-        from dials.util.ascii_art import spot_counts_per_image_plot
-
         info(
             60 * "-" + "\n%s\n" + 60 * "-" + "\nSuccessfully completed (%.1f sec)",
             spot_counts_per_image_plot(refls),
             timeit.default_timer() - dials_start,
         )
 
-    def _index(self):
+    def _index(self):  # type: () -> bool
         """
-        TODO: Docstring
-        :return:
+        Call `dials.index` on the output of spot finding.
+
+        Returns:
+            Boolean value indicating whether indexing was successful.
         """
         dials_start = timeit.default_timer()
 
@@ -676,12 +690,18 @@ class Screen19(object):
         return True
 
     def _wilson_calculation(self, experiments, reflections):
+        # type: (ExperimentList, flex.reflection_table) -> None
         """
-        TODO: Docstring
+        Run `screen19.minimum_flux` on an experiment list and reflection table.
 
-        :param experiments:
-        :param reflections:
-        :return:
+        For best results, the reflections and experiment list should contain the
+        results of integration or scaling.  If only strong spots are used, the Wilson
+        plot fit may be poor.
+
+        Args:
+            experiments:  An experiment list.
+            reflections:  The corresponding reflection table, preferably with
+                          integrated reflection intensities.
         """
         dials_start = timeit.default_timer()
         info("\nEstimating lower flux bound...")
@@ -706,10 +726,13 @@ class Screen19(object):
 
         info("Successfully completed (%.1f sec)", timeit.default_timer() - dials_start)
 
-    def _refine(self):
+    def _refine(self):  # type: () -> None
         """
-        TODO: Docstring
-        :return:
+        Run `dials.refine` on the results of indexing.
+
+        The results of indexing are first saved as `experiments_unrefined.json` and
+        `indexed_unrefined.pickle`.  The results of refinement are then saved with
+        the original file names of the indexing results.
         """
         dials_start = timeit.default_timer()
         info("\nRefining...")
@@ -747,10 +770,16 @@ class Screen19(object):
 
         info("Successfully refined (%.1f sec)", timeit.default_timer() - dials_start)
 
-    def _create_profile_model(self):
+    def _create_profile_model(self):  # type: () -> bool
         """
-        TODO: Docstring
-        :return:
+        Run `dials.create_profile_model` on indexed reflections.
+
+        The indexed experiment list will be overwritten with a copy that includes
+        the profile model but is otherwise identical.
+
+        Returns:
+            Boolean value indicating whether it was possible to determine a profile
+            model from the data.
         """
         info("\nCreating profile model...")
         command = [
@@ -780,10 +809,9 @@ class Screen19(object):
         warn("Failed with exit code %d", result["exitcode"])
         return False
 
-    def _integrate(self):
+    def _integrate(self):  # type: () -> None
         """
-        TODO: Docstring
-        :return:
+        Run `dials.integrate` to integrate reflection intensities.
         """
         dials_start = timeit.default_timer()
         info("\nIntegrating...")
@@ -821,14 +849,29 @@ class Screen19(object):
                 warn("dials.refine failed with exit code %d\nGiving up.", e.code)
                 sys.exit(1)
 
-    def _find_overloads(self, integrated_experiments, integrated):
+    def _find_overloads(
+            self,
+            integrated_experiments,  # type: ExperimentList
+            integrated  # type: flex.reflection_table
+    ):
+        # type: (...) -> Tuple[int, flex.reflection_table]
         """
-        TODO: Docstring
+        Search for reflections containing instantaneously overloaded pixels.
 
-        :return:
+        An intensity threshold is determined above which pixels are regarded as being
+        overloaded.  Then all reflections having total intensity greater than the
+        threshold are selected.  The integration shoeboxes of these high-intensity
+        reflections are searched for any pixel having intensity above the threshold.
+        Such reflections  are flagged as overloaded.
+
+        Args:
+            integrated_experiments:  Experiment list of integrated data.
+            integrated:  Corresponding table of reflections.
+
+        Returns:
+            Number of overloaded reflections;
+            Reflection table with overloaded reflections flagged.
         """
-        from dials.array_family import flex
-
         # Select those reflections having total summed intensity greater than
         # 0.25 × the upper limit of the trusted range (that being the in-house limit)
         #  TODO: Make this limit not hard coded, based instead on dxtbx detector info
@@ -886,9 +929,13 @@ class Screen19(object):
         return num_overloads, integrated
 
     def _refine_bravais(self, experiments, reflections):
+        # type: (ExperimentList, flex.reflection_table) -> None
         """
-        TODO: Docstring
-        :return:
+        Run `dials.refine_bravais_settings` on an experiment list and reflection table.
+
+        Args:
+            experiments:  An experiment list..
+            reflections:  The corresponding reflection table.
         """
         info("\nRefining bravais settings...")
         command = ["dials.refine_bravais_settings", experiments, reflections]
@@ -903,9 +950,13 @@ class Screen19(object):
             sys.exit(1)
 
     def _report(self, experiments, reflections):
+        # type: (ExperimentList, flex.reflection_table) -> None
         """
-        TODO: Docstring
-        :return:
+        Run `dials.report` on an experiment list and reflection table.
+
+        Args:
+            experiments:  An experiment list.
+            reflections:  The corresponding reflection table.
         """
         info("\nCreating report...")
         command = ["dials.report", experiments, reflections]
@@ -927,14 +978,18 @@ class Screen19(object):
             sys.exit(1)
 
     def run(self, args=None, phil=phil_scope, set_up_logging=False):
+        # type: (Optional[List[str]], scope, bool) -> None
         """
-        TODO: Docstring
-        :param args:
-        :param phil:
-        :return:
-        """
-        from dials.util.version import dials_version
+        TODO: Docstring.
 
+        Args:
+            args:
+            phil:
+            set_up_logging:
+
+        Returns:
+
+        """
         usage = "%prog [options] image_directory | image_files.cbf | experiments.json"
 
         parser = OptionParser(
@@ -947,7 +1002,7 @@ class Screen19(object):
 
         version_information = "screen19 v%s using %s (%s)" % (
             screen19.__version__,
-            dials_version(),
+            dials.util.version.dials_version(),
             time.strftime("%Y-%m-%d %H:%M:%S"),
         )
 
@@ -959,8 +1014,6 @@ class Screen19(object):
             return
 
         if set_up_logging:
-            from dials.util import log
-
             # Configure the logging
             log.config(
                 self.params.verbosity,
@@ -1072,5 +1125,5 @@ class Screen19(object):
         info("screen19 successfully completed (%.1f sec)", runtime)
 
 
-def main():
+def main():  # type: () -> None
     Screen19().run(set_up_logging=True)
