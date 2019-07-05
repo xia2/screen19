@@ -464,15 +464,17 @@ class Screen19(object):
 
         average_to_peak = 1
         if mosaicity_correction:
-            # we have checked this: if sigma_m >> oscillation it works out
-            # about 1 as you would expect
+            # For detailed documentation on how this is calculated, see
+            # https://github.com/xia2/screen19/wiki#mosaicity-correction
             if self._sigma_m:
-                M = (
-                    math.sqrt(math.pi)
-                    * self._sigma_m
-                    * math.erf(self._oscillation / (2 * self._sigma_m))
+                delta_z = self._oscillation / self._sigma_m / math.sqrt(2)
+                average_to_peak = (
+                    (
+                        math.sqrt(math.pi) * delta_z * math.erf(delta_z)
+                        + math.exp(-delta_z**2) - 1
+                    )
+                    / delta_z**2
                 )
-                average_to_peak = M / self._oscillation
                 info("Average-to-peak intensity ratio: %f", average_to_peak)
 
         scale = 100 * overload_data["scale_factor"] / average_to_peak
