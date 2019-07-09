@@ -59,7 +59,7 @@ class FolderCopier:
         self._destination = destination
         self._add_task = task_scheduler
         self._timeout = time.time() + maxwait
-        self._seenfiles = set([])
+        self._seenfiles = set()
 
     def __str__(self):
         return "Dir : %s" % self._source
