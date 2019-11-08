@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 Common tools for the I19 module.
@@ -12,11 +12,16 @@ import traceback
 import procrunner
 from typing import Dict, Tuple
 
+import dials.util.version
+
 __version__ = "0.204"
 
 logger = logging.getLogger("dials.screen19")
 debug, info, warn = logger.debug, logger.info, logger.warning
 
+
+# Check whether we need to be using DIALS v1 API
+dials_v1 = dials.util.version.__dials_version_default.startswith("1.")
 
 # Set axis tick positions manually.  Accounts for reciprocal(-square) d-scaling.
 d_ticks = [5, 3, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4]

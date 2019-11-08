@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
+# coding: utf-8
 u"""
 Perform straight-line Wilson plot fit.  Draw the Wilson plot.
 
@@ -20,7 +18,7 @@ translates trivially to a threshold I.
 
 The value of the fitted intensity function at the desired
 resolution is compared with the threshold I.  The ratio of these
-values is used to determine a recommended flux for the full data
+values is used to determine a recommended dose for the full data
 collection.
 
 The Wilson plot of I as a function of d is drawn as the file
@@ -28,11 +26,11 @@ The Wilson plot of I as a function of d is drawn as the file
 
 Examples:
 
-    screen19.minimum_flux integrated_experiments.json integrated.pickle
+    screen19.minimum_dose integrated_experiments.json integrated.pickle
 
-    screen19.minimum_flux indexed_experiments.json indexed.pickle
+    screen19.minimum_dose indexed_experiments.json indexed.pickle
 
-    screen19.minimum_flux min_i_over_sigma=2 desired_d=0.84 wilson_fit_max_d=4 \
+    screen19.minimum_dose min_i_over_sigma=2 desired_d=0.84 wilson_fit_max_d=4 \
         integrated_experiments.json integrated.pickle
 
 """
@@ -43,49 +41,65 @@ import sys
 import logging
 import numpy as np
 from tabulate import tabulate
+from typing import Iterable, List, Optional, Sequence, Union
 
 import boost.python
-from cctbx import miller
+from cctbx import crystal, miller
 from dials.array_family import flex
 from dials.util.options import OptionParser
+from dxtbx.model import Experiment, ExperimentList
 import iotbx.phil
+from libtbx.phil import scope, scope_extract
 from scipy.optimize import curve_fit
-from screen19 import terminal_size, plot_intensities, d_ticks
+from screen19 import d_ticks, dials_v1, plot_intensities, terminal_size
 
-# Typing imports and custom types
-try:
-    from typing import Iterable, List, Optional, Sequence, Tuple, Union
 
-    from cctbx import crystal
-    from dxtbx.model import Experiment, ExperimentList
-    from libtbx.phil import scope, scope_extract
-
-    FloatSequence = Sequence[float]
-    Fit = Union[np.ndarray, Iterable, int, float]
-except ImportError:
-    pass
+# Custom types
+FloatSequence = Sequence[float]
+Fit = Union[np.ndarray, Iterable, int, float]
 
 # Suppress unhelpful matplotlib crash due to boost.python's overzealous allergy to FPEs
 boost.python.floating_point_exceptions.division_by_zero_trapped = False
 
 help_message = __doc__
 
-phil_scope = iotbx.phil.parse(
+
+if dials_v1:
+    verbosity_scope = u"""
+    verbosity = 1
+        .type = int(value_min=0)
+        .caption = 'The verbosity level of the command-line output'
+        .help = "Possible values:\n"
+                "\t• 0: Suppress all command-line output;\n"
+                "\t• 1: Show regular output on the command line;\n"
+                "\t• 2: Show regular output, plus detailed debugging messages."
     """
-    minimum_flux
-        .caption = 'Parameters for the calculation of the lower flux bound'
+else:
+    verbosity_scope = u"""
+    verbosity = 0
+        .type = int(value_min=0)
+        .caption = 'Verbosity level of log output'
+        .help = "Possible values:\n"
+                "\t• 0: Info log output to stdout/logfile\n"
+                "\t• 1: Info & debug log output to stdout/logfile"
+    """
+
+phil_scope = iotbx.phil.parse(
+    u"""
+    minimum_dose
+        .caption = 'Parameters for the calculation of the lower dose bound'
         {
         desired_d = None
             .multiple = True
             .type = float
             .caption = u'Desired resolution limit, in Ångströms, of diffraction data'
-            .help = 'This is the resolution target for the lower-bound flux ' \
+            .help = 'This is the resolution target for the lower-bound dose ' \
                     'recommendation.'
         min_i_over_sigma = 2
             .type = float
-            .caption = u'Target I/σ value for lower-bound flux recommendation'
-            .help = 'The lower-bound flux recommendation provides an estimate of ' \
-                    'the flux required to ensure that the majority of expected ' \
+            .caption = u'Target I/σ value for lower-bound dose recommendation'
+            .help = 'The lower-bound dose recommendation provides an estimate of ' \
+                    'the dose required to ensure that the majority of expected ' \
                     u'reflections at the desired resolution limit have I/σ greater ' \
                     'than or equal to this value.'
         wilson_fit_max_d = 4  # Å
@@ -97,10 +111,10 @@ phil_scope = iotbx.phil.parse(
     output
         .caption = 'Parameters to control the output'
         {
-        log = 'screen19.minimum_flux.log'
+        log = 'screen19.minimum_dose.log'
             .type = str
             .caption = 'Location for the info log'
-        debug_log = 'screen19.minimum_flux.debug.log'
+        debug_log = 'screen19.minimum_dose.debug.log'
             .type = str
             .caption = 'Location for the debug log'
         wilson_plot = 'wilson_plot'
@@ -110,14 +124,11 @@ phil_scope = iotbx.phil.parse(
                     "a different extension, either '.pdf', '.ps', '.eps' or '.svg', " \
                     "a file of that format will be created instead."
         }
-    verbosity = 1
-        .type = int(value_min=0)
-        .caption = "The verbosity level"
-    """,
+        """ + verbosity_scope,
     process_includes=True,
 )
 
-logger_name = "dials.screen19.minimum_flux"
+logger_name = "dials.screen19.minimum_dose"
 logger = logging.getLogger(logger_name)
 debug, info, warn = logger.debug, logger.info, logger.warning
 
@@ -279,16 +290,16 @@ def wilson_plot_image(
     plt.close()
 
 
-def suggest_minimum_flux(expts, refls, params):
+def suggest_minimum_dose(expts, refls, params):
     # type: (ExperimentList[Experiment], flex.reflection_table, scope_extract) -> None
     u"""
-    Suggest an estimated minimum sufficient flux to achieve a certain resolution.
+    Suggest an estimated minimum sufficient dose to achieve a certain resolution.
 
     The estimate is based on a fit of a Debye-Waller factor under the assumption that a
     single isotropic displacement parameter can be used to adequately describe the
     decay of intensities with increasing sin(θ).
 
-    An ASCII-art Wilson plot is printed, along with minimum flux recommendations for
+    An ASCII-art Wilson plot is printed, along with minimum dose recommendations for
     a number of different resolution targets.  The Wilson plot, including the fitted
     isotropic Debye-Waller factor, is saved as a PNG image.
 
@@ -296,7 +307,7 @@ def suggest_minimum_flux(expts, refls, params):
         expts: Experiment list containing a single experiment, from which the crystal
             symmetry will be extracted.
         refls: Reflection table of observed reflections.
-        params: Parameters for calculation of minimum flux estimate.
+        params: Parameters for calculation of minimum dose estimate.
     """
     # Ignore reflections without an index, since uctbx.unit_cell.d returns spurious
     # d == -1 values, rather than None, for unindexed reflections.
@@ -311,12 +322,12 @@ def suggest_minimum_flux(expts, refls, params):
     except RuntimeError:
         refls = refls.select(refls["intensity.sum.value"] > 0)
 
-    # Parameters for the lower-bound flux estimate:
-    min_i_over_sigma = params.minimum_flux.min_i_over_sigma
-    wilson_fit_max_d = params.minimum_flux.wilson_fit_max_d
-    desired_d = params.minimum_flux.desired_d
+    # Parameters for the lower-bound dose estimate:
+    min_i_over_sigma = params.minimum_dose.min_i_over_sigma
+    wilson_fit_max_d = params.minimum_dose.wilson_fit_max_d
+    desired_d = params.minimum_dose.desired_d
     # If no target resolution is given, use the following defaults:
-    if not params.minimum_flux.desired_d:
+    if not params.minimum_dose.desired_d:
         desired_d = [
             1,  # Å
             0.84,  # Å (IUCr publication requirement)
@@ -359,30 +370,30 @@ def suggest_minimum_flux(expts, refls, params):
     recommendations = sorted(recommendations, key=lambda rec: rec[0], reverse=True)
 
     # Print a recommendation to the user.
-    info("\nFitted isotropic displacement parameter, B = %.3g Angstrom^2", fit[0])
+    info(u"\nFitted isotropic displacement parameter, B = %.3g Å²", fit[0])
     for target, recommendation in recommendations:
         if recommendation < 1:
             debug(
-                "\nIt is likely that you can achieve a resolution of %g "
-                "Angstrom using a lower flux.",
+                u"\nIt is likely that you can achieve a resolution of %g Å using a "
+                "lower dose.",
                 target,
             )
         elif recommendation > 1:
             debug(
-                "\nIt is likely that you need a higher flux to achieve a "
-                "resolution of %g Angstrom.",
+                "\nIt is likely that you need a higher dose to achieve a "
+                u"resolution of %g Å.",
                 target,
             )
         debug(
-            "The estimated minimal sufficient flux to achieve a resolution of %.2g "
-            "Angstrom is %.3g times the flux used for this data collection.",
+            u"The estimated minimal sufficient dose to achieve a resolution of %.2g Å "
+            "is %.3g times the dose used for this data collection.",
             target, recommendation,
         )
 
     summary = "\nRecommendations, summarised:\n"
     summary += tabulate(
         recommendations,
-        ["Resolution\n(Angstrom)", "Suggested\ndose factor"],
+        [u"Resolution (Å)", "Suggested\ndose factor"],
         floatfmt=(".2g", ".3g"),
         tablefmt="rst",
     )
@@ -393,7 +404,7 @@ def suggest_minimum_flux(expts, refls, params):
         d_star_sq,
         intensity,
         fit,
-        max_d=params.minimum_flux.wilson_fit_max_d,
+        max_d=params.minimum_dose.wilson_fit_max_d,
         ticks=d_ticks,
         output=params.output.wilson_plot,
     )
@@ -405,7 +416,7 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
     Parse command-line arguments, run the script.
 
     Uses the DIALS option parser to extract an experiment list, reflection table and
-    parameters, then passes them to :func:`suggest_minimum_flux`.
+    parameters, then passes them to :func:`suggest_minimum_dose`.
     Optionally, sets up the logger.
 
     Args:
@@ -464,7 +475,7 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
             params.input.experiments[0].filename,
         )
 
-    suggest_minimum_flux(expts, refls, params)
+    suggest_minimum_dose(expts, refls, params)
 
 
 def main():
