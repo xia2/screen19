@@ -52,7 +52,7 @@ import re
 import sys
 import time
 import timeit
-from typing import Dict, List, Tuple, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from dials.array_family import flex
 from dials.util import log, Sorry
@@ -262,6 +262,11 @@ class Screen19(object):
     Encapsulates the screening script.
     """
 
+    def __init__(self):
+        if not screen19.dials_v1:
+            self.expts = ExperimentList([])
+            self.refls = flex.reflection_table()
+
     # TODO Make __init__ and declare instance variables in it.
     def _quick_import(self, files):  # type: (List[str]) -> bool
         """
@@ -298,6 +303,9 @@ class Screen19(object):
                 templates.update({template: [image_range]})
             elif image == templates[template][-1][-1] + 1:
                 templates[template][-1][-1] = image
+            elif image == templates[template][-1][-1]:
+                # We have a duplicate input file name.  Do nothing.
+                pass
             else:
                 templates[template].append([image, image])
         # Return tuple of template and image range for each unique image range
@@ -438,7 +446,6 @@ class Screen19(object):
                 DetectorComparison, GoniometerComparison, ExperimentListFactory, \
                 ExperimentListTemplateImporter
             from dials.command_line.dials_import import MetaDataUpdater
-            from dials.util.phil import FilenameDataWrapper, ExperimentListConverters
 
             try:
                 format_kwargs = {
@@ -496,10 +503,7 @@ class Screen19(object):
                     format_kwargs=format_kwargs,
                 )
                 if len(experiments) > 0:
-                    filename = "<image files>"
-                    obj = FilenameDataWrapper(filename, experiments)
-                    ExperimentListConverters.cache[filename] = obj
-                    self.expts.append(obj)
+                    self.expts.extend(experiments)
 
             else:
                 # Use the template importer.
@@ -1021,12 +1025,11 @@ class Screen19(object):
             db = ExperimentListFactory.from_json_file(
                 self.params.dials_index.output.experiments
             )[0]
-            self._num_images = db.imageset.get_scan().get_num_images()
             self._oscillation = db.imageset.get_scan().get_oscillation()[1]
             self._sigma_m = db.profile.sigma_m()
             info(
                 "%d images, %s deg. oscillation, sigma_m=%.3f",
-                self._num_images,
+                db.imageset.get_scan().get_num_images(),
                 str(self._oscillation),
                 self._sigma_m,
             )
@@ -1049,10 +1052,6 @@ class Screen19(object):
             self.params.dials_index.output.reflections,
         ]
 
-        # Retain shoeboxes in order to determine reflections containing overloads
-        # self.params.dials_integrate.integration.debug.output = True
-        # self.params.dials_integrate.integration.debug.delete_shoeboxes = False
-        # self.params.dials_integrate.integration.debug.separate_files = False
         # Don't waste time recreating the profile model
         self.params.dials_integrate.create_profile_model = False
         # Get the dials.integrate PHIL scope, populated with parsed input parameters
