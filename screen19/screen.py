@@ -1294,6 +1294,9 @@ class Screen19(object):
 
         self._refine_bravais(experiments, reflections)
 
+        if not fast_mode:
+            self._report(experiments, reflections)
+
         runtime = timeit.default_timer() - start
         debug(
             "Finished at %s, total runtime: %.1f",
@@ -1301,9 +1304,6 @@ class Screen19(object):
             runtime,
         )
         info("screen19 successfully completed (%.1f sec)", runtime)
-
-        if not fast_mode:
-            self._report(experiments, reflections)
 
 
 def main():  # type: () -> None
