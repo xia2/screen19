@@ -107,7 +107,7 @@ def plot_intensities(
     hist_value_factor,
     title="'Pixel intensity distribution'",
     xlabel="'% of maximum'",
-    ylabel="'Number of observed pixels'",
+    ylabel="'Number of pixels'",
     xticks="",
     style="with boxes",
     procrunner_debug=False,
