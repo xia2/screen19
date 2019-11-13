@@ -131,7 +131,7 @@ def plot_intensities(
         "set term dumb %d %d" % (columns, rows - 2),
         "set title %s" % title,
         "set xlabel %s" % xlabel,
-        "set ylabel %s" % ylabel,
+        "set ylabel %s offset character %d,0" % (ylabel, len(ylabel) // 2),
         "set logscale y",
         "set boxwidth %f" % hist_value_factor,
         "set xtics %s out nomirror" % xticks,
