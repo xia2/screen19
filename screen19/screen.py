@@ -397,6 +397,17 @@ class Screen19(object):
                     sys.exit(1)
                 info("Quick import successful")
                 return
+            elif not screen19.dials_v1 and files[0].endswith(".expt"):
+                debug(
+                    "You specified an existing experiment list file.  "
+                    "No import necessary."
+                )
+                try:
+                    self.expts = ExperimentList.from_file(files[0])
+                    self.params.dials_import.output.experiments = files[0]
+                    return
+                except Exception:  # TODO: can we be more specific?
+                    pass
 
         # Can the files be quick-imported?
         if self._quick_import(files):
@@ -502,8 +513,11 @@ class Screen19(object):
                     scan_tolerance=scan_tolerance,
                     format_kwargs=format_kwargs,
                 )
-                if len(experiments) > 0:
-                    self.expts.extend(experiments)
+
+                self.expts.extend(experiments)
+                if not self.expts:
+                    warn("No images found.")
+                    sys.exit(1)
 
             else:
                 # Use the template importer.
@@ -513,7 +527,7 @@ class Screen19(object):
                         format_kwargs=format_kwargs
                     )
                     self.expts = importer.experiments
-                    if len(self.expts) == 0:
+                    if not self.expts:
                         warn(
                             "No images found matching template %s"
                             % self.params.dials_import.input.template[0]
@@ -525,10 +539,6 @@ class Screen19(object):
 
             # Extract the experiments and loop through
             self.expts = metadata_updater(self.expts.imagesets())
-
-            if not len(self.expts):
-                warn("No images found.")
-                sys.exit(1)
 
     def _count_processors(self, nproc=None):  # type: (Optional[int]) -> None
         """
@@ -1211,17 +1221,10 @@ class Screen19(object):
             else:
                 self.json_file = "datablock.json"
                 self.params.dials_import.output.datablock = self.json_file
+                self._import(unhandled)
         else:
-            if len(unhandled) == 1 and unhandled[0].endswith(".expt"):
-                try:
-                    imported_name = unhandled[0]
-                    self.expts = ExperimentList.from_file(imported_name)
-                    self.params.dials_import.output.experiments = imported_name
-                except Exception:  # TODO: can we be more specific?
-                    imported_name = "imported.expt"
-            else:
-                imported_name = "imported.expt"
-        self._import(unhandled)
+            self._import(unhandled)
+            imported_name = self.params.dials_import.output.experiments
 
         n_images = self._count_images()
         fast_mode = n_images < 10
