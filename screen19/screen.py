@@ -458,6 +458,7 @@ class Screen19(object):
                 ExperimentListTemplateImporter
             from dials.command_line.dials_import import MetaDataUpdater
 
+            # Get some key data format arguments.
             try:
                 format_kwargs = {
                     "dynamic_shadowing":
@@ -476,6 +477,8 @@ class Screen19(object):
                     args.append(arg)
 
             if args:
+                # Are compare{beam,detector,goniometer} and scan_tolerance necessary?
+                # They are cargo-culted from the DIALS option parser.
                 compare_beam = BeamComparison(
                     wavelength_tolerance=self.params.dials_import.input.tolerance.beam
                         .wavelength,
@@ -505,6 +508,7 @@ class Screen19(object):
                 scan_tolerance = \
                     self.params.dials_import.input.tolerance.scan.oscillation
 
+                # Import an experiment list from image data.
                 experiments = ExperimentListFactory.from_filenames(
                     args,
                     compare_beam=compare_beam,
@@ -514,6 +518,8 @@ class Screen19(object):
                     format_kwargs=format_kwargs,
                 )
 
+                # Record the imported experiments for use elsewhere.
+                # Quit if there aren't any.
                 self.expts.extend(experiments)
                 if not self.expts:
                     warn("No images found.")
@@ -526,7 +532,9 @@ class Screen19(object):
                         self.params.dials_import.input.template,
                         format_kwargs=format_kwargs
                     )
-                    self.expts = importer.experiments
+                    # Record the imported experiments for use elsewhere.
+                    # Quit if there aren't any.
+                    self.expts.extend(importer.experiments)
                     if not self.expts:
                         warn(
                             "No images found matching template %s"
