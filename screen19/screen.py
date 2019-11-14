@@ -332,7 +332,7 @@ class Screen19(object):
         """
         debug("Quick import template summary:\n\t%s", templates)
         if len(templates) > 1:
-            debug("Cannot currently run quick import on multiple templates")
+            debug("Cannot currently run quick import on multiple templates.")
             return False
 
         try:
@@ -340,10 +340,10 @@ class Screen19(object):
             if not scan_range:
                 raise IndexError
         except IndexError:
-            debug("Cannot run quick import: could not determine image naming template")
+            debug("Cannot run quick import: could not determine image naming template.")
             return False
 
-        info("Running quick import")
+        info("Running quick import.")
         if screen19.dials_v1:
             self._run_dials_import(
                 [
@@ -395,7 +395,7 @@ class Screen19(object):
                 if not self._quick_import_templates([(template, (start, end))]):
                     warn("Could not import specified image range.")
                     sys.exit(1)
-                info("Quick import successful")
+                info("Quick import successful.")
                 return
             elif not screen19.dials_v1 and files[0].endswith(".expt"):
                 debug(
@@ -412,7 +412,7 @@ class Screen19(object):
 
         # Can the files be quick-imported?
         if self._quick_import(files):
-            info("Quick import successful")
+            info("Quick import successful.")
             return
 
         if screen19.dials_v1:
@@ -596,7 +596,7 @@ class Screen19(object):
             try:
                 return sum(len(s["exposure_time"]) for s in datablock[0]["scan"])
             except Exception:
-                warn("Could not determine number of images in dataset")
+                warn("Could not determine number of images in dataset.")
                 sys.exit(1)
 
         # FIXME:  This exception handling should be redundant.  Empty experiment
@@ -604,7 +604,7 @@ class Screen19(object):
         try:
             return self.expts[0].imageset.size()
         except IndexError:
-            warn("Could not determine number of images in dataset")
+            warn("Could not determine number of images in dataset.")
             sys.exit(1)
 
     def _check_intensities(self, mosaicity_correction=True):  # type: (bool) -> None
@@ -1240,7 +1240,7 @@ class Screen19(object):
         n_images = self._count_images()
         fast_mode = n_images < 10
         if fast_mode:
-            info("%d images found, skipping a lot of processing", n_images)
+            info("%d images found, skipping a lot of processing.", n_images)
 
         self._find_spots()
 
@@ -1316,7 +1316,7 @@ class Screen19(object):
             time.strftime("%Y-%m-%d %H:%M:%S"),
             runtime,
         )
-        info("screen19 successfully completed (%.1f sec)", runtime)
+        info("screen19 successfully completed (%.1f sec).", runtime)
 
 
 def main():  # type: () -> None
