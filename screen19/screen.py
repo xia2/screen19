@@ -405,7 +405,8 @@ class Screen19(object):
                 try:
                     self.expts = ExperimentList.from_file(files[0])
                     self.params.dials_import.output.experiments = files[0]
-                    return
+                    if self.expts:
+                        return
                 except Exception:  # TODO: can we be more specific?
                     pass
 
@@ -598,6 +599,8 @@ class Screen19(object):
                 warn("Could not determine number of images in dataset")
                 sys.exit(1)
 
+        # FIXME:  This exception handling should be redundant.  Empty experiment
+        #         lists should get caught at the import stage.  Is this so?
         try:
             return self.expts[0].imageset.size()
         except IndexError:
