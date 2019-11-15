@@ -18,19 +18,19 @@ translates trivially to a threshold I.
 
 The value of the fitted intensity function at the desired
 resolution is compared with the threshold I.  The ratio of these
-values is used to determine a recommended dose for the full data
-collection.
+values is used to determine a recommended exposure (flux × exposure time)
+for the full data collection.
 
 The Wilson plot of I as a function of d is drawn as the file
 'wilson_plot.png'.  The plot can optionally be saved in other formats.
 
 Examples:
 
-    screen19.minimum_dose integrated_experiments.json integrated.pickle
+    screen19.minimum_exposure integrated_experiments.json integrated.pickle
 
-    screen19.minimum_dose indexed_experiments.json indexed.pickle
+    screen19.minimum_exposure indexed_experiments.json indexed.pickle
 
-    screen19.minimum_dose min_i_over_sigma=2 desired_d=0.84 wilson_fit_max_d=4 \
+    screen19.minimum_exposure min_i_over_sigma=2 desired_d=0.84 wilson_fit_max_d=4 \
         integrated_experiments.json integrated.pickle
 
 """
@@ -86,22 +86,22 @@ else:
 
 phil_scope = iotbx.phil.parse(
     u"""
-    minimum_dose
-        .caption = 'Parameters for the calculation of the lower dose bound'
+    minimum_exposure
+        .caption = 'Parameters for the calculation of the lower exposure bound'
         {
         desired_d = None
             .multiple = True
             .type = float
             .caption = u'Desired resolution limit, in Ångströms, of diffraction data'
-            .help = 'This is the resolution target for the lower-bound dose ' \
+            .help = 'This is the resolution target for the lower-bound exposure ' \
                     'recommendation.'
         min_i_over_sigma = 2
             .type = float
-            .caption = u'Target I/σ value for lower-bound dose recommendation'
-            .help = 'The lower-bound dose recommendation provides an estimate of ' \
-                    'the dose required to ensure that the majority of expected ' \
-                    u'reflections at the desired resolution limit have I/σ greater ' \
-                    'than or equal to this value.'
+            .caption = u'Target I/σ value for lower-bound exposure recommendation'
+            .help = 'The lower-bound exposure recommendation provides an estimate of ' \
+                    u'the exposure (flux × exposure time) required to ensure that the' \
+                    'majority of expected reflections at the desired resolution limit' \
+                    u'have I/σ greater than or equal to this value.'
         wilson_fit_max_d = 4  # Å
             .type = float
             .caption = u'Maximum d-value (in Ångströms) for displacement parameter fit'
@@ -111,10 +111,10 @@ phil_scope = iotbx.phil.parse(
     output
         .caption = 'Parameters to control the output'
         {
-        log = 'screen19.minimum_dose.log'
+        log = 'screen19.minimum_exposure.log'
             .type = str
             .caption = 'Location for the info log'
-        debug_log = 'screen19.minimum_dose.debug.log'
+        debug_log = 'screen19.minimum_exposure.debug.log'
             .type = str
             .caption = 'Location for the debug log'
         wilson_plot = 'wilson_plot'
@@ -128,7 +128,7 @@ phil_scope = iotbx.phil.parse(
     process_includes=True,
 )
 
-logger_name = "dials.screen19.minimum_dose"
+logger_name = "dials.screen19.minimum_exposure"
 logger = logging.getLogger(logger_name)
 debug, info, warn = logger.debug, logger.info, logger.warning
 
@@ -290,16 +290,16 @@ def wilson_plot_image(
     plt.close()
 
 
-def suggest_minimum_dose(expts, refls, params):
+def suggest_minimum_exposure(expts, refls, params):
     # type: (ExperimentList[Experiment], flex.reflection_table, scope_extract) -> None
     u"""
-    Suggest an estimated minimum sufficient dose to achieve a certain resolution.
+    Suggest an estimated minimum sufficient exposure to achieve a certain resolution.
 
     The estimate is based on a fit of a Debye-Waller factor under the assumption that a
     single isotropic displacement parameter can be used to adequately describe the
     decay of intensities with increasing sin(θ).
 
-    An ASCII-art Wilson plot is printed, along with minimum dose recommendations for
+    An ASCII-art Wilson plot is printed, along with minimum exposure recommendations for
     a number of different resolution targets.  The Wilson plot, including the fitted
     isotropic Debye-Waller factor, is saved as a PNG image.
 
@@ -307,7 +307,7 @@ def suggest_minimum_dose(expts, refls, params):
         expts: Experiment list containing a single experiment, from which the crystal
             symmetry will be extracted.
         refls: Reflection table of observed reflections.
-        params: Parameters for calculation of minimum dose estimate.
+        params: Parameters for calculation of minimum exposure estimate.
     """
     # Ignore reflections without an index, since uctbx.unit_cell.d returns spurious
     # d == -1 values, rather than None, for unindexed reflections.
@@ -322,12 +322,12 @@ def suggest_minimum_dose(expts, refls, params):
     except RuntimeError:
         refls = refls.select(refls["intensity.sum.value"] > 0)
 
-    # Parameters for the lower-bound dose estimate:
-    min_i_over_sigma = params.minimum_dose.min_i_over_sigma
-    wilson_fit_max_d = params.minimum_dose.wilson_fit_max_d
-    desired_d = params.minimum_dose.desired_d
+    # Parameters for the lower-bound exposure estimate:
+    min_i_over_sigma = params.minimum_exposure.min_i_over_sigma
+    wilson_fit_max_d = params.minimum_exposure.wilson_fit_max_d
+    desired_d = params.minimum_exposure.desired_d
     # If no target resolution is given, use the following defaults:
-    if not params.minimum_dose.desired_d:
+    if not params.minimum_exposure.desired_d:
         desired_d = [
             1,  # Å
             0.84,  # Å (IUCr publication requirement)
@@ -350,7 +350,7 @@ def suggest_minimum_dose(expts, refls, params):
     # Perform the Wilson plot fit
     fit = wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d)
 
-    # Get recommended dose factors
+    # Get recommended exposure factors
     # Use the fact that σ² = I for indexed data, so I/σ = √̅I
     desired_d_star_sq = [1 / d ** 2 for d in desired_d]
     target_i = min_i_over_sigma ** 2
@@ -359,7 +359,7 @@ def suggest_minimum_dose(expts, refls, params):
         for target_d in desired_d_star_sq
     ]
 
-    # Get the achievable resolution at the current dose
+    # Get the achievable resolution at the current exposure
     desired_d += [np.sqrt(fit[0] / (2 * np.log(fit[1] / target_i)))]
     recommended_factor += [1]
 
@@ -375,28 +375,32 @@ def suggest_minimum_dose(expts, refls, params):
         if recommendation < 1:
             debug(
                 u"\nIt is likely that you can achieve a resolution of %g Å using a "
-                "lower dose.",
+                "lower exposure (lower transmission and/or shorter exposure time).",
                 target,
             )
         elif recommendation > 1:
             debug(
-                "\nIt is likely that you need a higher dose to achieve a "
-                u"resolution of %g Å.",
+                "\nIt is likely that you need a higher exposure (higher transmission "
+                u"and/or longer exposure time to achieve a resolution of %g Å.",
                 target,
             )
         debug(
-            u"The estimated minimal sufficient dose to achieve a resolution of %.2g Å "
-            "is %.3g times the dose used for this data collection.",
+            "The estimated minimal sufficient exposure (flux × exposure time) to "
+            u"achievea resolution of %.2g Å is %.3g times the exposure used for this "
+            "data collection.",
             target, recommendation,
         )
 
     summary = "\nRecommendations, summarised:\n"
     summary += tabulate(
         recommendations,
-        [u"Resolution (Å)", "Suggested\ndose factor"],
+        [u"Resolution (Å)", "Suggested\nexposure factor"],
         floatfmt=(".2g", ".3g"),
         tablefmt="rst",
     )
+    summary += u"\nExposure is flux × exposure time." \
+               "\nYou can achieve your desired exposure factor by modifying " \
+               "transmission and/or exposure time."
     info(summary)
 
     # Draw the Wilson plot image and save to file
@@ -404,7 +408,7 @@ def suggest_minimum_dose(expts, refls, params):
         d_star_sq,
         intensity,
         fit,
-        max_d=params.minimum_dose.wilson_fit_max_d,
+        max_d=params.minimum_exposure.wilson_fit_max_d,
         ticks=d_ticks,
         output=params.output.wilson_plot,
     )
@@ -416,7 +420,7 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
     Parse command-line arguments, run the script.
 
     Uses the DIALS option parser to extract an experiment list, reflection table and
-    parameters, then passes them to :func:`suggest_minimum_dose`.
+    parameters, then passes them to :func:`suggest_minimum_exposure`.
     Optionally, sets up the logger.
 
     Args:
@@ -475,7 +479,7 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
             params.input.experiments[0].filename,
         )
 
-    suggest_minimum_dose(expts, refls, params)
+    suggest_minimum_exposure(expts, refls, params)
 
 
 def main():

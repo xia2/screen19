@@ -13,9 +13,9 @@ upper- and lower-bound estimate of suitable flux.
   pixels.
   • The lower-bound estimate is based on a linear fit of isotropic disorder
   parameter, B, to a Wilson plot of reflection intensities.  From this,
-  an estimate is made of the minimum dose required to achieve a target I/σ
-  ratio (by default, target I/σ = 2) at one or more values of desired
-  resolution, d, (by default, desired d = 1 Å, 0.84 Å, 0.6 Å & 0.4 Å).
+  an estimate is made of the minimum exposure (flux × exposure time) required
+  to achieve a target I/σ ratio (by default, target I/σ = 2) at one or more values
+  of desired resolution, d, (by default, desired d = 1 Å, 0.84 Å, 0.6 Å & 0.4 Å).
 
 Target I/σ and target d (in Ångström) can be set using the parameters
 'min_i_over_sigma' and 'desired_d'.  One can set multiple values of the latter.
@@ -24,7 +24,7 @@ By default the disorder parameter fit is conducted on the
 integrated data.  This ought to provide a reasonably true fit, but requires
 an integration step, which can take some time.  You can achieve a quicker,
 dirtier answer by fitting to the indexed data (i.e. only the stronger
-spots), using 'minimum_dose.data=indexed'.
+spots), using 'minimum_exposure.data=indexed'.
 
 Examples:
 
@@ -38,7 +38,7 @@ Examples:
 
   screen19 min_i_over_sigma=2 desired_d=0.84 <imported_experiments.json | image_files>
 
-  screen19 minimum_dose.data=indexed <image_files>
+  screen19 minimum_exposure.data=indexed <image_files>
 
 """
 
@@ -67,7 +67,7 @@ from libtbx.introspection import number_of_processors
 from libtbx.phil import scope
 import procrunner
 import screen19
-from screen19.minimum_dose import suggest_minimum_dose
+from screen19.minimum_exposure import suggest_minimum_exposure
 
 Templates = List[Tuple[str, Tuple[int, int]]]
 
@@ -123,14 +123,14 @@ phil_scope = iotbx.phil.parse(
                 "multi-processing option.  If 'False' or 'Auto', all available "
                 "processors will be used."
     
-    minimum_dose
-        .caption = 'Options for screen19.minimum_dose'
+    minimum_exposure
+        .caption = 'Options for screen19.minimum_exposure'
         {
-        include scope screen19.minimum_dose.phil_scope
+        include scope screen19.minimum_exposure.phil_scope
         data = indexed *integrated
             .type = choice
             .caption = 'Choice of data for the displacement parameter fit'
-            .help = 'For the lower-bound dose estimate, choose whether to use '
+            .help = 'For the lower-bound exposure estimate, choose whether to use '
                     'indexed (quicker) or integrated (better) data in fitting '
                     'the isotropic displacement parameter.'
         }
@@ -946,16 +946,16 @@ class Screen19(object):
 
     def _wilson_calculation(self):  # type: () -> None
         """
-        Run `screen19.minimum_dose` on an experiment list and reflection table.
+        Run `screen19.minimum_exposure` on an experiment list and reflection table.
 
         For best results, the reflections and experiment list should contain the
         results of integration or scaling.  If only strong spots are used, the Wilson
         plot fit may be poor.
         """
         dials_start = timeit.default_timer()
-        info("\nEstimating lower dose bound...")
+        info("\nEstimating lower exposure bound...")
 
-        suggest_minimum_dose(self.expts, self.refls, self.params.minimum_dose)
+        suggest_minimum_exposure(self.expts, self.refls, self.params.minimum_exposure)
 
         info("Successfully completed (%.1f sec)", timeit.default_timer() - dials_start)
 
@@ -1291,7 +1291,7 @@ class Screen19(object):
         if not fast_mode:
             self._check_intensities()
 
-        if self.params.minimum_dose.data == "integrated":
+        if self.params.minimum_exposure.data == "integrated":
             self._integrate()
 
             self._wilson_calculation()
