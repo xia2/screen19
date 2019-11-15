@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
-"""
-Common tools for the I19 module.
-"""
+"""Common tools for the I19 module."""
+
+from __future__ import absolute_import, division, print_function
 
 import os
 import sys
@@ -10,13 +10,19 @@ import re
 import logging
 import traceback
 import procrunner
-from typing import Dict, Tuple
+from typing import Dict, Tuple  # noqa: F401
+# Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
+
+import dials.util.version
 
 __version__ = "0.204"
 
 logger = logging.getLogger("dials.screen19")
 debug, info, warn = logger.debug, logger.info, logger.warning
 
+
+# Check whether we need to be using DIALS v1 API
+dials_v1 = dials.util.version.dials_version().startswith("DIALS 1.")
 
 # Set axis tick positions manually.  Accounts for reciprocal(-square) d-scaling.
 d_ticks = [5, 3, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4]
@@ -102,7 +108,7 @@ def plot_intensities(
     hist_value_factor,
     title="'Pixel intensity distribution'",
     xlabel="'% of maximum'",
-    ylabel="'Number of observed pixels'",
+    ylabel="'Number of pixels'",
     xticks="",
     style="with boxes",
     procrunner_debug=False,
@@ -157,17 +163,17 @@ def plot_intensities(
     if result["exitcode"] == 0:
         star = re.compile(r"\*")
         state = set()
-        for l in result["stdout"].split("\n"):
-            if l.strip() != "":
-                stars = {m.start(0) for m in re.finditer(star, l)}
+        for line in result["stdout"].split("\n"):
+            if line.strip() != "":
+                stars = {m.start(0) for m in re.finditer(star, line)}
                 if not stars:
                     state = set()
                 else:
                     state |= stars
-                    l = list(l)
+                    line = list(line)
                     for s in state:
-                        l[s] = "*"
-                info("".join(l))
+                        line[s] = "*"
+                info("".join(line))
     else:
         warn(
             "Error running gnuplot. Cannot plot intensity distribution. "
