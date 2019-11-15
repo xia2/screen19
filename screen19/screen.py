@@ -52,6 +52,7 @@ import re
 import sys
 import time
 import timeit
+from glob import glob
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from dials.array_family import flex
@@ -452,8 +453,6 @@ class Screen19(object):
 
             Use some filleted bits of dials.import and dials.util.options.Importer.
             """
-            from glob import glob
-
             from dxtbx.model.experiment_list import BeamComparison, \
                 DetectorComparison, GoniometerComparison, ExperimentListFactory, \
                 ExperimentListTemplateImporter
