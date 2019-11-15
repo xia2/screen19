@@ -7,7 +7,7 @@ with open("README.rst") as readme_file:
     readme = readme_file.read()
 
 requirements = ["procrunner", "typing"]
-test_requirements = ["mock>=2.0", "pytest>=3.1"]
+test_requirements = ["mock>=2.0", "pytest>=4.5"]
 
 setup(
     author="Diamond Light Source",
