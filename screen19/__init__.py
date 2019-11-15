@@ -1,8 +1,6 @@
 # coding: utf-8
 
-"""
-Common tools for the I19 module.
-"""
+"""Common tools for the I19 module."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -164,17 +162,17 @@ def plot_intensities(
     if result["exitcode"] == 0:
         star = re.compile(r"\*")
         state = set()
-        for l in result["stdout"].split("\n"):
-            if l.strip() != "":
-                stars = {m.start(0) for m in re.finditer(star, l)}
+        for line in result["stdout"].split("\n"):
+            if line.strip() != "":
+                stars = {m.start(0) for m in re.finditer(star, line)}
                 if not stars:
                     state = set()
                 else:
                     state |= stars
-                    l = list(l)
+                    line = list(line)
                     for s in state:
-                        l[s] = "*"
-                info("".join(l))
+                        line[s] = "*"
+                info("".join(line))
     else:
         warn(
             "Error running gnuplot. Cannot plot intensity distribution. "

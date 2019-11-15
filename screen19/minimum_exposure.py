@@ -6,7 +6,7 @@ Reflection d-spacings are determined from the crystal symmetry (from
 indexing) and the Miller indices of the indexed reflections.  The
 atomic displacement parameter is assumed isotropic.  Its value is
 determined from a fit to the reflection data:
-  I = A * exp(-B /(2 * d^2)),
+  I = A * exp(-B / (2 * d^2)),
 where I is the intensity and the scale factor, A, and isotropic
 displacement parameter, B, are the fitted parameters.
 
@@ -136,11 +136,11 @@ debug, info, warn = logger.debug, logger.info, logger.warning
 def scaled_debye_waller(x, b, a):
     # type: (float, float, float) -> float
     u"""
-    A scaled isotropic Debye-Waller factor
+    Calculate a scaled isotropic Debye-Waller factor.
 
     By assuming a single isotropic disorder parameter, :param:`b`, this factor
-    approximates the decay of diffracted X-ray intensity increasing resolution (
-    decreasing d, increasing sin(θ)).
+    approximates the decay of diffracted X-ray intensity increasing resolution
+    (decreasing d, increasing sin(θ)).
 
     Args:
         x: Equivalent to 1/d².
@@ -484,7 +484,5 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
 
 def main():
     # type: () -> None
-    """
-    Dispatcher for command-line call.
-    """
+    """Dispatcher for command-line call."""
     run(set_up_logging=True)

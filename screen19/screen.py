@@ -73,7 +73,6 @@ Templates = List[Tuple[str, Tuple[int, int]]]
 
 help_message = __doc__
 
-
 if screen19.dials_v1:
     verbosity_scope = u'''
     verbosity = 1
@@ -122,7 +121,7 @@ phil_scope = iotbx.phil.parse(
         .help = "The chosen value will apply to all the DIALS utilities with a "
                 "multi-processing option.  If 'False' or 'Auto', all available "
                 "processors will be used."
-    
+
     minimum_exposure
         .caption = 'Options for screen19.minimum_exposure'
         {
@@ -134,7 +133,7 @@ phil_scope = iotbx.phil.parse(
                     'indexed (quicker) or integrated (better) data in fitting '
                     'the isotropic displacement parameter.'
         }
-    
+
     maximum_flux
         .caption = 'Options for avoiding detector paralysation'
         {
@@ -151,16 +150,16 @@ phil_scope = iotbx.phil.parse(
                     "sensible to present the user with a correspondingly reduced upper-"
                     "limit flux recommendation."
         }
-    
+
     dials_import
         .caption = 'Options for dials.import'
         {
         include scope dials.command_line.dials_import.phil_scope
-        
+
         input
             {
-            include scope dials.util.options.tolerance_phil_scope 
-            
+            include scope dials.util.options.tolerance_phil_scope
+
             experiments = None
                 .help = "The experiment list file path"
                 .type = str
@@ -168,43 +167,43 @@ phil_scope = iotbx.phil.parse(
                 .optional = True
             }
         }
-    
+
     dials_find_spots
         .caption = 'Options for dials.find_spots'
         {
         include scope dials.command_line.find_spots.phil_scope
         }
-    
+
     dials_index
         .caption = 'Options for dials.index'
         {
         include scope dials.command_line.index.phil_scope
         }
-    
+
     dials_refine
         .caption = 'Options for dials.refine'
         {
         include scope dials.command_line.refine.phil_scope
         }
-    
+
     dials_refine_bravais
         .caption = 'Options for dials.refine_bravais_settings'
         {
         include scope dials.command_line.refine_bravais_settings.phil_scope
         }
-    
+
     dials_create_profile
         .caption = 'Options for dials.create_profile_model'
         {
         include scope dials.command_line.create_profile_model.phil_scope
         }
-    
+
     dials_integrate
         .caption = 'Options for dials.integrate'
         {
         include scope dials.command_line.integrate.phil_scope
         }
-    
+
     dials_report
         .caption = 'Options for dials.report'
         {
@@ -221,9 +220,7 @@ debug, info, warn = logger.debug, logger.info, logger.warn
 
 
 def _reset_cache():  # type: () -> None
-    """
-    Work around DIALS <1.14.4 phil cache issue
-    """
+    """Work around DIALS <1.14.4 phil cache issue."""
     import dials.util.phil
 
     dcr = dials.util.phil.default_converter_registry
@@ -235,7 +232,7 @@ def _reset_cache():  # type: () -> None
 def overloads_histogram(d_spacings, ticks=None, output="overloads"):
     # type: (Sequence[float], Optional[Sequence[float]], Optional[str]) -> None
     """
-    Generate a histogram of reflection d-spacings as an image, default is .png
+    Generate a histogram of reflection d-spacings as an image, default is .png.
 
     Args:
         d_spacings:  d-spacings of the reflections.
@@ -259,9 +256,7 @@ def overloads_histogram(d_spacings, ticks=None, output="overloads"):
 
 
 class Screen19(object):
-    """
-    Encapsulates the screening script.
-    """
+    """Encapsulates the screening script."""
 
     def __init__(self):
         if not screen19.dials_v1:
@@ -383,7 +378,7 @@ class Screen19(object):
                     os.path.join(files[0], f)
                     for f in os.listdir(files[0])
                     if f.endswith(".cbf") or f.endswith(".cbf.gz")
-                    or f.endswith(".cbf.bz2")
+                       or f.endswith(".cbf.bz2")
                 ]
             elif len(files[0].split(":")) == 3:
                 debug(
@@ -588,7 +583,6 @@ class Screen19(object):
         Returns:
             Number of images.
         """
-
         if screen19.dials_v1:
             with open(self.json_file) as fh:
                 datablock = json.load(fh)
@@ -652,11 +646,11 @@ class Screen19(object):
             if self._sigma_m:
                 delta_z = self._oscillation / self._sigma_m / math.sqrt(2)
                 average_to_peak = (
-                    (
-                        math.sqrt(math.pi) * delta_z * math.erf(delta_z)
-                        + math.exp(-delta_z**2) - 1
-                    )
-                    / delta_z**2
+                        (
+                                math.sqrt(math.pi) * delta_z * math.erf(delta_z)
+                                + math.exp(-delta_z ** 2) - 1
+                        )
+                        / delta_z ** 2
                 )
                 info("Average-to-peak intensity ratio: %f", average_to_peak)
 
@@ -709,8 +703,8 @@ class Screen19(object):
         else:
             info(text)
         if (
-            "overload_limit" in overload_data
-            and max_count >= overload_data["overload_limit"]
+                "overload_limit" in overload_data
+                and max_count >= overload_data["overload_limit"]
         ):
             warn(
                 "Warning: THE DATA CONTAIN REGULAR OVERLOADS!\n"
@@ -1059,9 +1053,7 @@ class Screen19(object):
         return False
 
     def _integrate(self):  # type: () -> None
-        """
-        Run `dials.integrate` to integrate reflection intensities.
-        """
+        """Run `dials.integrate` to integrate reflection intensities."""
         dials_start = timeit.default_timer()
         info("\nIntegrating...")
 
@@ -1251,7 +1243,7 @@ class Screen19(object):
                 self._find_spots(["sigma_strong=15"])
             else:
                 strong_refls = self.refls
-                self.params.dials_find_spots.spotfinder.threshold.dispersion\
+                self.params.dials_find_spots.spotfinder.threshold.dispersion \
                     .sigma_strong = 15
                 self._find_spots()
 
@@ -1319,4 +1311,5 @@ class Screen19(object):
 
 
 def main():  # type: () -> None
+    """Dispatcher for command-line call."""
     Screen19().run(set_up_logging=True)
