@@ -53,7 +53,8 @@ import sys
 import time
 import timeit
 from glob import glob
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple  # noqa: F401
+# Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
 
 from dials.array_family import flex
 from dials.util import log, Sorry

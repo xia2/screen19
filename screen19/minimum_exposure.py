@@ -41,7 +41,8 @@ import sys
 import logging
 import numpy as np
 from tabulate import tabulate
-from typing import Iterable, List, Optional, Sequence, Union
+from typing import Iterable, List, Optional, Sequence, Union  # noqa: F401
+# Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
 
 import boost.python
 from cctbx import crystal, miller
