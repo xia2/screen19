@@ -11,11 +11,12 @@ import logging
 import traceback
 import procrunner
 from typing import Dict, Tuple  # noqa: F401
+
 # Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
 
 import dials.util.version
 
-__version__ = "0.204"
+__version__ = "0.206"
 
 logger = logging.getLogger("dials.screen19")
 debug, info, warn = logger.debug, logger.info, logger.warning

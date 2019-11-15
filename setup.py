@@ -20,7 +20,7 @@ setup(
         "Programming Language :: Python :: 2.7",
     ],
     description="Screening program for small-molecule single-crystal X-ray diffraction "
-                "data",
+    "data",
     entry_points={
         "console_scripts": [
             "i19.screen = screen19.screen:main",
@@ -28,7 +28,7 @@ setup(
             "i19.stability_fft = screen19.stability_fft:main",
             "i19.sync = screen19.sync:main",
             "i19.minimum_exposure = screen19.minimum_exposure:main",
-            "screen19.minimum_exposure = screen19.minimum_exposure:main"
+            "screen19.minimum_exposure = screen19.minimum_exposure:main",
         ],
         "libtbx.dispatcher.script": [
             "i19.screen = i19.screen",
@@ -36,7 +36,7 @@ setup(
             "i19.stability_fft = i19.stability_fft",
             "i19.sync = i19.sync",
             "i19.minimum_exposure = i19.minimum_exposure",
-            "screen19.minimum_exposure = screen19.minimum_exposure"
+            "screen19.minimum_exposure = screen19.minimum_exposure",
         ],
         "libtbx.precommit": ["screen19 = screen19"],
     },
@@ -49,6 +49,6 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/xia2/screen19",
-    version="0.204",
+    version="0.206",
     zip_safe=False,
 )
