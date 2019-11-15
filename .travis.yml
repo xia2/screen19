@@ -30,7 +30,7 @@ jobs:
       script:
          # Run the tests
          - cd $HOME/build/xia2/screen19
-         - pytest -ra -n auto
+         - pytest -ra -n auto --regression
          - .travis/check-working-directory-is-clean
 
     - name: "Build - Python 3.6"
@@ -49,7 +49,7 @@ jobs:
       script:
          # Run the tests
          - cd $HOME/build/xia2/screen19
-         - pytest -ra -n auto
+         - pytest -ra -n auto --regression
          - .travis/check-working-directory-is-clean
 
       # Assuming you have installed the travis-ci CLI tool, after you
