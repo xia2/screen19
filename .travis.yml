@@ -14,17 +14,7 @@ jobs:
          - python3 -m compileall -q *
 
     - stage: build
-      name: "Flake8 - Python 2.7"
-      python: 2.7
-      script: .travis/run-flake8
-      if: type = pull_request
-
-    - name: "Flake8 - Python 3.8"
-      python: 3.8
-      script: .travis/run-flake8
-      if: type = pull_request
-
-    - name: "Build - Python 2.7"
+      name: "Build - Python 2.7"
       python: 2.7
       install:
          # Setup a DIALS installation
@@ -75,3 +65,13 @@ jobs:
         on:
           tags: true
           repo: xia2/screen19
+
+    - name: "Flake8 - Python 2.7"
+      python: 2.7
+      script: .travis/run-flake8
+      if: type = pull_request
+
+    - name: "Flake8 - Python 3.8"
+      python: 3.8
+      script: .travis/run-flake8
+      if: type = pull_request
