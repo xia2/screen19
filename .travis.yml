@@ -13,7 +13,8 @@ jobs:
       script:
          - python3 -m compileall -q *
 
-    - name: "Flake8 - Python 2.7"
+    - stage: build
+      name: "Flake8 - Python 2.7"
       python: 2.7
       script: .travis/run-flake8
       if: type = pull_request
@@ -23,8 +24,7 @@ jobs:
       script: .travis/run-flake8
       if: type = pull_request
 
-    - stage: build
-      name: "Build - Python 2.7"
+    - name: "Build - Python 2.7"
       python: 2.7
       install:
          # Setup a DIALS installation
