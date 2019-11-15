@@ -385,7 +385,7 @@ def suggest_minimum_exposure(expts, refls, params):
                 target,
             )
         debug(
-            "The estimated minimal sufficient exposure (flux × exposure time) to "
+            u"The estimated minimal sufficient exposure (flux × exposure time) to "
             u"achievea resolution of %.2g Å is %.3g times the exposure used for this "
             "data collection.",
             target, recommendation,
