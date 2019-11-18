@@ -1102,8 +1102,14 @@ class Screen19(object):
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s", screen19.prettyprint_dictionary(result))
         if result["exitcode"] == 0:
-            m = re.search("[-+]-[-+]+\n[^\n]*\n[-+]-[-+]+\n(.*\n)*[-+]-[-+]+", result["stdout"])
-            info(m.group(0))
+            m = re.search(r"[-+]{3,}\n[^\n]*\n[-+|]{3,}\n(.*\n)*[-+]{3,}", result["stdout"])
+            if m:
+                info(m.group(0))
+            else:
+                info(
+                    "Could not interpret dials.refine_bravais_settings output, "
+                    "please check dials.refine_bravais_settings.log"
+                )
             info("Successfully completed (%.1f sec)", result["runtime"])
         else:
             warn("Failed with exit code %d", result["exitcode"])
