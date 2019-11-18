@@ -1102,7 +1102,7 @@ class Screen19(object):
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s", screen19.prettyprint_dictionary(result))
         if result["exitcode"] == 0:
-            m = re.search("---+\n[^\n]*\n---+\n(.*\n)*---+", result["stdout"])
+            m = re.search("[-+]--+\n[^\n]*\n[-+]--+\n(.*\n)*[-+]--+", result["stdout"])
             info(m.group(0))
             info("Successfully completed (%.1f sec)", result["runtime"])
         else:
