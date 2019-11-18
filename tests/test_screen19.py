@@ -33,6 +33,8 @@ data_files = [
         "x3_1_0005.cbf.gz",
     ],
 ]
+
+
 @pytest.mark.parametrize("data_files", data_files)
 def test_screen19_inputs(dials_data, tmpdir, data_files):
     """Test various valid input argument styles"""
