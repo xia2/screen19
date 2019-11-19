@@ -59,7 +59,7 @@ from glob import glob
 from typing import Dict, List, Optional, Sequence, Tuple  # noqa: F401
 
 from dials.array_family import flex
-from dials.util import log, Sorry
+from dials.util import log, Sorry, version
 from dials.util.ascii_art import spot_counts_per_image_plot
 from dials.util.options import OptionParser
 import dials.util.version
@@ -1094,26 +1094,67 @@ class Screen19(object):
                 warn("dials.integrate failed with exit code %d\nGiving up.", e.code)
                 sys.exit(1)
 
-    def _refine_bravais(self, experiments, reflections):
-        # type: (ExperimentList, flex.reflection_table) -> None
-        """
-        Run `dials.refine_bravais_settings` on an experiment list and reflection table.
+    # This is a hacky check but should work for as long as DIALS 2.0 is supported.
+    if version.dials_version() < "DIALS 2.1":
 
-        Args:
-            experiments:  An experiment list..
-            reflections:  The corresponding reflection table.
-        """
-        info("\nRefining bravais settings...")
-        command = ["dials.refine_bravais_settings", experiments, reflections]
-        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s", screen19.prettyprint_dictionary(result))
-        if result["exitcode"] == 0:
-            m = re.search("---+\n[^\n]*\n---+\n(.*\n)*---+", result["stdout"])
-            info(m.group(0))
-            info("Successfully completed (%.1f sec)", result["runtime"])
-        else:
-            warn("Failed with exit code %d", result["exitcode"])
-            sys.exit(1)
+        def _refine_bravais(self, experiments, reflections):
+            # type: (ExperimentList, flex.reflection_table) -> None
+            """
+            Run `dials.refine_bravais_settings` on an experiments and reflections.
+
+            Args:
+                experiments:  An experiment list.
+                reflections:  The corresponding reflection table.
+            """
+            info("\nRefining Bravais settings...")
+            command = ["dials.refine_bravais_settings", experiments, reflections]
+            result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
+            debug("result = %s", screen19.prettyprint_dictionary(result))
+            if result["exitcode"] == 0:
+                m = re.search("---+\n[^\n]*\n---+\n(.*\n)*---+", result["stdout"])
+                info(m.group(0))
+                info("Successfully completed (%.1f sec)", result["runtime"])
+            else:
+                warn("Failed with exit code %d", result["exitcode"])
+                sys.exit(1)
+
+    else:
+
+        def _refine_bravais(self):  # type: () -> None
+            """Run `dials.refine_bravais_settings` to determine the space group."""
+            from dials.algorithms.indexing.bravais_settings import (
+                refined_settings_from_refined_triclinic,
+            )
+            from dials.command_line.refine_bravais_settings import (
+                bravais_lattice_to_space_group_table,
+                eliminate_sys_absent,
+                map_to_primitive,
+            )
+
+            dials_start = timeit.default_timer()
+            info("\nRefining Bravais settings...")
+
+            self.refls = eliminate_sys_absent(self.expts, self.refls)
+            map_to_primitive(self.expts, self.refls)
+
+            try:
+                refined_settings = refined_settings_from_refined_triclinic(
+                    self.expts, self.refls, self.params.dials_refine_bravais
+                )
+            except RuntimeError as e:
+                warn("dials.refine_bravais_settings failed.\nGiving up.")
+                sys.exit(e)
+
+            possible_bravais_settings = {
+                solution["bravais"] for solution in refined_settings
+            }
+            bravais_lattice_to_space_group_table(possible_bravais_settings)
+            logger.info(refined_settings.as_str())
+
+            info(
+                "Successfully completed (%.1f sec)",
+                timeit.default_timer() - dials_start,
+            )
 
     def _report(self, experiments, reflections):
         # type: (ExperimentList, flex.reflection_table) -> None
@@ -1305,7 +1346,11 @@ class Screen19(object):
             experiments = self.params.dials_create_profile.output
             reflections = self.params.dials_index.output.reflections
 
-        self._refine_bravais(experiments, reflections)
+        # This is a hacky check but should work for as long as DIALS 2.0 is supported.
+        if version.dials_version() < "DIALS 2.1":
+            self._refine_bravais(experiments, reflections)
+        else:
+            self._refine_bravais()
 
         if not fast_mode:
             self._report(experiments, reflections)
