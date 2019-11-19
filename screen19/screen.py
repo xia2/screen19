@@ -264,15 +264,11 @@ class Screen19(object):
 
     def __init__(self):
         if not screen19.dials_v1:
-            # Throughout the pipeline, retain the state of the processing
+            # Throughout the pipeline, retain the state of the processing.
             self.expts = ExperimentList([])
             self.refls = flex.reflection_table()
-            # Strictly speaking, self.params should really be defined as a scope_extract
-            # but that makes most linters complain with lots of messages
-            # "self.params has no attribute <name of subordinate scope>".
-            # a lot.
-            # self.params = scope_extract(None, None, None)
-            self.params = None
+            # Get some default parameters.
+            self.params = phil_scope.extract()
             if screen19.dials_v1:
                 self.json_file = ""
 
