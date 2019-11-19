@@ -44,7 +44,7 @@ Examples:
 
 from __future__ import absolute_import, division, print_function
 
-from cPickle import PickleError
+from six.moves.cPickle import PickleError
 import json
 import logging
 import math
