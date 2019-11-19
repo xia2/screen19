@@ -269,10 +269,10 @@ class Screen19(object):
             # Throughout the pipeline, retain the state of the processing.
             self.expts = ExperimentList([])
             self.refls = flex.reflection_table()
-            # Get some default parameters.  These must be extracted from the 'fetched'
-            # PHIL scope, rather than the 'definition' phil scope returned by
-            # iotbx.phil.parse.  Confused?  Blame PHIL.
-            self.params = phil_scope.fetch(iotbx.phil.parse("")).extract()
+        # Get some default parameters.  These must be extracted from the 'fetched'
+        # PHIL scope, rather than the 'definition' phil scope returned by
+        # iotbx.phil.parse.  Confused?  Blame PHIL.
+        self.params = phil_scope.fetch(iotbx.phil.parse("")).extract()
 
     def _quick_import(self, files):  # type: (List[str]) -> bool
         """
