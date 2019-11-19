@@ -42,6 +42,7 @@ import logging
 import numpy as np
 from tabulate import tabulate
 from typing import Iterable, List, Optional, Sequence, Union  # noqa: F401
+
 # Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
 
 import boost.python
@@ -125,7 +126,8 @@ phil_scope = iotbx.phil.parse(
                     "a different extension, either '.pdf', '.ps', '.eps' or '.svg', " \
                     "a file of that format will be created instead."
         }
-        """ + verbosity_scope,
+        """
+    + verbosity_scope,
     process_includes=True,
 )
 
@@ -190,11 +192,11 @@ def wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d):
 
 
 def wilson_plot_ascii(
-        crystal_symmetry,  # type: crystal.symmetry
-        indices,  # type: Sequence[flex.miller_index, ...]
-        intensity,  # type: FloatSequence
-        sigma,  # type: FloatSequence
-        d_ticks=None,  # type: Optional[FloatSequence]
+    crystal_symmetry,  # type: crystal.symmetry
+    indices,  # type: Sequence[flex.miller_index, ...]
+    intensity,  # type: FloatSequence
+    sigma,  # type: FloatSequence
+    d_ticks=None,  # type: Optional[FloatSequence]
 ):
     # type: (...) -> None
     u"""
@@ -245,7 +247,7 @@ def wilson_plot_image(
     fit,  # type: Fit
     max_d=None,  # type: Optional[float]
     ticks=None,  # type: Optional[FloatSequence]
-    output="wilson_plot"  # type: str
+    output="wilson_plot",  # type: str
 ):
     # type: (...) -> None
     u"""
@@ -389,7 +391,8 @@ def suggest_minimum_exposure(expts, refls, params):
             u"The estimated minimal sufficient exposure (flux × exposure time) to "
             u"achievea resolution of %.2g Å is %.3g times the exposure used for this "
             "data collection.",
-            target, recommendation,
+            target,
+            recommendation,
         )
 
     summary = "\nRecommendations, summarised:\n"
@@ -399,9 +402,11 @@ def suggest_minimum_exposure(expts, refls, params):
         floatfmt=(".2g", ".3g"),
         tablefmt="rst",
     )
-    summary += u"\nExposure is flux × exposure time." \
-               "\nYou can achieve your desired exposure factor by modifying " \
-               "transmission and/or exposure time."
+    summary += (
+        u"\nExposure is flux × exposure time."
+        "\nYou can achieve your desired exposure factor by modifying "
+        "transmission and/or exposure time."
+    )
     info(summary)
 
     # Draw the Wilson plot image and save to file
