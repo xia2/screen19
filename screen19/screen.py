@@ -44,6 +44,7 @@ Examples:
 
 from __future__ import absolute_import, division, print_function
 
+from six.moves.cPickle import PickleError
 import json
 import logging
 import math
@@ -53,16 +54,17 @@ import sys
 import time
 import timeit
 from glob import glob
-from typing import Dict, List, Optional, Sequence, Tuple  # noqa: F401
 
 # Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
+from typing import Dict, List, Optional, Sequence, Tuple  # noqa: F401
 
 from dials.array_family import flex
-from dials.util import log, Sorry
+from dials.util import log, Sorry, version
 from dials.util.ascii_art import spot_counts_per_image_plot
 from dials.util.options import OptionParser
 import dials.util.version
-from dxtbx.model.experiment_list import ExperimentList, ExperimentListFactory
+from dxtbx.model import ExperimentList
+from dxtbx.model.experiment_list import ExperimentListFactory
 import iotbx.phil
 from libtbx import Auto
 from libtbx.introspection import number_of_processors
@@ -272,7 +274,6 @@ class Screen19(object):
         # iotbx.phil.parse.  Confused?  Blame PHIL.
         self.params = phil_scope.fetch(iotbx.phil.parse("")).extract()
 
-    # TODO Make __init__ and declare instance variables in it.
     def _quick_import(self, files):  # type: (List[str]) -> bool
         """
         Generate xia2-style templates from file names and attempt a quick import.
@@ -382,7 +383,7 @@ class Screen19(object):
                     "You specified a directory. Importing all CBF files in "
                     "that directory."
                 )
-                # TODO Support other image formats for more general application
+                # TODO Support HDF5.
                 files = [
                     os.path.join(files[0], f)
                     for f in os.listdir(files[0])
@@ -410,11 +411,12 @@ class Screen19(object):
                 )
                 try:
                     self.expts = ExperimentList.from_file(files[0])
+                except (IOError, PickleError, ValueError):
+                    pass
+                else:
                     self.params.dials_import.output.experiments = files[0]
                     if self.expts:
                         return
-                except Exception:  # TODO: can we be more specific?
-                    pass
 
         # Can the files be quick-imported?
         if self._quick_import(files):
@@ -1012,7 +1014,7 @@ class Screen19(object):
                     self.expts, self.refls, self.params.dials_refine
                 )
             except Sorry as e:
-                warn("dials.refine failed: %d\n" "Giving up.\n", e)
+                warn("dials.refine failed: %d\nGiving up.\n", e)
                 sys.exit(1)
 
         info("Successfully refined (%.1f sec)", timeit.default_timer() - dials_start)
@@ -1090,34 +1092,75 @@ class Screen19(object):
                 warn("dials.integrate failed with exit code %d\nGiving up.", e.code)
                 sys.exit(1)
 
-    def _refine_bravais(self, experiments, reflections):
-        # type: (ExperimentList, flex.reflection_table) -> None
-        """
-        Run `dials.refine_bravais_settings` on an experiment list and reflection table.
+    # This is a hacky check but should work for as long as DIALS 2.0 is supported.
+    if version.dials_version() < "DIALS 2.1":
 
-        Args:
-            experiments:  An experiment list..
-            reflections:  The corresponding reflection table.
-        """
-        info("\nRefining bravais settings...")
-        command = ["dials.refine_bravais_settings", experiments, reflections]
-        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s", screen19.prettyprint_dictionary(result))
-        if result["exitcode"] == 0:
-            m = re.search(
-                r"[-+]{3,}\n[^\n]*\n[-+|]{3,}\n(.*\n)*[-+]{3,}", result["stdout"]
-            )
-            if m:
-                info(m.group(0))
-            else:
-                info(
-                    "Could not interpret dials.refine_bravais_settings output, "
-                    "please check dials.refine_bravais_settings.log"
+        def _refine_bravais(self, experiments, reflections):
+            # type: (ExperimentList, flex.reflection_table) -> None
+            """
+            Run `dials.refine_bravais_settings` on an experiments and reflections.
+
+            Args:
+                experiments:  An experiment list..
+                reflections:  The corresponding reflection table.
+            """
+            info("\nRefining Bravais settings...")
+            command = ["dials.refine_bravais_settings", experiments, reflections]
+            result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
+            debug("result = %s", screen19.prettyprint_dictionary(result))
+            if result["exitcode"] == 0:
+                m = re.search(
+                    r"[-+]{3,}\n[^\n]*\n[-+|]{3,}\n(.*\n)*[-+]{3,}", result["stdout"]
                 )
-            info("Successfully completed (%.1f sec)", result["runtime"])
-        else:
-            warn("Failed with exit code %d", result["exitcode"])
-            sys.exit(1)
+                if m:
+                    info(m.group(0))
+                else:
+                    info(
+                        "Could not interpret dials.refine_bravais_settings output, "
+                        "please check dials.refine_bravais_settings.log"
+                    )
+                info("Successfully completed (%.1f sec)", result["runtime"])
+            else:
+                warn("Failed with exit code %d", result["exitcode"])
+                sys.exit(1)
+
+    else:
+
+        def _refine_bravais(self):  # type: () -> None
+            """Run `dials.refine_bravais_settings` to determine the space group."""
+            from dials.algorithms.indexing.bravais_settings import (
+                refined_settings_from_refined_triclinic,
+            )
+            from dials.command_line.refine_bravais_settings import (
+                bravais_lattice_to_space_group_table,
+                eliminate_sys_absent,
+                map_to_primitive,
+            )
+
+            dials_start = timeit.default_timer()
+            info("\nRefining Bravais settings...")
+
+            self.refls = eliminate_sys_absent(self.expts, self.refls)
+            map_to_primitive(self.expts, self.refls)
+
+            try:
+                refined_settings = refined_settings_from_refined_triclinic(
+                    self.expts, self.refls, self.params.dials_refine_bravais
+                )
+            except RuntimeError as e:
+                warn("dials.refine_bravais_settings failed.\nGiving up.")
+                sys.exit(e)
+
+            possible_bravais_settings = {
+                solution["bravais"] for solution in refined_settings
+            }
+            bravais_lattice_to_space_group_table(possible_bravais_settings)
+            logger.info(refined_settings.as_str())
+
+            info(
+                "Successfully completed (%.1f sec)",
+                timeit.default_timer() - dials_start,
+            )
 
     def _report(self, experiments, reflections):
         # type: (ExperimentList, flex.reflection_table) -> None
@@ -1309,7 +1352,11 @@ class Screen19(object):
             experiments = self.params.dials_create_profile.output
             reflections = self.params.dials_index.output.reflections
 
-        self._refine_bravais(experiments, reflections)
+        # This is a hacky check but should work for as long as DIALS 2.0 is supported.
+        if version.dials_version() < "DIALS 2.1":
+            self._refine_bravais(experiments, reflections)
+        else:
+            self._refine_bravais()
 
         if not fast_mode:
             self._report(experiments, reflections)
