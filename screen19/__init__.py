@@ -16,7 +16,7 @@ from typing import Dict, Tuple  # noqa: F401
 
 import dials.util.version
 
-__version__ = "0.206"
+__version__ = "0.207"
 
 logger = logging.getLogger("dials.screen19")
 debug, info, warn = logger.debug, logger.info, logger.warning
