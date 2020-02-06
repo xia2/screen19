@@ -418,6 +418,10 @@ class Screen19(object):
                     if self.expts:
                         return
 
+        if not files:
+            warn("No images found matching input.")
+            sys.exit(1)
+
         # Can the files be quick-imported?
         if self._quick_import(files):
             info("Quick import successful.")
@@ -513,14 +517,18 @@ class Screen19(object):
                 )
 
                 # Import an experiment list from image data.
-                experiments = ExperimentListFactory.from_filenames(
-                    args,
-                    compare_beam=compare_beam,
-                    compare_detector=compare_detector,
-                    compare_goniometer=compare_goniometer,
-                    scan_tolerance=scan_tolerance,
-                    format_kwargs=format_kwargs,
-                )
+                try:
+                    experiments = ExperimentListFactory.from_filenames(
+                        args,
+                        compare_beam=compare_beam,
+                        compare_detector=compare_detector,
+                        compare_goniometer=compare_goniometer,
+                        scan_tolerance=scan_tolerance,
+                        format_kwargs=format_kwargs,
+                    )
+                except IOError as e:
+                    warn("%s '%s'", e.strerror, e.filename)
+                    sys.exit(1)
 
                 # Record the imported experiments for use elsewhere.
                 # Quit if there aren't any.
@@ -1047,7 +1055,7 @@ class Screen19(object):
             self._oscillation = db.imageset.get_scan().get_oscillation()[1]
             self._sigma_m = db.profile.sigma_m()
             info(
-                "%d images, %s deg. oscillation, sigma_m=%.3f",
+                u"%d images, %s° oscillation, σ_m=%.3f°",
                 db.imageset.get_scan().get_num_images(),
                 str(self._oscillation),
                 self._sigma_m,
