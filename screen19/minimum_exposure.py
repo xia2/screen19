@@ -219,7 +219,7 @@ def wilson_plot_ascii(
     )
     ma = miller.array(ms, data=intensity, sigmas=sigma)
     ma.set_observation_type_xray_intensity()
-    ma.setup_binner_counting_sorted(n_bins=n_bins)
+    ma.setup_binner_counting_sorted(n_bins=n_bins, reflections_per_bin=1)
     wilson = ma.wilson_plot(use_binning=True)
     # Get the relevant plot data from the miller_array:
     binned_intensity = [x if x else 0 for x in wilson.data[1:-1]]
