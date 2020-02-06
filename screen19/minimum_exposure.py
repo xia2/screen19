@@ -451,9 +451,12 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
         from dials.util import log
 
         # Configure the logging
-        log.config(
-            params.verbosity, info=params.output.log, debug=params.output.debug_log
-        )
+        if dials_v1:
+            log.config(
+                params.verbosity, info=params.output.log, debug=params.output.debug_log
+            )
+        else:
+            log.config(params.verbosity, params.output.log)
 
     if not (params.input.experiments and params.input.reflections):
         print(help_message)
