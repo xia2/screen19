@@ -37,10 +37,10 @@ Examples:
 
 from __future__ import absolute_import, division, print_function
 
-import sys
 import logging
 import numpy as np
 from tabulate import tabulate
+import time
 
 # Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
 from typing import Iterable, List, Optional, Sequence, Union  # noqa: F401
@@ -49,11 +49,12 @@ import boost.python
 from cctbx import crystal, miller
 from dials.array_family import flex
 from dials.util.options import OptionParser
+from dials.util.version import dials_version
 from dxtbx.model import Experiment, ExperimentList
 import iotbx.phil
 from libtbx.phil import scope, scope_extract
 from scipy.optimize import curve_fit
-from screen19 import d_ticks, dials_v1, plot_intensities, terminal_size
+from screen19 import d_ticks, dials_v1, plot_intensities, terminal_size, __version__
 
 
 # Custom types
@@ -459,8 +460,15 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
             log.config(params.verbosity, params.output.log)
 
     if not (params.input.experiments and params.input.reflections):
+        version_information = "screen19.minimum_exposure v%s using %s (%s)" % (
+            __version__,
+            dials_version(),
+            time.strftime("%Y-%m-%d %H:%M:%S"),
+        )
+
         print(help_message)
-        sys.exit(1)
+        print(version_information)
+        return
 
     if len(params.input.experiments) > 1:
         warn(

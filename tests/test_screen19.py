@@ -6,6 +6,7 @@ import pytest
 
 from dxtbx.model.experiment_list import ExperimentListFactory
 from screen19 import dials_v1
+from screen19 import minimum_exposure
 from screen19.screen import Screen19
 
 
@@ -32,6 +33,10 @@ import_checks = [
 
 def test_screen19_command_line_help_does_not_crash():
     Screen19().run([])
+
+
+def test_minimum_exposure_help_does_not_crash():
+    minimum_exposure.run(args=[])
 
 
 @pytest.mark.parametrize("import_checks", import_checks)
@@ -61,6 +66,8 @@ def test_screen19_inputs(dials_data, tmpdir, import_checks):
 def test_screen19(dials_data, tmpdir):
     """An integration test.  Check the full functionality of screen19."""
     data_dir = dials_data("x4wide").join("X4_wide_M1S4_2_####.cbf:1:30").strpath
+
+    # Test screen19 first.
     with tmpdir.as_cwd():
         Screen19().run([data_dir], set_up_logging=True)
 
@@ -69,8 +76,20 @@ def test_screen19(dials_data, tmpdir):
     assert "screen19 successfully completed" in logfile
     assert "photon incidence rate is outside the linear response region" in logfile
 
+    # Then check screen19.minimum_exposure.
+    with tmpdir.as_cwd():
+        minimum_exposure.run(
+            args=["integrated.expt", "integrated.refl"], set_up_logging=True
+        )
 
-@pytest.mark.xfail(raises=ValueError, reason="LAPACK bug?")
+    m_e_logfile = tmpdir.join("screen19.minimum_exposure.log").read()
+
+    assert (
+        "You can achieve your desired exposure factor by modifying transmission "
+        "and/or exposure time." in m_e_logfile
+    )
+
+
 def test_screen19_single_frame(dials_data, tmpdir):
     # TODO Use a single frame with fewer than 80 reflections
     image = dials_data("x4wide").join("X4_wide_M1S4_2_0001.cbf").strpath
