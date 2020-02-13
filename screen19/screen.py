@@ -42,8 +42,6 @@ Examples:
 
 """
 
-from __future__ import absolute_import, division, print_function
-
 from six.moves.cPickle import PickleError
 import json
 import logging
@@ -58,13 +56,33 @@ from glob import glob
 # Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
 from typing import Dict, List, Optional, Sequence, Tuple  # noqa: F401
 
+from dials.algorithms.shoebox import MaskCode
+from dials.algorithms.indexing import DialsIndexError
+from dials.algorithms.indexing.bravais_settings import (
+    refined_settings_from_refined_triclinic,
+)
 from dials.array_family import flex
+from dials.command_line.dials_import import MetaDataUpdater
+from dials.command_line.index import index
+from dials.command_line.integrate import Script
+from dials.command_line.refine import run_dials_refine
+from dials.command_line.refine_bravais_settings import (
+    bravais_lattice_to_space_group_table,
+    eliminate_sys_absent,
+    map_to_primitive,
+)
 from dials.util import log, Sorry, version
 from dials.util.ascii_art import spot_counts_per_image_plot
 from dials.util.options import OptionParser
 import dials.util.version
 from dxtbx.model import ExperimentList
-from dxtbx.model.experiment_list import ExperimentListFactory
+from dxtbx.model.experiment_list import (
+    BeamComparison,
+    DetectorComparison,
+    GoniometerComparison,
+    ExperimentListFactory,
+    ExperimentListTemplateImporter,
+)
 import iotbx.phil
 from libtbx import Auto
 from libtbx.introspection import number_of_processors
@@ -75,31 +93,8 @@ from screen19.minimum_exposure import suggest_minimum_exposure
 
 Templates = List[Tuple[str, Tuple[int, int]]]
 
-help_message = __doc__
-
-if screen19.dials_v1:
-    verbosity_scope = u"""
-    verbosity = 1
-        .type = int(value_min=0)
-        .caption = 'The verbosity level of the command-line output'
-        .help = "Possible values:\n"
-                "\t• 0: Suppress all command-line output;\n"
-                "\t• 1: Show regular output on the command line;\n"
-                "\t• 2: Show regular output, plus detailed debugging messages."
-
-    output
-        .caption = 'Options to control the output files'
-        {
-        log = "screen19.log"
-        .type = str
-        .caption = "The log filename"
-        debug_log = "screen19.debug.log"
-        .type = str
-        .caption = "The debug log filename"
-        }
-    """
-else:
-    verbosity_scope = u"""
+phil_scope = iotbx.phil.parse(
+    u"""
     verbosity = 0
         .type = int(value_min=0)
         .caption = 'Verbosity level of log output'
@@ -114,11 +109,6 @@ else:
         .type = str
         .caption = "The log filename"
         }
-    """
-
-phil_scope = iotbx.phil.parse(
-    verbosity_scope
-    + u"""
     nproc = Auto
         .type = int
         .caption = 'Number of processors to use'
@@ -223,16 +213,6 @@ logger = logging.getLogger("dials.screen19")
 debug, info, warn = logger.debug, logger.info, logger.warn
 
 
-def _reset_cache():  # type: () -> None
-    """Work around DIALS <1.14.4 phil cache issue."""
-    import dials.util.phil
-
-    dcr = dials.util.phil.default_converter_registry
-    for k in dcr.values():
-        if hasattr(k, "cache"):
-            k.cache.clear()
-
-
 def overloads_histogram(d_spacings, ticks=None, output="overloads"):
     # type: (Sequence[float], Optional[Sequence[float]], Optional[str]) -> None
     """
@@ -263,12 +243,9 @@ class Screen19(object):
     """Encapsulates the screening script."""
 
     def __init__(self):
-        if screen19.dials_v1:
-            self.json_file = ""
-        else:
-            # Throughout the pipeline, retain the state of the processing.
-            self.expts = ExperimentList([])
-            self.refls = flex.reflection_table()
+        # Throughout the pipeline, retain the state of the processing.
+        self.expts = ExperimentList([])
+        self.refls = flex.reflection_table()
         # Get some default parameters.  These must be extracted from the 'fetched'
         # PHIL scope, rather than the 'definition' phil scope returned by
         # iotbx.phil.parse.  Confused?  Blame PHIL.
@@ -350,19 +327,10 @@ class Screen19(object):
             return False
 
         info("Running quick import.")
-        if screen19.dials_v1:
-            self._run_dials_import(
-                [
-                    "input.template=%s" % templates[0][0],
-                    "geometry.scan.image_range=%d,%d" % scan_range,
-                    "geometry.scan.extrapolate_scan=True",
-                ]
-            )
-        else:
-            self.params.dials_import.input.template = [templates[0][0]]
-            self.params.dials_import.geometry.scan.image_range = scan_range
-            self.params.dials_import.geometry.scan.extrapolate_scan = True
-            self._run_dials_import()
+        self.params.dials_import.input.template = [templates[0][0]]
+        self.params.dials_import.geometry.scan.image_range = scan_range
+        self.params.dials_import.geometry.scan.extrapolate_scan = True
+        self._run_dials_import()
 
         return True
 
@@ -404,7 +372,7 @@ class Screen19(object):
                     sys.exit(1)
                 info("Quick import successful.")
                 return
-            elif not screen19.dials_v1 and files[0].endswith(".expt"):
+            elif files[0].endswith(".expt"):
                 debug(
                     "You specified an existing experiment list file.  "
                     "No import necessary."
@@ -427,138 +395,96 @@ class Screen19(object):
             info("Quick import successful.")
             return
 
-        if screen19.dials_v1:
-            self._run_dials_import(files)
-        else:
-            self.params.dials_import.input.experiments = files
-            self._run_dials_import()
+        self.params.dials_import.input.experiments = files
+        self._run_dials_import()
 
-    if screen19.dials_v1:
+    def _run_dials_import(self):
+        """
+        Perform a minimal version of dials.import to get an experiment list.
 
-        def _run_dials_import(self, parameters):  # type: (Optional[List[str]]) -> None
-            """
-            Call dials.import on the parameters provided.
+        Use some filleted bits of dials.import and dials.util.options.Importer.
+        """
+        # Get some key data format arguments.
+        try:
+            format_kwargs = {
+                "dynamic_shadowing": self.params.dials_import.format.dynamic_shadowing,
+                "multi_panel": self.params.dials_import.format.multi_panel,
+            }
+        except AttributeError:
+            format_kwargs = {}
 
-            Args:
-                parameters:  List of parameters to be accepted by dials.import.  May
-                             include image filenames and/or PHIL parameters.
-            """
-            from dials.command_line.dials_import import Script as ImportScript
+        # If filenames contain wildcards, expand
+        args = []
+        for arg in self.params.dials_import.input.experiments:
+            if "*" in arg:
+                args.extend(glob(arg))
+            else:
+                args.append(arg)
 
-            # Get the dials.import PHIL scope, populated with parsed input parameters
-            import_scope = phil_scope.get("dials_import").objects[0]
-            import_scope.name = ""
-            import_scope = import_scope.format(self.params.dials_import)
-            # Set up the dials.import script with these phil parameters
-            import_script = ImportScript(phil=import_scope)
-            # Run the script, suppressing stdout.
-            try:
-                import_script.run(parameters)
-            except SystemExit as e:
-                if e.code:
-                    warn("dials.import failed with exit code %d", e.code)
-                    sys.exit(1)
-
-    else:
-
-        def _run_dials_import(self):
-            """
-            Perform a minimal version of dials.import to get an experiment list.
-
-            Use some filleted bits of dials.import and dials.util.options.Importer.
-            """
-            from dxtbx.model.experiment_list import (
-                BeamComparison,
-                DetectorComparison,
-                GoniometerComparison,
-                ExperimentListFactory,
-                ExperimentListTemplateImporter,
+        if args:
+            # Are compare{beam,detector,goniometer} and scan_tolerance necessary?
+            # They are cargo-culted from the DIALS option parser.
+            tol_params = self.params.dials_import.input.tolerance
+            compare_beam = BeamComparison(
+                wavelength_tolerance=tol_params.beam.wavelength,
+                direction_tolerance=tol_params.beam.direction,
+                polarization_normal_tolerance=tol_params.beam.polarization_normal,
+                polarization_fraction_tolerance=tol_params.beam.polarization_fraction,
             )
-            from dials.command_line.dials_import import MetaDataUpdater
+            compare_detector = DetectorComparison(
+                fast_axis_tolerance=tol_params.detector.fast_axis,
+                slow_axis_tolerance=tol_params.detector.slow_axis,
+                origin_tolerance=tol_params.detector.origin,
+            )
+            compare_goniometer = GoniometerComparison(
+                rotation_axis_tolerance=tol_params.goniometer.rotation_axis,
+                fixed_rotation_tolerance=tol_params.goniometer.fixed_rotation,
+                setting_rotation_tolerance=tol_params.goniometer.setting_rotation,
+            )
+            scan_tolerance = tol_params.scan.oscillation
 
-            # Get some key data format arguments.
+            # Import an experiment list from image data.
             try:
-                format_kwargs = {
-                    "dynamic_shadowing": self.params.dials_import.format.dynamic_shadowing,
-                    "multi_panel": self.params.dials_import.format.multi_panel,
-                }
-            except AttributeError:
-                format_kwargs = {}
-
-            # If filenames contain wildcards, expand
-            args = []
-            for arg in self.params.dials_import.input.experiments:
-                if "*" in arg:
-                    args.extend(glob(arg))
-                else:
-                    args.append(arg)
-
-            if args:
-                # Are compare{beam,detector,goniometer} and scan_tolerance necessary?
-                # They are cargo-culted from the DIALS option parser.
-                compare_beam = BeamComparison(
-                    wavelength_tolerance=self.params.dials_import.input.tolerance.beam.wavelength,
-                    direction_tolerance=self.params.dials_import.input.tolerance.beam.direction,
-                    polarization_normal_tolerance=self.params.dials_import.input.tolerance.beam.polarization_normal,
-                    polarization_fraction_tolerance=self.params.dials_import.input.tolerance.beam.polarization_fraction,
+                experiments = ExperimentListFactory.from_filenames(
+                    args,
+                    compare_beam=compare_beam,
+                    compare_detector=compare_detector,
+                    compare_goniometer=compare_goniometer,
+                    scan_tolerance=scan_tolerance,
+                    format_kwargs=format_kwargs,
                 )
-                compare_detector = DetectorComparison(
-                    fast_axis_tolerance=self.params.dials_import.input.tolerance.detector.fast_axis,
-                    slow_axis_tolerance=self.params.dials_import.input.tolerance.detector.slow_axis,
-                    origin_tolerance=self.params.dials_import.input.tolerance.detector.origin,
-                )
-                compare_goniometer = GoniometerComparison(
-                    rotation_axis_tolerance=self.params.dials_import.input.tolerance.goniometer.rotation_axis,
-                    fixed_rotation_tolerance=self.params.dials_import.input.tolerance.goniometer.fixed_rotation,
-                    setting_rotation_tolerance=self.params.dials_import.input.tolerance.goniometer.setting_rotation,
-                )
-                scan_tolerance = (
-                    self.params.dials_import.input.tolerance.scan.oscillation
-                )
+            except IOError as e:
+                warn("%s '%s'", e.strerror, e.filename)
+                sys.exit(1)
 
-                # Import an experiment list from image data.
-                try:
-                    experiments = ExperimentListFactory.from_filenames(
-                        args,
-                        compare_beam=compare_beam,
-                        compare_detector=compare_detector,
-                        compare_goniometer=compare_goniometer,
-                        scan_tolerance=scan_tolerance,
-                        format_kwargs=format_kwargs,
-                    )
-                except IOError as e:
-                    warn("%s '%s'", e.strerror, e.filename)
-                    sys.exit(1)
+            # Record the imported experiments for use elsewhere.
+            # Quit if there aren't any.
+            self.expts.extend(experiments)
+            if not self.expts:
+                warn("No images found.")
+                sys.exit(1)
 
+        else:
+            # Use the template importer.
+            if len(self.params.dials_import.input.template) > 0:
+                importer = ExperimentListTemplateImporter(
+                    self.params.dials_import.input.template, format_kwargs=format_kwargs
+                )
                 # Record the imported experiments for use elsewhere.
                 # Quit if there aren't any.
-                self.expts.extend(experiments)
+                self.expts.extend(importer.experiments)
                 if not self.expts:
-                    warn("No images found.")
+                    warn(
+                        "No images found matching template %s"
+                        % self.params.dials_import.input.template[0]
+                    )
                     sys.exit(1)
 
-            else:
-                # Use the template importer.
-                if len(self.params.dials_import.input.template) > 0:
-                    importer = ExperimentListTemplateImporter(
-                        self.params.dials_import.input.template,
-                        format_kwargs=format_kwargs,
-                    )
-                    # Record the imported experiments for use elsewhere.
-                    # Quit if there aren't any.
-                    self.expts.extend(importer.experiments)
-                    if not self.expts:
-                        warn(
-                            "No images found matching template %s"
-                            % self.params.dials_import.input.template[0]
-                        )
-                        sys.exit(1)
+        # Setup the metadata updater
+        metadata_updater = MetaDataUpdater(self.params.dials_import)
 
-            # Setup the metadata updater
-            metadata_updater = MetaDataUpdater(self.params.dials_import)
-
-            # Extract the experiments and loop through
-            self.expts = metadata_updater(self.expts.imagesets())
+        # Extract the experiments and loop through
+        self.expts = metadata_updater(self.expts.imagesets())
 
     def _count_processors(self, nproc=None):  # type: (Optional[int]) -> None
         """
@@ -600,15 +526,6 @@ class Screen19(object):
         Returns:
             Number of images.
         """
-        if screen19.dials_v1:
-            with open(self.json_file) as fh:
-                datablock = json.load(fh)
-            try:
-                return sum(len(s["exposure_time"]) for s in datablock[0]["scan"])
-            except Exception:
-                warn("Could not determine number of images in dataset.")
-                sys.exit(1)
-
         # FIXME:  This exception handling should be redundant.  Empty experiment
         #         lists should get caught at the import stage.  Is this so?
         try:
@@ -629,11 +546,7 @@ class Screen19(object):
             mosaicity_correction (optional):  default is `True`.
         """
         info("\nTesting pixel intensities...")
-        command = [
-            "xia2.overload",
-            "nproc=%s" % self.nproc,
-            self.json_file if screen19.dials_v1 else "indexed.expt",
-        ]
+        command = ["xia2.overload", "nproc=%s" % self.nproc, "indexed.expt"]
         debug("running %s", command)
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
         debug("result = %s", screen19.prettyprint_dictionary(result))
@@ -763,7 +676,7 @@ class Screen19(object):
 
     def _find_spots(self, args=None):  # type: (Optional[List[str]]) -> None
         """
-        Call `dials.find_spots` on the datablock/imported experiment list.
+        Call `dials.find_spots` on the imported experiment list.
 
         Args:
             args (optional):  List of any additional PHIL parameters to be used by
@@ -773,49 +686,23 @@ class Screen19(object):
 
         dials_start = timeit.default_timer()
 
-        if screen19.dials_v1:
-            if not args:
-                args = []
+        # Use some choice fillets from dials.find_spots
+        # Ignore `args`, use `self.params`
 
-            from dials.command_line.find_spots import Script as SpotFinderScript
+        # Loop through all the imagesets and find the strong spots
 
-            # Set the input file
-            args = [self.json_file] + args
-            # Get the dials.find_spots PHIL scope, populated with parsed input params
-            find_spots_scope = phil_scope.get("dials_find_spots").objects[0]
-            find_spots_scope.name = ""
-            find_spots_scope = find_spots_scope.format(self.params.dials_find_spots)
-            # Set up the dials.find_spots script with these phil parameters
-            finder_script = SpotFinderScript(phil=find_spots_scope)
-            # Run the script
-            try:
-                if self.params.dials_find_spots.output.datablock:
-                    self.expts, self.refls = finder_script.run(args)
-                else:
-                    self.refls = finder_script.run(args)
-            except SystemExit as e:
-                if e.code:
-                    warn("dials.find_spots failed with exit code %d", e.code)
-                    sys.exit(1)
-        else:
-            # Use some choice fillets from dials.find_spots
-            # Ignore `args`, use `self.params`
+        self.refls = flex.reflection_table.from_observations(
+            self.expts, self.params.dials_find_spots
+        )
 
-            # Loop through all the imagesets and find the strong spots
+        # Add n_signal column - before deleting shoeboxes
 
-            self.refls = flex.reflection_table.from_observations(
-                self.expts, self.params.dials_find_spots
-            )
+        good = MaskCode.Foreground | MaskCode.Valid
+        self.refls["n_signal"] = self.refls["shoebox"].count_mask_values(good)
 
-            # Add n_signal column - before deleting shoeboxes
-            from dials.algorithms.shoebox import MaskCode
-
-            good = MaskCode.Foreground | MaskCode.Valid
-            self.refls["n_signal"] = self.refls["shoebox"].count_mask_values(good)
-
-            # Delete the shoeboxes
-            if not self.params.dials_find_spots.output.shoeboxes:
-                del self.refls["shoebox"]
+        # Delete the shoeboxes
+        if not self.params.dials_find_spots.output.shoeboxes:
+            del self.refls["shoebox"]
 
         info(
             60 * "-" + "\n%s\n" + 60 * "-" + "\nSuccessfully completed (%.1f sec)",
@@ -832,115 +719,66 @@ class Screen19(object):
         """
         dials_start = timeit.default_timer()
 
-        if screen19.dials_v1:
-            from dials.command_line import index
+        # Prepare max_cell constraint strategies.
+        max_cell = self.params.dials_index.indexing.max_cell
+        # By default, try unconstrained max_cell followed by max_cell=20.
+        # If the user has already specified a max_cell < 20, do not relax to 20Å.
+        cell_constraints = [([], max_cell)]
+        if not max_cell or max_cell is Auto or max_cell > 20:
+            cell_constraints += [(["max_cell constraint"], 20)]
 
-            # Set the input files
-            basic_args = [
-                self.params.dials_import.output.datablock,
-                self.params.dials_find_spots.output.reflections,
-            ]
+        # Prepare indexing methods, preferring the real_space_grid_search if a
+        # known unit cell has been specified, otherwise using 3D FFT, then 1D FFT.
+        methods = (
+            [(["real space grid search"], "real_space_grid_search")]
+            if self.params.dials_index.indexing.known_symmetry.unit_cell
+            else []
+        )
+        methods += [(["3D FFT"], "fft3d"), (["1D FFT"], "fft1d")]
 
-            # Get the dials.index PHIL scope, populated with parsed input parameters
-            index_scope = phil_scope.get("dials_index").objects[0]
-            index_scope.name = ""
-            index_scope = index_scope.format(self.params.dials_index)
-
-            runlist = [
-                ("Indexing", []),
-                ("Retrying with max_cell constraint", ["max_cell=20"]),
-                ("Retrying with 1D FFT", ["indexing.method=fft1d"]),
-            ]
-
-            for message, args in runlist:
-                info("\n%s...", message)
+        # Cycle through the indexing methods for each of the max_cell constraint
+        # strategies until an indexing solution is found.
+        for i, (max_cell_msg, max_cell) in enumerate(cell_constraints):
+            # Set the max_cell constraint strategy.
+            self.params.dials_index.indexing.max_cell = max_cell
+            for j, (method_msg, method) in enumerate(methods):
+                # Set the indexing method.
+                self.params.dials_index.indexing.method = method
+                # Log a handy message to the user.
+                msg = (
+                    "Retrying with " + " and ".join(method_msg + max_cell_msg)
+                    if i + j
+                    else "Indexing"
+                )
+                info("\n%s...", msg)
                 try:
-                    # Run indexing and get the indexer object
-                    self.expts, self.refls = index.run(
-                        phil=index_scope, args=basic_args + args
+                    # If indexing is successful, break out of the inner loop.
+                    self.expts, self.refls = index(
+                        self.expts, [self.refls], self.params.dials_index
                     )
                     break
-                except Sorry as e:
+                except (DialsIndexError, ValueError) as e:
+                    # If indexing is unsuccessful, try again with the next
+                    # strategy.
                     warn("Failed: %s", str(e))
-                except SystemExit as e:
-                    warn("Failed with exit code %d", e)
-            else:
-                return False
-        else:
-            from dials.algorithms.indexing import DialsIndexError
-            from dials.command_line.index import index
-
-            # Emulate the behaviour of the xia2 PersistentDialsIndexer
-
-            # Prepare max_cell constraint strategies.
-            max_cell = self.params.dials_index.indexing.max_cell
-            # By default, try unconstrained max_cell followed by max_cell=20.
-            # If the user has already specified a max_cell < 20, do not relax to 20Å.
-            cell_constraints = [([], max_cell)]
-            if not max_cell or max_cell is Auto or max_cell > 20:
-                cell_constraints += [(["max_cell constraint"], 20)]
-
-            # Prepare indexing methods, preferring the real_space_grid_search if a
-            # known unit cell has been specified, otherwise using 3D FFT, then 1D FFT.
-            methods = (
-                [(["real space grid search"], "real_space_grid_search")]
-                if self.params.dials_index.indexing.known_symmetry.unit_cell
-                else []
-            )
-            methods += [(["3D FFT"], "fft3d"), (["1D FFT"], "fft1d")]
-
-            # Cycle through the indexing methods for each of the max_cell constraint
-            # strategies until an indexing solution is found.
-            for i, (max_cell_msg, max_cell) in enumerate(cell_constraints):
-                # Set the max_cell constraint strategy.
-                self.params.dials_index.indexing.max_cell = max_cell
-                for j, (method_msg, method) in enumerate(methods):
-                    # Set the indexing method.
-                    self.params.dials_index.indexing.method = method
-                    # Log a handy message to the user.
-                    msg = (
-                        "Retrying with " + " and ".join(method_msg + max_cell_msg)
-                        if i + j
-                        else "Indexing"
-                    )
-                    info("\n%s...", msg)
-                    try:
-                        # If indexing is successful, break out of the inner loop.
-                        self.expts, self.refls = index(
-                            self.expts, [self.refls], self.params.dials_index
-                        )
-                        break
-                    except (DialsIndexError, ValueError) as e:
-                        # If indexing is unsuccessful, try again with the next
-                        # strategy.
-                        warn("Failed: %s", str(e))
-                        continue
-                else:
-                    # When all the indexing methods are unsuccessful, move onto
-                    # the next max_cell constraint strategy and try again.
                     continue
-                # We should only get here if successfully indexed. Break out of the loop
-                break
             else:
-                # Indexing completely unsuccessful.
-                return False
+                # When all the indexing methods are unsuccessful, move onto
+                # the next max_cell constraint strategy and try again.
+                continue
+            # We should only get here if successfully indexed. Break out of the loop
+            break
+        else:
+            # Indexing completely unsuccessful.
+            return False
 
         sg_type = self.expts[0].crystal.get_crystal_symmetry().space_group().type()
         symb = sg_type.universal_hermann_mauguin_symbol()
         unit_cell = self.expts[0].crystal.get_unit_cell()
 
-        if screen19.dials_v1:
-            import cPickle as pickle
-            from dxtbx.model.experiment_list import ExperimentListDumper
-
-            ExperimentListDumper(self.expts).as_file(
-                self.params.dials_index.output.experiments
-            )
-            with open(self.params.dials_index.output.reflections, "wb") as f:
-                pickle.dump(self.refls, f)
-        else:
-            self.expts.as_file(self.params.dials_index.output.experiments)
-            self.refls.as_file(self.params.dials_index.output.reflections)
+        self.refls.as_file(self.params.dials_index.output.reflections)
+        self.expts.as_file(self.params.dials_index.output.experiments)
+        self.refls.as_file(self.params.dials_index.output.reflections)
         info(
             "Found primitive solution: %s %s using %s reflections\n"
             "Indexed experiments and reflections saved as %s, %s\n"
@@ -974,56 +812,17 @@ class Screen19(object):
     def _refine(self):  # type: () -> None
         """
         Run `dials.refine` on the results of indexing.
-
-        The results of indexing are first saved as `experiments_unrefined.json` and
-        `indexed_unrefined.pickle`.  The results of refinement are then saved with
-        the original file names of the indexing results.
         """
         dials_start = timeit.default_timer()
         info("\nRefining...")
 
-        if screen19.dials_v1:
-            from dials.command_line.refine import Script
-
-            os.rename(
-                self.params.dials_index.output.experiments, "experiments_unrefined.json"
+        try:
+            self.expts, self.refls, _, _ = run_dials_refine(
+                self.expts, self.refls, self.params.dials_refine
             )
-            os.rename(
-                self.params.dials_index.output.reflections, "indexed_unrefined.pickle"
-            )
-            args = ["experiments_unrefined.json", "indexed_unrefined.pickle"]
-            self.params.dials_refine.output.experiments = (
-                self.params.dials_index.output.experiments
-            )
-            self.params.dials_refine.output.reflections = (
-                self.params.dials_index.output.reflections
-            )
-
-            # Get the dials.refine PHIL scope, populated with parsed input parameters
-            refine_scope = phil_scope.get("dials_refine").objects[0]
-            refine_scope.name = ""
-            refine_scope = refine_scope.format(self.params.dials_refine)
-            # Set up the dials.refine script
-            refine = Script(phil=refine_scope)
-
-            try:
-                # Run dials.refine
-                refine.run(args)
-            except SystemExit as e:
-                if e.code:
-                    warn("dials.refine failed with exit code %d\nGiving up.", e.code)
-                    sys.exit(1)
-
-        else:
-            from dials.command_line.refine import run_dials_refine
-
-            try:
-                self.expts, self.refls, _, _ = run_dials_refine(
-                    self.expts, self.refls, self.params.dials_refine
-                )
-            except Sorry as e:
-                warn("dials.refine failed: %d\nGiving up.\n", e)
-                sys.exit(1)
+        except Sorry as e:
+            warn("dials.refine failed: %d\nGiving up.\n", e)
+            sys.exit(1)
 
         info("Successfully refined (%.1f sec)", timeit.default_timer() - dials_start)
 
@@ -1049,9 +848,7 @@ class Screen19(object):
         debug("result = %s", screen19.prettyprint_dictionary(result))
         self._sigma_m = None
         if result["exitcode"] == 0:
-            db = ExperimentListFactory.from_json_file(
-                self.params.dials_index.output.experiments
-            )[0]
+            db = ExperimentList.from_file(self.params.dials_index.output.experiments)[0]
             self._oscillation = db.imageset.get_scan().get_oscillation()[1]
             self._sigma_m = db.profile.sigma_m()
             info(
@@ -1070,8 +867,6 @@ class Screen19(object):
         dials_start = timeit.default_timer()
         info("\nIntegrating...")
 
-        from dials.command_line.integrate import Script
-
         args = [
             self.params.dials_index.output.experiments,
             self.params.dials_index.output.reflections,
@@ -1089,8 +884,7 @@ class Screen19(object):
         try:
             # Run dials.integrate
             integrated_experiments, integrated = integrate.run(args)
-            if not screen19.dials_v1:
-                self.expts, self.refls = integrated_experiments, integrated
+            self.expts, self.refls = integrated_experiments, integrated
             info(
                 "Successfully completed (%.1f sec)",
                 timeit.default_timer() - dials_start,
@@ -1136,15 +930,6 @@ class Screen19(object):
 
         def _refine_bravais(self):  # type: () -> None
             """Run `dials.refine_bravais_settings` to determine the space group."""
-            from dials.algorithms.indexing.bravais_settings import (
-                refined_settings_from_refined_triclinic,
-            )
-            from dials.command_line.refine_bravais_settings import (
-                bravais_lattice_to_space_group_table,
-                eliminate_sys_absent,
-                map_to_primitive,
-            )
-
             dials_start = timeit.default_timer()
             info("\nRefining Bravais settings...")
 
@@ -1211,16 +996,10 @@ class Screen19(object):
         Returns:
 
         """
-        if screen19.dials_v1:
-            usage = (
-                "%prog [options] image_directory | image_files.cbf | "
-                "experiments.json"
-            )
-        else:
-            usage = "%prog [options] image_directory | image_files.cbf | imported.expt"
+        usage = "%prog [options] image_directory | image_files.cbf | imported.expt"
 
         parser = OptionParser(
-            usage=usage, epilog=help_message, phil=phil, check_format=False
+            usage=usage, epilog=__doc__, phil=phil, check_format=False
         )
 
         self.params, options, unhandled = parser.parse_args(
@@ -1236,34 +1015,19 @@ class Screen19(object):
         start = timeit.default_timer()
 
         if len(unhandled) == 0:
-            print(help_message)
+            print(__doc__)
             print(version_information)
             return
 
         if set_up_logging:
             # Configure the logging
-            if screen19.dials_v1:
-                log.config(
-                    self.params.verbosity,
-                    info=self.params.output.log,
-                    debug=self.params.output.debug_log,
-                )
-                # Filter the handlers for the info log file and stdout,
-                # such that no child log records from DIALS scripts end up
-                # there.  Retain child log records in the debug log file.
-                for handler in logging.getLogger("dials").handlers:
-                    if handler.name in ("stream", "file_info"):
-                        handler.addFilter(logging.Filter("dials.screen19"))
-            else:
-                log.config(
-                    verbosity=self.params.verbosity, logfile=self.params.output.log
-                )
-                # Unless verbose output has been requested, suppress generation of
-                # debug and info log records from any child DIALS command, retaining
-                # those from screen19 itself.
-                if not self.params.verbosity:
-                    logging.getLogger("dials").setLevel(logging.WARNING)
-                    logging.getLogger("dials.screen19").setLevel(logging.INFO)
+            log.config(verbosity=self.params.verbosity, logfile=self.params.output.log)
+            # Unless verbose output has been requested, suppress generation of
+            # debug and info log records from any child DIALS command, retaining
+            # those from screen19 itself.
+            if not self.params.verbosity:
+                logging.getLogger("dials").setLevel(logging.WARNING)
+                logging.getLogger("dials.screen19").setLevel(logging.INFO)
 
         info(version_information)
         debug("Run with:\n%s\n%s", " ".join(unhandled), parser.diff_phil.as_str())
@@ -1280,16 +1044,8 @@ class Screen19(object):
         # Set the input and output parameters for the DIALS components
         # TODO: Compare to diff_phil and start from later in the pipeline if
         #  appropriate
-        if screen19.dials_v1:
-            if len(unhandled) == 1 and unhandled[0].endswith(".json"):
-                self.json_file = unhandled[0]
-            else:
-                self.json_file = "datablock.json"
-                self.params.dials_import.output.datablock = self.json_file
-                self._import(unhandled)
-        else:
-            self._import(unhandled)
-            imported_name = self.params.dials_import.output.experiments
+        self._import(unhandled)
+        imported_name = self.params.dials_import.output.experiments
 
         n_images = self._count_images()
         fast_mode = n_images < 10
@@ -1300,33 +1056,27 @@ class Screen19(object):
 
         if not self._index():
             info("\nRetrying for stronger spots only...")
-            if screen19.dials_v1:
-                os.rename("strong.pickle", "all_spots.pickle")
-                _reset_cache()
-                self._find_spots(["sigma_strong=15"])
-            else:
-                strong_refls = self.refls
-                self.params.dials_find_spots.spotfinder.threshold.dispersion.sigma_strong = (
-                    15
-                )
-                self._find_spots()
+            strong_refls = self.refls
+            self.params.dials_find_spots.spotfinder.threshold.dispersion.sigma_strong = (
+                15
+            )
+            self._find_spots()
 
             if not self._index():
                 warn("Giving up.")
-                if not screen19.dials_v1:
-                    self.expts.as_file(imported_name)
-                    strong_refls.as_file("strong.refl")
-                    self.refls.as_file("stronger.refl")
+                self.expts.as_file(imported_name)
+                strong_refls.as_file("strong.refl")
+                self.refls.as_file("stronger.refl")
                 info(
                     "Could not find an indexing solution. You may want to "
                     "have a look at the reciprocal space by running:\n\n"
                     "    dials.reciprocal_lattice_viewer %s %s\n\n"
                     "or, to only include stronger spots:\n\n"
                     "    dials.reciprocal_lattice_viewer %s %s\n",
-                    self.json_file if screen19.dials_v1 else imported_name,
-                    "all_spots.pickle" if screen19.dials_v1 else "strong.refl",
-                    self.json_file if screen19.dials_v1 else imported_name,
-                    "strong.pickle" if screen19.dials_v1 else "stronger.refl",
+                    imported_name,
+                    "strong.refl",
+                    imported_name,
+                    "stronger.refl",
                 )
                 sys.exit(1)
 
@@ -1339,8 +1089,7 @@ class Screen19(object):
                     "The identified indexing solution may not be correct. "
                     "You may want to have a look at the reciprocal space by "
                     "running:\n\n"
-                    "    dials.reciprocal_lattice_viewer experiments.json "
-                    "indexed.pickle\n"
+                    "    dials.reciprocal_lattice_viewer indexed.expt indexed.refl\n"
                 )
                 sys.exit(1)
 

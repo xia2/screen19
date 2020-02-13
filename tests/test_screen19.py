@@ -1,11 +1,7 @@
 # coding: utf-8
 
-from __future__ import absolute_import, division, print_function
-
 import pytest
 
-from dxtbx.model.experiment_list import ExperimentListFactory
-from screen19 import dials_v1
 from screen19 import minimum_exposure
 from screen19.screen import Screen19
 
@@ -50,12 +46,7 @@ def test_screen19_inputs(dials_data, tmpdir, import_checks):
 
     foo = Screen19()
     # The tmpdir should only be necessary for DIALS v1 — no output expected for DIALS v2
-    if dials_v1:
-        with tmpdir.as_cwd():
-            foo._import(data)
-            foo.expts = ExperimentListFactory.from_serialized_format("datablock.json")
-    else:
-        foo._import(data)
+    foo._import(data)
 
     # Check that the import has resulted in the creation of a single experiment.
     assert len(foo.expts) == 1
