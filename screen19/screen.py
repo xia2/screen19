@@ -1118,7 +1118,8 @@ class Screen19(object):
             debug("result = %s", screen19.prettyprint_dictionary(result))
             if result["exitcode"] == 0:
                 m = re.search(
-                    r"[-+]{3,}\n[^\n]*\n[-+|]{3,}\n(.*\n)*[-+]{3,}", result["stdout"]
+                    r"[-+]{3,}\n[^\n]*\n[-+|]{3,}\n(.*\n)*[-+]{3,}",
+                    result["stdout"].decode("utf-8"),
                 )
                 if m:
                     info(m.group(0))
