@@ -40,7 +40,7 @@ def terminal_size(procrunner_debug=False):
                 print_stderr=False,
                 debug=procrunner_debug,
             )
-            rows, columns = [int(i) for i in result["stdout"].split()]
+            rows, columns = [int(i) for i in result["stdout"].decode("utf-8").split()]
         except Exception:  # ignore any errors and use default size
             pass  # FIXME: Can we be more specific about the type of exception?
     columns = min(columns, 120)
@@ -59,10 +59,14 @@ def prettyprint_dictionary(d):
     :rtype: str
     """
     return "{\n%s\n}" % "\n".join(
-        [
-            "  %s: %s" % (k, str(v).replace("\n", "\n%s" % (" " * (4 + len(k)))))
-            for k, v in d.items()
-        ]
+        "  %s: %s"
+        % (
+            k,
+            str(v.decode("latin-1") if isinstance(v, bytes) else v).replace(
+                "\n", "\n%s" % (" " * (4 + len(k)))
+            ),
+        )
+        for k, v in d.items()
     )
 
 
@@ -142,7 +146,7 @@ def plot_intensities(
     try:
         result = procrunner.run(
             command,
-            stdin="\n".join(plot_commands) + "\n",
+            stdin="\n".join(plot_commands).encode("utf-8") + b"\n",
             timeout=120,
             print_stdout=False,
             print_stderr=False,
@@ -157,7 +161,7 @@ def plot_intensities(
     if result["exitcode"] == 0:
         star = re.compile(r"\*")
         state = set()
-        for line in result["stdout"].split("\n"):
+        for line in result["stdout"].decode("utf-8").split("\n"):
             if line.strip() != "":
                 stars = {m.start(0) for m in re.finditer(star, line)}
                 if not stars:
