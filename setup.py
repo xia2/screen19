@@ -6,9 +6,6 @@ from setuptools import setup, find_packages
 with open("README.rst") as readme_file:
     readme = readme_file.read()
 
-requirements = ["procrunner", "typing"]
-test_requirements = ["mock>=2.0", "pytest>=4.5"]
-
 setup(
     author="Diamond Light Source",
     author_email="scientificsoftware@diamond.ac.uk",
@@ -40,14 +37,14 @@ setup(
         ],
         "libtbx.precommit": ["screen19 = screen19"],
     },
-    install_requires=requirements,
+    install_requires=['typing;python_version<"3.5"', "procrunner"],
     license="BSD license",
     long_description=readme,
     include_package_data=True,
     name="screen19",
     packages=find_packages(),
     test_suite="tests",
-    tests_require=test_requirements,
+    tests_require=["mock>=2.0", "pytest>=4.5"],
     url="https://github.com/xia2/screen19",
     version="0.207",
     zip_safe=False,
