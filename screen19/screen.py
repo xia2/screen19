@@ -1164,7 +1164,12 @@ class Screen19(object):
                 solution["bravais"] for solution in refined_settings
             }
             bravais_lattice_to_space_group_table(possible_bravais_settings)
-            logger.info(refined_settings.as_str())
+            try:
+                # Old version of dials with as_str() method
+                logger.info(refined_settings.as_str())
+            except AttributeError:
+                # Newer versions of dials (>= 2.2.2) has proper __str__ method
+                logger.info(refined_settings)
 
             info(
                 "Successfully completed (%.1f sec)",
