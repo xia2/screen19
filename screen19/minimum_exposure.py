@@ -6,15 +6,14 @@ Reflection d-spacings are determined from the crystal symmetry (from
 indexing) and the Miller indices of the indexed reflections.  The
 atomic displacement parameter is assumed isotropic.  Its value is
 determined from a fit to the reflection data:
-  I = A * exp(-B / (2 * d^2)),
-where I is the intensity and the scale factor, A, and isotropic
+  log(<I>/Σ) = log(A) - B / (2 * d²),
+where <I> is the experimental intensity and Σ is the model intensity
+averaged within resolution shells. The scale factor, A, and isotropic
 displacement parameter, B, are the fitted parameters.
 
 An I/σ condition for 'good' diffraction statistics is set by the
 instance variable min_i_over_sigma, and the user's desired
-resolution is set by the instance variable desired_d.  A crude
-error model is assumed, whereby σ² = I, and so the I/σ condition
-translates trivially to a threshold I.
+resolution is set by the instance variable desired_d.
 
 The value of the fitted intensity function at the desired
 resolution is compared with the threshold I.  The ratio of these
@@ -38,6 +37,7 @@ Examples:
 from __future__ import absolute_import, division, print_function
 
 import logging
+from math import exp
 import numpy as np
 from tabulate import tabulate
 import time
@@ -46,15 +46,14 @@ import time
 from typing import Iterable, List, Optional, Sequence, Union  # noqa: F401
 
 import boost.python
-from cctbx import crystal, miller
+import cctbx.eltbx.xray_scattering
 from dials.array_family import flex
 from dials.util.options import OptionParser
 from dials.util.version import dials_version
 from dxtbx.model import Experiment, ExperimentList
 import iotbx.phil
 from libtbx.phil import scope, scope_extract
-from scipy.optimize import curve_fit
-from screen19 import d_ticks, dials_v1, plot_intensities, terminal_size, __version__
+from screen19 import d_ticks, dials_v1, plot_wilson, __version__
 
 
 # Custom types
@@ -110,6 +109,11 @@ phil_scope = iotbx.phil.parse(
             .caption = u'Maximum d-value (in Ångströms) for displacement parameter fit'
             .help = 'Reflections with lower resolution than this value will be ' \
                     'ignored for the purposes of the Wilson plot.'
+        dstarsq_bin_size = 0.004
+            .type = float
+            .caption = u'Bin size for averaging intensity data.'
+            .help = 'Bin size in 1/d² units used for averaging intensity data' \
+                    'in calculation of Wilson plot.'
         }
     output
         .caption = 'Parameters to control the output'
@@ -137,66 +141,117 @@ logger = logging.getLogger(logger_name)
 debug, info, warn = logger.debug, logger.info, logger.warning
 
 
-def scaled_debye_waller(x, b, a):
-    # type: (float, float, float) -> float
+def number_residues_estimate(symmetry):
     u"""
-    Calculate a scaled isotropic Debye-Waller factor.
-
-    By assuming a single isotropic disorder parameter, :param:`b`, this factor
-    approximates the decay of diffracted X-ray intensity increasing resolution
-    (decreasing d, increasing sin(θ)).
-
-    Args:
-        x: Equivalent to 1/d².
-        b: Isotropic displacement parameter.
-        a: A scale factor.
-
-    Returns:
-        Estimated value of scaled isotropic Debye-Waller factor.
+    Guess the number of residues in the asymmetric unit cell, assuming most frequent
+    Matthews coefficient 2.34 Å^3/Da at 50% solvent content, 112.5 Da average residue weight and
+    average residue composition from http://www.ccp4.ac.uk/html/matthews_coef.html.
     """
-    return a * np.exp(-b / 2 * x)
+    sg = symmetry.space_group()
+    uc = symmetry.unit_cell()
+
+    n_ops = len(sg.all_ops())
+
+    v_asu = uc.volume() / n_ops
+    n_res = int(round(v_asu / (2.34 * 112.5)))
+    asu_contents = {"C": 5 * n_res,
+                    "N": 1.35 * n_res,
+                    "O": 1.5 * n_res,
+                    "H": 8 * n_res,
+                    "S": 0.05 * n_res
+                    }
+    scattering_factors = {}
+    for atom in asu_contents.keys():
+        scattering_factors[atom] = cctbx.eltbx.xray_scattering.wk1995(atom).fetch()
+
+    return asu_contents, scattering_factors
 
 
-def wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d):
-    # type: (FloatSequence, FloatSequence, FloatSequence, float) -> Fit
+def model_f_sq(stol_sq, asu_contents, scattering_factors, symmetry):
+    u"""
+    Compute expected model intensity values in resolution shells
+    """
+    sum_fj_sq = 0
+    for atom, n_atoms in asu_contents.items():
+        f0 = scattering_factors[atom].at_stol_sq(stol_sq)
+        sum_fj_sq += f0 * f0 * n_atoms
+    sum_fj_sq *= symmetry.space_group().order_z() \
+                        * symmetry.space_group().n_ltr()
+    return sum_fj_sq
+
+def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, wilson_fit_max_d):
     u"""
     Fit a simple Debye-Waller factor, assume isotropic disorder parameter.
+    Adapted from cctbx implementation in cctbx.statistics.wilson_plot object.
 
     Reflections with d ≥ :param:`wilson_fit_max_d` are ignored.
 
     Args:
-        d_star_sq: 1/d² (equivalently d*²), sequence of values for the observed
-            reflections (units of Å⁻² assumed).
-        intensity: Sequence of reflection intensities.
-        sigma: Sequence of uncertainties in reflection intensity.
+        iobs: Sequence of observed reflection intensities.
+        asu_contents: Dictionary with atom quantities in asymmetric unit cell.
+        scattering_factors: Dictionary with atomic scattering factors.
+        symmetry: Crystal symmetry object.
         wilson_fit_max_d: The minimum resolution for reflections against which to
             fit.
 
     Returns:
         - The fitted isotropic displacement parameter (units of Å² assumed);
-        - The fitted scale factor.
+        - Logarithm of the fitted scale factor.
+        - List of graph values for Wilson Plot.
 
     """
-    # Eliminate reflections with d > wilson_fit_max_d from the fit
-    sel = d_star_sq > 1 / wilson_fit_max_d ** 2
-
-    # Perform a weighted Wilson plot fit to the reflection intensities
-    fit, cov = curve_fit(
-        scaled_debye_waller,
-        d_star_sq.select(sel),
-        intensity.select(sel),
-        sigma=sigma.select(sel),
-        bounds=(0, np.inf),
-    )
-
-    return fit
+    assert iobs.is_real_array()
+    # compute <fobs^2> in resolution shells
+    mean_iobs = iobs.mean(
+        use_binning=True,
+        use_multiplicities=True).data[1:-1]
+    n_none = mean_iobs.count(None)
+    if (n_none > 0):
+        error_message = "wilson_plot error: number of empty bins: %d" % n_none
+        info = iobs.info()
+        if (info is not None):
+            error_message += "\n  Info: " + str(info)
+        error_message += "\n  Number of bins: %d" % len(mean_iobs)
+        raise RuntimeError(error_message)
+    mean_iobs = flex.double(mean_iobs)
+    # compute <s^2> = <(sin(theta)/lambda)^2> in resolution shells
+    stol_sq = iobs.sin_theta_over_lambda_sq()
+    stol_sq.use_binner_of(iobs)
+    mean_stol_sq = flex.double(stol_sq.mean(
+        use_binning=True,
+        use_multiplicities=True).data[1:-1])
+    # compute expected f_calc^2 in resolution shells
+    icalc = flex.double()
+    for stol_sq in mean_stol_sq:
+        sum_fj_sq = model_f_sq(stol_sq, asu_contents, scattering_factors, symmetry)
+        icalc.append(sum_fj_sq)
+    # fit to straight line
+    x = mean_stol_sq
+    y = flex.log(mean_iobs / icalc)
+    sigma = flex.sqrt(mean_iobs)
+    idx_resol = next((i for i, v in enumerate(list(x)) if v > 1. / (4 * wilson_fit_max_d**2)))
+    try:
+        idx_nan = next((i for i,(v,s) in enumerate(zip(list(y), list(sigma))) if (np.isnan(v) or
+                                                                                  np.isnan(s) or
+                                                                                  np.isinf(v) or
+                                                                                  np.isinf(s))))
+    except StopIteration:
+        idx_nan = len(y)
+    sel_x = list(x)[idx_resol:idx_nan]
+    sel_y = list(y)[idx_resol:idx_nan]
+    fit = flex.linear_regression(flex.double(sel_x), flex.double(sel_y))
+    assert fit.is_well_defined()
+    fit_y_intercept = fit.y_intercept()
+    fit_slope = fit.slope()
+    wilson_b = -fit_slope / 2
+    return wilson_b, fit_y_intercept, x, y
 
 
 def wilson_plot_ascii(
-    crystal_symmetry,  # type: crystal.symmetry
-    indices,  # type: Sequence[flex.miller_index, ...]
+    stol_sq,  # type: Sequence[flex.miller_index, ...]
     intensity,  # type: FloatSequence
-    sigma,  # type: FloatSequence
+    wilson_b,  # type: float
+    fit_y_intercept,  # type: float
     d_ticks=None,  # type: Optional[FloatSequence]
 ):
     # type: (...) -> None
@@ -213,41 +268,31 @@ def wilson_plot_ascii(
         d_ticks: d location of ticks on 1/d² axis.
     """
     # Draw the Wilson plot, using existing functionality in cctbx.miller
-    columns, rows = terminal_size()
-    n_bins = min(columns, intensity.size())
-    ms = miller.set(
-        crystal_symmetry=crystal_symmetry, anomalous_flag=False, indices=indices
-    )
-    ma = miller.array(ms, data=intensity, sigmas=sigma)
-    ma.set_observation_type_xray_intensity()
-    ma.setup_binner_counting_sorted(n_bins=n_bins, reflections_per_bin=1)
-    wilson = ma.wilson_plot(use_binning=True)
-    # Get the relevant plot data from the miller_array:
-    binned_intensity = [x if x else 0 for x in wilson.data[1:-1]]
-    bins = dict(zip(wilson.binner.bin_centers(1), binned_intensity))
+    bins = {s: v for s, v in zip(stol_sq, intensity) if not(np.isnan(v) or np.isinf(v))}
+    fit = {s: fit_y_intercept - 2 * wilson_b * s for s in stol_sq}
     if d_ticks:
-        tick_positions = ", ".join(['"%g" %s' % (d, 1 / d ** 2) for d in d_ticks])
+        tick_positions = ", ".join(['"%g" %s' % (d, 1 / (4 * d ** 2)) for d in d_ticks])
         tick_positions = tick_positions.join(["(", ")"])
     else:
         tick_positions = ""
     # Draw the plot:
-    plot_intensities(
+    plot_wilson(
         bins,
+        fit,
         1,
         title="'Wilson plot'",
         xlabel="'d (Angstrom) (inverse-square scale)'",
-        ylabel="'I (counts)'",
+        ylabel="'<I>/Σ'",
         xticks=tick_positions,
-        style="with lines",
     )
 
 
 def wilson_plot_image(
-    d_star_sq,  # type: FloatSequence
-    intensity,  # type: FloatSequence
-    fit,  # type: Fit
+    stol_sq,  # type: FloatSequence
+    log_i_over_sig,  # type: FloatSequence
+    wilson_b,  # type: float
+    fit_y_intercept,  # type: FloatSequence
     max_d=None,  # type: Optional[float]
-    ticks=None,  # type: Optional[FloatSequence]
     output="wilson_plot",  # type: str
 ):
     # type: (...) -> None
@@ -258,12 +303,12 @@ def wilson_plot_image(
     isotropic Debye-Waller fit.
 
     Args:
-        d_star_sq: 1/d² values of reflections.
-        intensity: Intensities of reflections.
-        fit: Fitted parameters (tuple of fitted isotropic displacement parameter and
-            fitted scale factor).
+        stol_sq: (sin(θ)/λ)² values of reflections.
+        log_i_over_sig: Log of intensities of reflections log(<I>/Σ).
+        wilson_b: Fitted isotropic displacement parameter.
+        fit_y_intercept: Fitted scale factor.
         max_d: The minimum resolution for reflections used in the Debye-Waller fit.
-        ticks: d location of ticks on 1/d² axis.
+        ticks: d location of ticks on (sin(θ)/λ)² axis.
         output: Output filename.  The extension `.png` will be added automatically.
     """
     import matplotlib
@@ -271,19 +316,19 @@ def wilson_plot_image(
     matplotlib.use("Agg")
     from matplotlib import pyplot as plt
 
-    plt.xlabel(u"d (Å) (inverse-square scale)")
-    plt.ylabel(u"Intensity (counts)")
-    if ticks:
-        plt.xticks([1 / d ** 2 for d in ticks], ["%g" % d for d in ticks])
-    plt.yscale("log", nonposy="clip")
-    plt.plot(d_star_sq, intensity, "b.", label=None)
-    plt.plot(
-        d_star_sq, scaled_debye_waller(d_star_sq, *fit), "r-", label="Debye-Waller fit"
+    fig, ax = plt.subplots()
+    plt.scatter(stol_sq, log_i_over_sig, c='b', s=5)
+    plt.plot(stol_sq,[-2 * wilson_b * v + fit_y_intercept for v in stol_sq])
+    plt.xlabel(u"d / Å")
+    plt.ylabel(u"log(<I>/Σ)")
+    ax.set_xticklabels(
+            ["{:.2f}".format(np.float64(1.0) / (2 * np.sqrt(x))) if x > 0 else np.inf for x in ax.get_xticks()]
     )
+    plt.title(u"Fitted isotropic displacement parameter, B = %.3g Å²" % wilson_b)
     if max_d:
         plt.fill_betweenx(
             plt.ylim(),
-            1 / np.square(max_d),
+            1 / (4 * np.square(max_d)),
             color="k",
             alpha=0.5,
             zorder=2.1,
@@ -321,60 +366,58 @@ def suggest_minimum_exposure(expts, refls, params):
     # The Wilson plot fit implicitly involves taking a logarithm of
     # intensities, so eliminate values that are going to cause problems
     try:
-        # Work from profile-fitted intensities where possible
-        refls = refls.select(refls["intensity.prf.value"] > 0)
-    except RuntimeError:
-        refls = refls.select(refls["intensity.sum.value"] > 0)
+        iobs = refls.as_miller_array(expts[0], intensity="prf")
+    except:
+        iobs = refls.as_miller_array(expts[0], intensity="sum")
+    iobs.setup_binner_d_star_sq_step(d_star_sq_step=params.minimum_exposure.dstarsq_bin_size)
 
     # Parameters for the lower-bound exposure estimate:
     min_i_over_sigma = params.minimum_exposure.min_i_over_sigma
     wilson_fit_max_d = params.minimum_exposure.wilson_fit_max_d
     desired_d = params.minimum_exposure.desired_d
-    # If no target resolution is given, use the following defaults:
-    if not params.minimum_exposure.desired_d:
-        desired_d = [
-            1,  # Å
-            0.84,  # Å (IUCr publication requirement)
-            0.6,  # Å
-            0.4,  # Å
-        ]
-    desired_d.sort(reverse=True)
 
-    # Get d-spacings, intensity & std dev of reflections
+    # Get estimated asymmetric unit cell contents and corresponding scattering factors
     symmetry = expts[0].crystal.get_crystal_symmetry()
-    d_star_sq = 1 / symmetry.unit_cell().d(refls["miller_index"]) ** 2
-    try:
-        # Work from profile-fitted intensities and uncertainties where possible
-        intensity = refls["intensity.prf.value"]
-        sigma = flex.sqrt(refls["intensity.prf.variance"])
-    except RuntimeError:
-        intensity = refls["intensity.sum.value"]
-        sigma = flex.sqrt(refls["intensity.sum.variance"])
+    asu_contents, scattering_factors = number_residues_estimate(symmetry)
 
     # Perform the Wilson plot fit
-    fit = wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d)
+    wilson_b, fit_y_intercept, x, y = wilson_fit(iobs,
+                                                 asu_contents,
+                                                 scattering_factors,
+                                                 symmetry,
+                                                 wilson_fit_max_d)
+    
+    # Get reference resolution from I/σ value
+    iobs_selected = iobs.select(iobs.data() > 0)
+    iobs_selected.use_binning_of(iobs) 
+    mean_i_over_sigma = iobs_selected.i_over_sig_i(use_binning=True, return_fail=0)
+    min_i_over_sigma_bin = next((res for val, res in zip(mean_i_over_sigma.data[1:-1],
+                                                         mean_i_over_sigma.binner.range_all()[1:-1]) if val < min_i_over_sigma))
+    dmin_i_over_sigma = mean_i_over_sigma.binner.bin_d_min(min_i_over_sigma_bin)
+    
+    # If no target resolution is given, use the following defaults:
+    if not params.minimum_exposure.desired_d:
+        desired_d = [dmin_i_over_sigma,]
+        desired_d.extend((round(dmin_i_over_sigma * 10 / sc) / 10. for sc in (1.25, 1.5, 1.75, 2, dmin_i_over_sigma)))
+    desired_d = sorted(set(desired_d), reverse=True)[:5]
 
     # Get recommended exposure factors
-    # Use the fact that σ² = I for indexed data, so I/σ = √̅I
-    desired_d_star_sq = [1 / d ** 2 for d in desired_d]
-    target_i = min_i_over_sigma ** 2
     recommended_factor = [
-        (target_i / scaled_debye_waller(target_d, *fit))
-        for target_d in desired_d_star_sq
+        exp(-wilson_b / (2.*dmin_i_over_sigma**2) + wilson_b / (2.*target_d**2)) \
+        * model_f_sq(1. / (4.*dmin_i_over_sigma**2), asu_contents, scattering_factors, symmetry) \
+        / model_f_sq(1. / (4.*target_d**2), asu_contents, scattering_factors, symmetry)
+        for target_d in desired_d
     ]
 
-    # Get the achievable resolution at the current exposure
-    desired_d += [np.sqrt(fit[0] / (2 * np.log(fit[1] / target_i)))]
-    recommended_factor += [1]
-
     # Draw the ASCII art Wilson plot
-    wilson_plot_ascii(symmetry, refls["miller_index"], intensity, sigma, d_ticks)
-
+    wilson_plot_ascii(x, y, wilson_b, fit_y_intercept, d_ticks)
+    
     recommendations = zip(desired_d, recommended_factor)
     recommendations = sorted(recommendations, key=lambda rec: rec[0], reverse=True)
 
     # Print a recommendation to the user.
-    info(u"\nFitted isotropic displacement parameter, B = %.3g Å²", fit[0])
+    info(u"\nFitted isotropic displacement parameter, B = %.3g Å²", wilson_b)
+    info(u"\nSelected reference resolution %.3g Å at I/σ = %.2g", dmin_i_over_sigma, min_i_over_sigma)
     for target, recommendation in recommendations:
         if recommendation < 1:
             debug(
@@ -390,17 +433,17 @@ def suggest_minimum_exposure(expts, refls, params):
             )
         debug(
             u"The estimated minimal sufficient exposure (flux × exposure time) to "
-            u"achievea resolution of %.2g Å is %.3g times the exposure used for this "
+            u"achieve a resolution of %.2g Å is %.3g times the exposure used for this "
             "data collection.",
             target,
             recommendation,
         )
-
+    
     summary = "\nRecommendations, summarised:\n"
     summary += tabulate(
         recommendations,
         [u"Resolution (Å)", "Suggested\nexposure factor"],
-        floatfmt=(".2g", ".3g"),
+        floatfmt=(".2f", ".2g"),
         tablefmt="rst",
     )
     summary += (
@@ -412,11 +455,11 @@ def suggest_minimum_exposure(expts, refls, params):
 
     # Draw the Wilson plot image and save to file
     wilson_plot_image(
-        d_star_sq,
-        intensity,
-        fit,
+        x,
+        y,
+        wilson_b,
+        fit_y_intercept,
         max_d=params.minimum_exposure.wilson_fit_max_d,
-        ticks=d_ticks,
         output=params.output.wilson_plot,
     )
 

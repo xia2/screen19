@@ -185,3 +185,83 @@ def plot_intensities(
             "Exit code %d",
             result["exitcode"],
         )
+
+
+def plot_wilson(
+    bins,
+    fit,
+    hist_value_factor,
+    title="'Pixel intensity distribution'",
+    xlabel="'% of maximum'",
+    ylabel="'Number of pixels'",
+    xticks="",
+    procrunner_debug=False,
+):
+    """
+    Create an ASCII art histogram of Wilson Plot.
+
+    :param bins:
+    :param fit:
+    :param hist_value_factor:
+    :param title:
+    :param xlabel:
+    :param ylabel:
+    :param xticks:
+    :param procrunner_debug:
+    """
+    columns, rows = terminal_size()
+
+    command = ["gnuplot"]
+    plot_commands = [
+        "set term dumb %d %d" % (columns, rows - 2),
+        "set title %s" % title,
+        "set xlabel %s" % xlabel,
+        "set ylabel %s offset character %d,0" % (ylabel, len(ylabel) // 2),
+        "set xtics %s out nomirror" % xticks,
+        "set ytics out",
+        "plot '-' using 1:2 notitle, '' using 1:3 with lines notitle",
+    ]
+    for x in sorted(bins.keys()):
+        plot_commands.append("%f %f" % (x * hist_value_factor, bins[x]))
+    plot_commands.append(",")
+    for x in sorted(fit.keys()):
+        plot_commands.append("%f %f" % (x * hist_value_factor, fit[x]))
+    plot_commands.append("e")
+
+    debug("running %s with:\n  %s\n", " ".join(command), "\n  ".join(plot_commands))
+
+    try:
+        result = procrunner.run(
+            command,
+            stdin="\n".join(plot_commands).encode("utf-8") + b"\n",
+            timeout=120,
+            print_stdout=False,
+            print_stderr=False,
+            debug=procrunner_debug,
+            environment_override={"LD_LIBRARY_PATH": ""},
+        )
+    except OSError:
+        info(traceback.format_exc())
+
+    debug("result = %s", prettyprint_dictionary(result))
+
+    if result["exitcode"] == 0:
+        star = re.compile(r"\*")
+        state = set()
+        for line in result["stdout"].decode("utf-8").split("\n"):
+            if line.strip() != "":
+                stars = {m.start(0) for m in re.finditer(star, line)}
+                if not stars:
+                    state = set()
+                else:
+                    state |= stars
+                    line = list(line)
+                    for s in state:
+                        line[s] = "*"
+                info("".join(line))
+    else:
+        warn(
+            "Error running gnuplot. Cannot plot intensity distribution. "
+            "Exit code %d",
+            result["exitcode"],
+        )
