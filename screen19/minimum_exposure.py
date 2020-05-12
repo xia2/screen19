@@ -244,7 +244,7 @@ def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, wilson_fit_max_
     fit_y_intercept = fit.y_intercept()
     fit_slope = fit.slope()
     wilson_b = -fit_slope / 2
-    return wilson_b, fit_y_intercept, x, y
+    return wilson_b, fit_y_intercept, x, y, (idx_resol, idx_nan)
 
 
 def wilson_plot_ascii(
@@ -292,7 +292,7 @@ def wilson_plot_image(
     log_i_over_sig,  # type: FloatSequence
     wilson_b,  # type: float
     fit_y_intercept,  # type: FloatSequence
-    max_d=None,  # type: Optional[float]
+    idx_d_range=None,  # type: Optional[float]
     output="wilson_plot",  # type: str
 ):
     # type: (...) -> None
@@ -307,7 +307,7 @@ def wilson_plot_image(
         log_i_over_sig: Log of intensities of reflections log(<I>/Σ).
         wilson_b: Fitted isotropic displacement parameter.
         fit_y_intercept: Fitted scale factor.
-        max_d: The minimum resolution for reflections used in the Debye-Waller fit.
+        idx_d_range: indices corresponding to a resolution range used in the Debye-Waller fit.
         ticks: d location of ticks on (sin(θ)/λ)² axis.
         output: Output filename.  The extension `.png` will be added automatically.
     """
@@ -325,15 +325,26 @@ def wilson_plot_image(
             ["{:.2f}".format(np.float64(1.0) / (2 * np.sqrt(x))) if x > 0 else np.inf for x in ax.get_xticks()]
     )
     plt.title(u"Fitted isotropic displacement parameter, B = %.3g Å²" % wilson_b)
-    if max_d:
+    try:
+        max_d, min_d = tuple(stol_sq[i] for i in idx_d_range)
         plt.fill_betweenx(
             plt.ylim(),
-            1 / (4 * np.square(max_d)),
+            max_d,
             color="k",
             alpha=0.5,
             zorder=2.1,
             label="Excluded from fit",
         )
+        plt.fill_betweenx(
+            plt.ylim(),
+            min_d,
+            plt.xlim()[-1],
+            color="k",
+            alpha=0.5,
+            zorder=2.1
+        )
+    except TypeError:
+        pass
     plt.legend(loc=0)
     plt.savefig(output)
     plt.close()
@@ -381,11 +392,11 @@ def suggest_minimum_exposure(expts, refls, params):
     asu_contents, scattering_factors = number_residues_estimate(symmetry)
 
     # Perform the Wilson plot fit
-    wilson_b, fit_y_intercept, x, y = wilson_fit(iobs,
-                                                 asu_contents,
-                                                 scattering_factors,
-                                                 symmetry,
-                                                 wilson_fit_max_d)
+    wilson_b, fit_y_intercept, x, y, idx_fit_range = wilson_fit(iobs,
+                                                                asu_contents,
+                                                                scattering_factors,
+                                                                symmetry,
+                                                                wilson_fit_max_d)
     
     # Get reference resolution from I/σ value
     iobs_selected = iobs.select(iobs.data() > 0)
@@ -459,8 +470,8 @@ def suggest_minimum_exposure(expts, refls, params):
         y,
         wilson_b,
         fit_y_intercept,
-        max_d=params.minimum_exposure.wilson_fit_max_d,
-        output=params.output.wilson_plot,
+        idx_fit_range,
+        params.output.wilson_plot,
     )
 
 
