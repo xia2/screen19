@@ -229,7 +229,7 @@ def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, wilson_fit_max_
     x = mean_stol_sq
     y = flex.log(mean_iobs / icalc)
     sigma = flex.sqrt(mean_iobs)
-    idx_resol = next((i for i, v in enumerate(list(x)) if v > 1. / (4 * wilson_fit_max_d**2)))
+    idx_resol = [i for i, v in enumerate(x) if v < 1. / (4 * wilson_fit_max_d**2)][-1]
     try:
         idx_nan = next((i for i,(v,s) in enumerate(zip(list(y), list(sigma))) if (np.isnan(v) or
                                                                                   np.isnan(s) or
@@ -324,20 +324,22 @@ def wilson_plot_image(
     ax.set_xticklabels(
             ["{:.2f}".format(np.float64(1.0) / (2 * np.sqrt(x))) if x > 0 else np.inf for x in ax.get_xticks()]
     )
-    plt.title(u"Fitted isotropic displacement parameter, B = %.3g Å²" % wilson_b)
+    max_stol_sq, min_stol_sq = tuple(stol_sq[i] for i in idx_d_range)
+    max_d, min_d = tuple((1.0 / (2 * np.sqrt(x)) for x in (max_stol_sq, min_stol_sq)))
+    plt.title(u"Fitted isotropic displacement parameter, B = %.3g Å²\n Wilson Plot fitting range: %.3g - %.3g Å" % (wilson_b, max_d, min_d))
     try:
-        max_d, min_d = tuple(stol_sq[i] for i in idx_d_range)
+        y_range = plt.ylim()
         plt.fill_betweenx(
-            plt.ylim(),
-            max_d,
+            y_range,
+            max_stol_sq,
             color="k",
             alpha=0.5,
             zorder=2.1,
             label="Excluded from fit",
         )
         plt.fill_betweenx(
-            plt.ylim(),
-            min_d,
+            y_range,
+            min_stol_sq,
             plt.xlim()[-1],
             color="k",
             alpha=0.5,
@@ -377,9 +379,9 @@ def suggest_minimum_exposure(expts, refls, params):
     # The Wilson plot fit implicitly involves taking a logarithm of
     # intensities, so eliminate values that are going to cause problems
     try:
-        iobs = refls.as_miller_array(expts[0], intensity="prf")
+        iobs = refls.as_miller_array(expts[0], intensity="prf").resolution_filter(d_max=100, d_min=0)
     except:
-        iobs = refls.as_miller_array(expts[0], intensity="sum")
+        iobs = refls.as_miller_array(expts[0], intensity="sum").resolution_filter(d_max=100, d_min=0)
     iobs.setup_binner_d_star_sq_step(d_star_sq_step=params.minimum_exposure.dstarsq_bin_size)
 
     # Parameters for the lower-bound exposure estimate:
@@ -397,6 +399,7 @@ def suggest_minimum_exposure(expts, refls, params):
                                                                 scattering_factors,
                                                                 symmetry,
                                                                 wilson_fit_max_d)
+    max_d, min_d = tuple((1.0 / (2 * np.sqrt(x[i])) for i in idx_fit_range))
     
     # Get reference resolution from I/σ value
     iobs_selected = iobs.select(iobs.data() > 0)
@@ -428,6 +431,7 @@ def suggest_minimum_exposure(expts, refls, params):
 
     # Print a recommendation to the user.
     info(u"\nFitted isotropic displacement parameter, B = %.3g Å²", wilson_b)
+    info(u"\nWilson Plot fitting range: %.3g - %.3g Å", max_d, min_d)
     info(u"\nSelected reference resolution %.3g Å at I/σ = %.2g", dmin_i_over_sigma, min_i_over_sigma)
     for target, recommendation in recommendations:
         if recommendation < 1:
