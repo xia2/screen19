@@ -188,8 +188,7 @@ def plot_intensities(
 
 
 def plot_wilson(
-    bins,
-    fit,
+    data,
     hist_value_factor,
     title="'Pixel intensity distribution'",
     xlabel="'% of maximum'",
@@ -200,8 +199,7 @@ def plot_wilson(
     """
     Create an ASCII art histogram of Wilson Plot.
 
-    :param bins:
-    :param fit:
+    :param data:
     :param hist_value_factor:
     :param title:
     :param xlabel:
@@ -219,14 +217,12 @@ def plot_wilson(
         "set ylabel %s offset character %d,0" % (ylabel, len(ylabel) // 2),
         "set xtics %s out nomirror" % xticks,
         "set ytics out",
-        "plot '-' using 1:2 notitle, '' using 1:3 with lines notitle",
+        "plot '-' using 1:2 notitle, '' using 1:3 with dots notitle",
     ]
-    for x in sorted(bins.keys()):
-        plot_commands.append("%f %f" % (x * hist_value_factor, bins[x]))
-    plot_commands.append(",")
-    for x in sorted(fit.keys()):
-        plot_commands.append("%f %f" % (x * hist_value_factor, fit[x]))
-    plot_commands.append("e")
+    for _ in range(2):
+        for x in data:
+            plot_commands.append("%f %f %f" % (x[0] * hist_value_factor, x[1], x[2]))
+        plot_commands.append("e")
 
     debug("running %s with:\n  %s\n", " ".join(command), "\n  ".join(plot_commands))
 

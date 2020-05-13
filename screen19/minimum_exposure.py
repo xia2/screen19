@@ -268,8 +268,7 @@ def wilson_plot_ascii(
         d_ticks: d location of ticks on 1/d² axis.
     """
     # Draw the Wilson plot, using existing functionality in cctbx.miller
-    bins = {s: v for s, v in zip(stol_sq, intensity) if not(np.isnan(v) or np.isinf(v))}
-    fit = {s: fit_y_intercept - 2 * wilson_b * s for s in stol_sq}
+    plot_data = [(s, v, fit_y_intercept - 2 * wilson_b * s) for s, v in zip(stol_sq, intensity)]
     if d_ticks:
         tick_positions = ", ".join(['"%g" %s' % (d, 1 / (4 * d ** 2)) for d in d_ticks])
         tick_positions = tick_positions.join(["(", ")"])
@@ -277,8 +276,7 @@ def wilson_plot_ascii(
         tick_positions = ""
     # Draw the plot:
     plot_wilson(
-        bins,
-        fit,
+        plot_data,
         1,
         title="'Wilson plot'",
         xlabel="'d (Angstrom) (inverse-square scale)'",
