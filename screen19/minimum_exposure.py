@@ -316,15 +316,9 @@ def wilson_plot_image(
 
     fig, ax = plt.subplots()
     plt.scatter(stol_sq, log_i_over_sig, c='b', s=5)
-    plt.plot(stol_sq,[-2 * wilson_b * v + fit_y_intercept for v in stol_sq])
-    plt.xlabel(u"d / Å")
-    plt.ylabel(u"log(<I>/Σ)")
-    ax.set_xticklabels(
-            ["{:.2f}".format(np.float64(1.0) / (2 * np.sqrt(x))) if x > 0 else np.inf for x in ax.get_xticks()]
-    )
+    plt.plot(stol_sq, [-2 * wilson_b * v + fit_y_intercept for v in stol_sq])
     max_stol_sq, min_stol_sq = tuple(stol_sq[i] for i in idx_d_range)
     max_d, min_d = tuple((1.0 / (2 * np.sqrt(x)) for x in (max_stol_sq, min_stol_sq)))
-    plt.title(u"Fitted isotropic displacement parameter, B = %.3g Å²\n Wilson Plot fitting range: %.3g - %.3g Å" % (wilson_b, max_d, min_d))
     try:
         y_range = plt.ylim()
         plt.fill_betweenx(
@@ -345,6 +339,12 @@ def wilson_plot_image(
         )
     except TypeError:
         pass
+    plt.title(u"Fitted isotropic displacement parameter, B = %.3g Å²\n Wilson Plot fitting range: %.3g - %.3g Å" % (wilson_b, max_d, min_d))
+    plt.xlabel(u"d / Å")
+    plt.ylabel(u"log(<I>/Σ)")
+    ax.set_xticklabels(
+            ["{:.2f}".format(np.float64(1.0) / (2 * np.sqrt(x))) if x > 0 else np.inf for x in ax.get_xticks()]
+    )
     plt.legend(loc=0)
     plt.savefig(output)
     plt.close()
