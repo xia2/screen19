@@ -37,8 +37,9 @@ Examples:
 from __future__ import absolute_import, division, print_function
 
 import logging
-from math import exp
+from math import exp, log
 import numpy as np
+from scipy.stats import linregress
 from tabulate import tabulate
 import time
 
@@ -104,7 +105,7 @@ phil_scope = iotbx.phil.parse(
                     u'the exposure (flux × exposure time) required to ensure that the' \
                     'majority of expected reflections at the desired resolution limit' \
                     u'have I/σ greater than or equal to this value.'
-        wilson_fit_max_d = 4  # Å
+        wilson_fit_max_d = 3  # Å
             .type = float
             .caption = u'Maximum d-value (in Ångströms) for displacement parameter fit'
             .help = 'Reflections with lower resolution than this value will be ' \
@@ -183,8 +184,11 @@ def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, wilson_fit_max_
     u"""
     Fit a simple Debye-Waller factor, assume isotropic disorder parameter.
     Adapted from cctbx implementation in cctbx.statistics.wilson_plot object.
+    Resolution range for Wilson Plot fit is selected based on the best correlation
+    coefficient value obtained from least-squares linear regression fit. 
 
     Reflections with d ≥ :param:`wilson_fit_max_d` are ignored.
+    Reflections in high resolution area with missing data rate >20% are ignored.
 
     Args:
         iobs: Sequence of observed reflection intensities.
@@ -228,21 +232,47 @@ def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, wilson_fit_max_
     # fit to straight line
     x = mean_stol_sq
     y = flex.log(mean_iobs / icalc)
-    sigma = flex.sqrt(mean_iobs)
     idx_resol = [i for i, v in enumerate(x) if v < 1. / (4 * wilson_fit_max_d**2)][-1]
+    #Find index of a resolution bin with missing data point that
+    #has more missing data in subsequent resolution bins
     try:
-        idx_nan = next((i for i,(v,s) in enumerate(zip(list(y), list(sigma))) if (np.isnan(v) or
-                                                                                  np.isnan(s) or
-                                                                                  np.isinf(v) or
-                                                                                  np.isinf(s))))
+        nan_window = 10
+        nan_threshold = 2
+        nan_test_data = [y[j:j+nan_window] for j in range(len(y)-nan_window)]
+        idx_nan = next((i for i, l in enumerate(nan_test_data)
+                         if len([v for v in l if (np.isnan(v) or np.isinf(v)) and (np.isnan(l[0]) or np.isinf(l[0]))]) > nan_threshold))
     except StopIteration:
-        idx_nan = len(y)
-    sel_x = list(x)[idx_resol:idx_nan]
-    sel_y = list(y)[idx_resol:idx_nan]
-    fit = flex.linear_regression(flex.double(sel_x), flex.double(sel_y))
-    assert fit.is_well_defined()
-    fit_y_intercept = fit.y_intercept()
-    fit_slope = fit.slope()
+        idx_nan = len(y) - 1
+    print("\nSelected resolution range: %.2f - %.2f Å\n" % (1. / (2 * np.sqrt(x[idx_resol])),
+                                                             1. / (2 * np.sqrt(x[idx_nan]))))
+    #Generate list of resolution intervals for linear regression fit
+    #Use at least a third of the selected resolution range as a fit interval
+    resol_window = int((idx_nan - idx_resol) / 3) + 1
+    resol_intervals = [(i, j) for i in range(idx_resol, idx_nan - resol_window) for j in range(i + resol_window, idx_nan)]
+    if not resol_intervals:
+        resol_intervals = [(idx_resol, idx_resol  + 10)]
+    res_linreg = []
+    for i, (idx_res1, idx_res2) in enumerate(resol_intervals):
+        sel_x = list(x)[idx_res1:idx_res2]
+        sel_y = list(y)[idx_res1:idx_res2]
+        xy_data = np.array(list(zip(*[[tx, ty] for tx, ty in zip(sel_x, sel_y) if not (np.isnan(tx) or
+                                                          np.isnan(ty) or
+                                                          np.isinf(tx) or
+                                                          np.isinf(ty))])))
+        try:
+            fit_slope, fit_y_intercept, r_value, p_value, std_err = linregress(xy_data)
+        except Exception:
+            continue
+        if np.isnan(fit_slope) or np.isnan(fit_y_intercept):
+            continue
+        #Use correlation coefficient value normalised by the resolution range
+        #as a metric to select the best Wilson Plot fit
+        try:
+            rval = log(-r_value)**2 / (idx_res2 - idx_res1)
+        except ValueError:
+            continue
+        res_linreg.append(((idx_res1, idx_res2), (fit_slope, fit_y_intercept, r_value, p_value, std_err), rval))
+    (idx_resol, idx_nan), (fit_slope, fit_y_intercept, r_value, p_value, std_err), _ = min(res_linreg, key=lambda t: t[-1])
     wilson_b = -fit_slope / 2
     return wilson_b, fit_y_intercept, x, y, (idx_resol, idx_nan)
 
@@ -325,18 +355,19 @@ def wilson_plot_image(
             y_range,
             max_stol_sq,
             color="k",
-            alpha=0.5,
+            alpha=0.25,
             zorder=2.1,
             label="Excluded from fit",
         )
-        plt.fill_betweenx(
-            y_range,
-            min_stol_sq,
-            plt.xlim()[-1],
-            color="k",
-            alpha=0.5,
-            zorder=2.1
-        )
+        if idx_d_range[-1] < len(stol_sq) - 1:
+            plt.fill_betweenx(
+                y_range,
+                min_stol_sq,
+                plt.xlim()[-1],
+                color="k",
+                alpha=0.25,
+                zorder=2.1
+            )
     except TypeError:
         pass
     plt.title(u"Fitted isotropic displacement parameter, B = %.3g Å²\n Wilson Plot fitting range: %.3g - %.3g Å" % (wilson_b, max_d, min_d))
