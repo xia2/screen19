@@ -273,7 +273,8 @@ def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, wilson_fit_max_
             continue
         res_linreg.append(((idx_res1, idx_res2), (fit_slope, fit_y_intercept, r_value, p_value, std_err), rval))
     (idx_resol, idx_nan), (fit_slope, fit_y_intercept, r_value, p_value, std_err), _ = min(res_linreg, key=lambda t: t[-1])
-    wilson_b = -fit_slope / 2
+    std_fit_slope = np.std([v[1][0] for v in res_linreg])
+    wilson_b = (-fit_slope / 2, std_fit_slope / 2)
     return wilson_b, fit_y_intercept, x, y, (idx_resol, idx_nan)
 
 
@@ -346,7 +347,7 @@ def wilson_plot_image(
 
     fig, ax = plt.subplots()
     plt.scatter(stol_sq, log_i_over_sig, c='b', s=5)
-    plt.plot(stol_sq, [-2 * wilson_b * v + fit_y_intercept for v in stol_sq])
+    plt.plot(stol_sq, [-2 * wilson_b[0] * v + fit_y_intercept for v in stol_sq])
     max_stol_sq, min_stol_sq = tuple(stol_sq[i] for i in idx_d_range)
     max_d, min_d = tuple((1.0 / (2 * np.sqrt(x)) for x in (max_stol_sq, min_stol_sq)))
     try:
@@ -370,7 +371,7 @@ def wilson_plot_image(
             )
     except TypeError:
         pass
-    plt.title(u"Fitted isotropic displacement parameter, B = %.3g Å²\n Wilson Plot fitting range: %.3g - %.3g Å" % (wilson_b, max_d, min_d))
+    plt.title(u"Fitted isotropic displacement parameter, B = %.1f ± %.1f Å²\n Wilson Plot fitting range: %.2f - %.2f Å" % (*wilson_b, max_d, min_d))
     plt.xlabel(u"d / Å")
     plt.ylabel(u"log(<I>/Σ)")
     ax.set_xticklabels(
@@ -423,7 +424,7 @@ def suggest_minimum_exposure(expts, refls, params):
     asu_contents, scattering_factors = number_residues_estimate(symmetry)
 
     # Perform the Wilson plot fit
-    wilson_b, fit_y_intercept, x, y, idx_fit_range = wilson_fit(iobs,
+    (wilson_b, std_wilson_b), fit_y_intercept, x, y, idx_fit_range = wilson_fit(iobs,
                                                                 asu_contents,
                                                                 scattering_factors,
                                                                 symmetry,
@@ -459,9 +460,9 @@ def suggest_minimum_exposure(expts, refls, params):
     recommendations = sorted(recommendations, key=lambda rec: rec[0], reverse=True)
 
     # Print a recommendation to the user.
-    info(u"\nFitted isotropic displacement parameter, B = %.3g Å²", wilson_b)
-    info(u"\nWilson Plot fitting range: %.3g - %.3g Å", max_d, min_d)
-    info(u"\nSelected reference resolution %.3g Å at I/σ = %.2g", dmin_i_over_sigma, min_i_over_sigma)
+    info(u"\nFitted isotropic displacement parameter, B = %.1f ± %.1f Å²", wilson_b, std_wilson_b)
+    info(u"\nWilson Plot fitting range: %.2f - %.2f Å", max_d, min_d)
+    info(u"\nSelected reference resolution %.2f Å at I/σ = %.2f", dmin_i_over_sigma, min_i_over_sigma)
     for target, recommendation in recommendations:
         if recommendation < 1:
             debug(
@@ -501,7 +502,7 @@ def suggest_minimum_exposure(expts, refls, params):
     wilson_plot_image(
         x,
         y,
-        wilson_b,
+        (wilson_b, std_wilson_b),
         fit_y_intercept,
         idx_fit_range,
         params.output.wilson_plot,
