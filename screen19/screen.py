@@ -220,7 +220,7 @@ phil_scope = iotbx.phil.parse(
 procrunner_debug = False
 
 logger = logging.getLogger("dials.screen19")
-debug, info, warn = logger.debug, logger.info, logger.warn
+debug, info, warning = logger.debug, logger.info, logger.warning
 
 
 def _reset_cache():  # type: () -> None
@@ -400,7 +400,7 @@ class Screen19(object):
                 template = screen19.make_template(template)[0]
                 start, end = int(start), int(end)
                 if not self._quick_import_templates([(template, (start, end))]):
-                    warn("Could not import specified image range.")
+                    warning("Could not import specified image range.")
                     sys.exit(1)
                 info("Quick import successful.")
                 return
@@ -419,7 +419,7 @@ class Screen19(object):
                         return
 
         if not files:
-            warn("No images found matching input.")
+            warning("No images found matching input.")
             sys.exit(1)
 
         # Can the files be quick-imported?
@@ -456,7 +456,7 @@ class Screen19(object):
                 import_script.run(parameters)
             except SystemExit as e:
                 if e.code:
-                    warn("dials.import failed with exit code %d", e.code)
+                    warning("dials.import failed with exit code %d", e.code)
                     sys.exit(1)
 
     else:
@@ -527,14 +527,14 @@ class Screen19(object):
                         format_kwargs=format_kwargs,
                     )
                 except IOError as e:
-                    warn("%s '%s'", e.strerror, e.filename)
+                    warning("%s '%s'", e.strerror, e.filename)
                     sys.exit(1)
 
                 # Record the imported experiments for use elsewhere.
                 # Quit if there aren't any.
                 self.expts.extend(experiments)
                 if not self.expts:
-                    warn("No images found.")
+                    warning("No images found.")
                     sys.exit(1)
 
             else:
@@ -548,7 +548,7 @@ class Screen19(object):
                     # Quit if there aren't any.
                     self.expts.extend(importer.experiments)
                     if not self.expts:
-                        warn(
+                        warning(
                             "No images found matching template %s"
                             % self.params.dials_import.input.template[0]
                         )
@@ -584,7 +584,7 @@ class Screen19(object):
         self.nproc = number_of_processors(return_value_if_unknown=-1)
 
         if self.nproc <= 0:
-            warn(
+            warning(
                 "Could not determine number of available processors. Error code %d",
                 self.nproc,
             )
@@ -606,7 +606,7 @@ class Screen19(object):
             try:
                 return sum(len(s["exposure_time"]) for s in datablock[0]["scan"])
             except Exception:
-                warn("Could not determine number of images in dataset.")
+                warning("Could not determine number of images in dataset.")
                 sys.exit(1)
 
         # FIXME:  This exception handling should be redundant.  Empty experiment
@@ -614,7 +614,7 @@ class Screen19(object):
         try:
             return self.expts[0].imageset.size()
         except IndexError:
-            warn("Could not determine number of images in dataset.")
+            warning("Could not determine number of images in dataset.")
             sys.exit(1)
 
     def _check_intensities(self, mosaicity_correction=True):  # type: (bool) -> None
@@ -640,7 +640,7 @@ class Screen19(object):
         info("Successfully completed (%.1f sec)", result["runtime"])
 
         if result["exitcode"] != 0:
-            warn("Failed with exit code %d", result["exitcode"])
+            warning("Failed with exit code %d", result["exitcode"])
             sys.exit(1)
 
         with open("overload.json") as fh:
@@ -715,14 +715,14 @@ class Screen19(object):
             )
         )
         if hist_max > 100:
-            warn("Warning: %s!", text)
+            warning("Warning: %s!", text)
         else:
             info(text)
         if (
             "overload_limit" in overload_data
             and max_count >= overload_data["overload_limit"]
         ):
-            warn(
+            warning(
                 "Warning: THE DATA CONTAIN REGULAR OVERLOADS!\n"
                 "         The photon incidence rate is outside the specified "
                 "limits of the detector.\n"
@@ -734,7 +734,7 @@ class Screen19(object):
                 )
             )
         elif hist_max > marginal_limit:
-            warn(
+            warning(
                 "Warning: The photon incidence rate is well outside the "
                 "linear response region of the detector (<{:.0%}).\n"
                 "    The built-in detector count rate correction may not be "
@@ -752,7 +752,7 @@ class Screen19(object):
                 )
             )
         if not mosaicity_correction:
-            warn(
+            warning(
                 "Warning: Not enough data for proper profile estimation."
                 "    The spot intensities are not corrected for mosaicity.\n"
                 "    The true photon incidence rate will be higher than the "
@@ -795,7 +795,7 @@ class Screen19(object):
                     self.refls = finder_script.run(args)
             except SystemExit as e:
                 if e.code:
-                    warn("dials.find_spots failed with exit code %d", e.code)
+                    warning("dials.find_spots failed with exit code %d", e.code)
                     sys.exit(1)
         else:
             # Use some choice fillets from dials.find_spots
@@ -861,9 +861,9 @@ class Screen19(object):
                     )
                     break
                 except Sorry as e:
-                    warn("Failed: %s", str(e))
+                    warning("Failed: %s", str(e))
                 except SystemExit as e:
-                    warn("Failed with exit code %d", e)
+                    warning("Failed with exit code %d", e)
             else:
                 return False
         else:
@@ -913,7 +913,7 @@ class Screen19(object):
                     except (DialsIndexError, ValueError) as e:
                         # If indexing is unsuccessful, try again with the next
                         # strategy.
-                        warn("Failed: %s", str(e))
+                        warning("Failed: %s", str(e))
                         continue
                 else:
                     # When all the indexing methods are unsuccessful, move onto
@@ -1011,7 +1011,7 @@ class Screen19(object):
                 refine.run(args)
             except SystemExit as e:
                 if e.code:
-                    warn("dials.refine failed with exit code %d\nGiving up.", e.code)
+                    warning("dials.refine failed with exit code %d\nGiving up.", e.code)
                     sys.exit(1)
 
         else:
@@ -1022,7 +1022,7 @@ class Screen19(object):
                     self.expts, self.refls, self.params.dials_refine
                 )
             except Sorry as e:
-                warn("dials.refine failed: %d\nGiving up.\n", e)
+                warning("dials.refine failed: %d\nGiving up.\n", e)
                 sys.exit(1)
 
         info("Successfully refined (%.1f sec)", timeit.default_timer() - dials_start)
@@ -1062,7 +1062,7 @@ class Screen19(object):
             )
             info("Successfully completed (%.1f sec)", result["runtime"])
             return True
-        warn("Failed with exit code %d", result["exitcode"])
+        warning("Failed with exit code %d", result["exitcode"])
         return False
 
     def _integrate(self):  # type: () -> None
@@ -1097,7 +1097,7 @@ class Screen19(object):
             )
         except SystemExit as e:
             if e.code:
-                warn("dials.integrate failed with exit code %d\nGiving up.", e.code)
+                warning("dials.integrate failed with exit code %d\nGiving up.", e.code)
                 sys.exit(1)
 
     # This is a hacky check but should work for as long as DIALS 2.0 is supported.
@@ -1130,7 +1130,7 @@ class Screen19(object):
                     )
                 info("Successfully completed (%.1f sec)", result["runtime"])
             else:
-                warn("Failed with exit code %d", result["exitcode"])
+                warning("Failed with exit code %d", result["exitcode"])
                 sys.exit(1)
 
     else:
@@ -1157,7 +1157,7 @@ class Screen19(object):
                     self.expts, self.refls, self.params.dials_refine_bravais
                 )
             except RuntimeError as e:
-                warn("dials.refine_bravais_settings failed.\nGiving up.")
+                warning("dials.refine_bravais_settings failed.\nGiving up.")
                 sys.exit(e)
 
             possible_bravais_settings = {
@@ -1201,7 +1201,7 @@ class Screen19(object):
         #       except Exception as e:
         #         debug("Could not open browser\n%s", str(e))
         else:
-            warn("Failed with exit code %d", result["exitcode"])
+            warning("Failed with exit code %d", result["exitcode"])
             sys.exit(1)
 
     def run(self, args=None, phil=phil_scope, set_up_logging=False):
@@ -1318,7 +1318,7 @@ class Screen19(object):
                 self._find_spots()
 
             if not self._index():
-                warn("Giving up.")
+                warning("Giving up.")
                 if not screen19.dials_v1:
                     self.expts.as_file(imported_name)
                     strong_refls.as_file("strong.refl")
@@ -1340,7 +1340,7 @@ class Screen19(object):
             info("\nRefining model to attempt to increase number of valid spots...")
             self._refine()
             if not self._create_profile_model():
-                warn("Giving up.")
+                warning("Giving up.")
                 info(
                     "The identified indexing solution may not be correct. "
                     "You may want to have a look at the reciprocal space by "
