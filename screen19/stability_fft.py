@@ -64,12 +64,9 @@ def stability_fft(imageset, params):
     if params.remove_spots:
         from dials.algorithms.spot_finding.factory import SpotFinderFactory
         from dials.algorithms.spot_finding.factory import phil_scope
-        from dxtbx import datablock
 
         spot_params = phil_scope.fetch(source=iotbx.phil.parse("")).extract()
-        threshold_function = SpotFinderFactory.configure_threshold(
-            spot_params, datablock.DataBlock([imageset])
-        )
+        threshold_function = SpotFinderFactory.configure_threshold(spot_params)
     else:
         threshold_function = None
 
