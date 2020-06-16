@@ -37,7 +37,7 @@ output_file = "i19_stability.dat"
 
 
 def stability_fft(imageset, params):
-    from i19.util.time_analysis import fft
+    from screen19.util.time_analysis import fft
 
     scan = imageset.get_scan()
     detector = imageset.get_detector()[0]
@@ -55,7 +55,6 @@ def stability_fft(imageset, params):
         indices = indices[start:end]
     else:
         start = 0
-        end = indices[-1] + 1
 
     counts = flex.double(len(indices))
 
@@ -110,27 +109,26 @@ def stability_fft(imageset, params):
 
 def main():
     from dials.util.options import OptionParser
-    from dials.util.options import flatten_datablocks
+    from dials.util.options import flatten_experiments
 
     usage = "%prog [options] image_*.cbf"
 
     parser = OptionParser(
         usage=usage,
         phil=phil_scope,
-        read_datablocks=True,
-        read_datablocks_from_images=True,
+        read_experiments=True,
+        read_experiments_from_images=True,
         epilog=help_message,
     )
 
     params, options = parser.parse_args(show_diff_phil=True)
-    datablocks = flatten_datablocks(params.input.datablock)
+    experiments = flatten_experiments(params.input.experiments)
 
-    if len(datablocks) == 0:
+    if len(experiments) == 0:
         parser.print_help()
         exit()
 
-    datablock = datablocks[0]
-    imageset = datablock.extract_imagesets()[0]
+    imageset = experiments.imagesets()[0]
     stability_fft(imageset, params)
 
 
