@@ -396,11 +396,11 @@ def suggest_minimum_exposure(expts, refls, params):
             recommendation,
         )
 
-    summary = "\nRecommendations, summarised:\n"
+    summary = "\nRecommendations summarised:\n"
     summary += tabulate(
         recommendations,
         [u"Resolution (Å)", "Suggested\nexposure factor"],
-        floatfmt=(".2g", ".3g"),
+        floatfmt=(".3g", ".3g"),
         tablefmt="rst",
     )
     summary += (
