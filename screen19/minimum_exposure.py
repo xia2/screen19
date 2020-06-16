@@ -26,12 +26,12 @@ The Wilson plot of I as a function of d is drawn as the file
 
 Examples:
 
-    screen19.minimum_exposure integrated_experiments.json integrated.pickle
+    screen19.minimum_exposure integrated.expt integrated.refl
 
-    screen19.minimum_exposure indexed_experiments.json indexed.pickle
+    screen19.minimum_exposure indexed.expt indexed.refl
 
     screen19.minimum_exposure min_i_over_sigma=2 desired_d=0.84 wilson_fit_max_d=4 \
-        integrated_experiments.json integrated.pickle
+        integrated.expt integrated.refl
 
 """
 
@@ -48,13 +48,14 @@ from typing import Iterable, List, Optional, Sequence, Union  # noqa: F401
 import boost.python
 from cctbx import crystal, miller
 from dials.array_family import flex
+from dials.util import log
 from dials.util.options import OptionParser
 from dials.util.version import dials_version
 from dxtbx.model import Experiment, ExperimentList
 import iotbx.phil
 from libtbx.phil import scope, scope_extract
 from scipy.optimize import curve_fit
-from screen19 import d_ticks, dials_v1, plot_intensities, terminal_size, __version__
+from screen19 import d_ticks, plot_intensities, terminal_size, __version__
 
 
 # Custom types
@@ -67,28 +68,14 @@ boost.python.floating_point_exceptions.division_by_zero_trapped = False
 help_message = __doc__
 
 
-if dials_v1:
-    verbosity_scope = u"""
-    verbosity = 1
-        .type = int(value_min=0)
-        .caption = 'The verbosity level of the command-line output'
-        .help = "Possible values:\n"
-                "\t• 0: Suppress all command-line output;\n"
-                "\t• 1: Show regular output on the command line;\n"
-                "\t• 2: Show regular output, plus detailed debugging messages."
-    """
-else:
-    verbosity_scope = u"""
+phil_scope = iotbx.phil.parse(
+    u"""
     verbosity = 0
         .type = int(value_min=0)
         .caption = 'Verbosity level of log output'
         .help = "Possible values:\n"
                 "\t• 0: Info log output to stdout/logfile\n"
                 "\t• 1: Info & debug log output to stdout/logfile"
-    """
-
-phil_scope = iotbx.phil.parse(
-    u"""
     minimum_exposure
         .caption = 'Parameters for the calculation of the lower exposure bound'
         {
@@ -127,8 +114,7 @@ phil_scope = iotbx.phil.parse(
                     "a different extension, either '.pdf', '.ps', '.eps' or '.svg', " \
                     "a file of that format will be created instead."
         }
-        """
-    + verbosity_scope,
+        """,
     process_includes=True,
 )
 
@@ -435,7 +421,7 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
         args: Arguments to parse. If None, :data:`sys.argv[1:]` will be used.
         set_up_logging: Choose whether to configure :module:`screen19` logging.
     """
-    usage = "%prog [options] experiments.json reflections.pickle"
+    usage = "%prog [options] integrated.expt integrated.refl"
 
     parser = OptionParser(
         usage=usage,
@@ -449,15 +435,8 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
     params, options = parser.parse_args(args=args)
 
     if set_up_logging:
-        from dials.util import log
-
         # Configure the logging
-        if dials_v1:
-            log.config(
-                params.verbosity, info=params.output.log, debug=params.output.debug_log
-            )
-        else:
-            log.config(params.verbosity, params.output.log)
+        log.config(params.verbosity, params.output.log)
 
     if not (params.input.experiments and params.input.reflections):
         version_information = "screen19.minimum_exposure v%s using %s (%s)" % (
