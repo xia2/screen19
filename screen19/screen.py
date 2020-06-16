@@ -55,7 +55,8 @@ import time
 import timeit
 from glob import glob
 
-# Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
+# Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342).
+# This is fixed in Flake8 >= 3.7.0 (Pyflakes >= 2.1.0) and the noqa can then be removed.
 from typing import Dict, List, Optional, Sequence, Tuple  # noqa: F401
 
 from dials.array_family import flex
@@ -665,7 +666,7 @@ class Screen19(object):
                 delta_z = self._oscillation / self._sigma_m / math.sqrt(2)
                 average_to_peak = (
                     math.sqrt(math.pi) * delta_z * math.erf(delta_z)
-                    + math.exp(-delta_z ** 2)
+                    + math.exp(-(delta_z ** 2))
                     - 1
                 ) / delta_z ** 2
                 info("Average-to-peak intensity ratio: %f", average_to_peak)
