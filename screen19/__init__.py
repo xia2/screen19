@@ -1,8 +1,6 @@
 # coding: utf-8
 
-"""
-Common tools for the I19 module.
-"""
+"""Common tools for the I19 module."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -12,18 +10,15 @@ import re
 import logging
 import traceback
 import procrunner
-from typing import Dict, Tuple
+from typing import Dict, Tuple  # noqa: F401
 
-import dials.util.version
+# Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
 
-__version__ = "0.204"
+__version__ = "0.207"
 
 logger = logging.getLogger("dials.screen19")
 debug, info, warn = logger.debug, logger.info, logger.warning
 
-
-# Check whether we need to be using DIALS v1 API
-dials_v1 = dials.util.version.dials_version().startswith("DIALS 1.")
 
 # Set axis tick positions manually.  Accounts for reciprocal(-square) d-scaling.
 d_ticks = [5, 3, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4]
@@ -47,7 +42,7 @@ def terminal_size(procrunner_debug=False):
                 print_stderr=False,
                 debug=procrunner_debug,
             )
-            rows, columns = [int(i) for i in result["stdout"].split()]
+            rows, columns = [int(i) for i in result["stdout"].decode("utf-8").split()]
         except Exception:  # ignore any errors and use default size
             pass  # FIXME: Can we be more specific about the type of exception?
     columns = min(columns, 120)
@@ -66,10 +61,14 @@ def prettyprint_dictionary(d):
     :rtype: str
     """
     return "{\n%s\n}" % "\n".join(
-        [
-            "  %s: %s" % (k, str(v).replace("\n", "\n%s" % (" " * (4 + len(k)))))
-            for k, v in d.items()
-        ]
+        "  %s: %s"
+        % (
+            k,
+            str(v.decode("latin-1") if isinstance(v, bytes) else v).replace(
+                "\n", "\n%s" % (" " * (4 + len(k)))
+            ),
+        )
+        for k, v in d.items()
     )
 
 
@@ -91,13 +90,13 @@ def make_template(f):
     directory, f = os.path.split(f)
     # Split off the file extension, assuming it begins at the first full stop,
     # also split the last contiguous group of digits off the filename root
-    parts = re.split(r"([0-9]+)(?=\.\w)", f, 1)
+    parts = re.split(r"([0-9#]+)(?=\.\w)", f, 1)
     # Get the number of digits in the group we just isolated and their value
     try:
         # Combine the root, a hash for each digit and the extension
         length = len(parts[1])
         template = parts[0] + "#" * length + parts[2]
-        image = int(parts[1])
+        image = int(parts[1].replace("#", "0"))
     except IndexError:
         template = parts[0]
         image = None
@@ -149,7 +148,7 @@ def plot_intensities(
     try:
         result = procrunner.run(
             command,
-            stdin="\n".join(plot_commands) + "\n",
+            stdin="\n".join(plot_commands).encode("utf-8") + b"\n",
             timeout=120,
             print_stdout=False,
             print_stderr=False,
@@ -164,17 +163,17 @@ def plot_intensities(
     if result["exitcode"] == 0:
         star = re.compile(r"\*")
         state = set()
-        for l in result["stdout"].split("\n"):
-            if l.strip() != "":
-                stars = {m.start(0) for m in re.finditer(star, l)}
+        for line in result["stdout"].decode("utf-8").split("\n"):
+            if line.strip() != "":
+                stars = {m.start(0) for m in re.finditer(star, line)}
                 if not stars:
                     state = set()
                 else:
                     state |= stars
-                    l = list(l)
+                    line = list(line)
                     for s in state:
-                        l[s] = "*"
-                info("".join(l))
+                        line[s] = "*"
+                info("".join(line))
     else:
         warn(
             "Error running gnuplot. Cannot plot intensity distribution. "

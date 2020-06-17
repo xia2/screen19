@@ -6,7 +6,7 @@ Reflection d-spacings are determined from the crystal symmetry (from
 indexing) and the Miller indices of the indexed reflections.  The
 atomic displacement parameter is assumed isotropic.  Its value is
 determined from a fit to the reflection data:
-  I = A * exp(-B /(2 * d^2)),
+  I = A * exp(-B / (2 * d^2)),
 where I is the intensity and the scale factor, A, and isotropic
 displacement parameter, B, are the fitted parameters.
 
@@ -26,32 +26,36 @@ The Wilson plot of I as a function of d is drawn as the file
 
 Examples:
 
-    screen19.minimum_exposure integrated_experiments.json integrated.pickle
+    screen19.minimum_exposure integrated.expt integrated.refl
 
-    screen19.minimum_exposure indexed_experiments.json indexed.pickle
+    screen19.minimum_exposure indexed.expt indexed.refl
 
     screen19.minimum_exposure min_i_over_sigma=2 desired_d=0.84 wilson_fit_max_d=4 \
-        integrated_experiments.json integrated.pickle
+        integrated.expt integrated.refl
 
 """
 
 from __future__ import absolute_import, division, print_function
 
-import sys
 import logging
 import numpy as np
 from tabulate import tabulate
-from typing import Iterable, List, Optional, Sequence, Union
+import time
+
+# Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
+from typing import Iterable, List, Optional, Sequence, Union  # noqa: F401
 
 import boost.python
 from cctbx import crystal, miller
 from dials.array_family import flex
+from dials.util import log
 from dials.util.options import OptionParser
+from dials.util.version import dials_version
 from dxtbx.model import Experiment, ExperimentList
 import iotbx.phil
 from libtbx.phil import scope, scope_extract
 from scipy.optimize import curve_fit
-from screen19 import d_ticks, dials_v1, plot_intensities, terminal_size
+from screen19 import d_ticks, plot_intensities, terminal_size, __version__
 
 
 # Custom types
@@ -64,28 +68,14 @@ boost.python.floating_point_exceptions.division_by_zero_trapped = False
 help_message = __doc__
 
 
-if dials_v1:
-    verbosity_scope = u"""
-    verbosity = 1
-        .type = int(value_min=0)
-        .caption = 'The verbosity level of the command-line output'
-        .help = "Possible values:\n"
-                "\t• 0: Suppress all command-line output;\n"
-                "\t• 1: Show regular output on the command line;\n"
-                "\t• 2: Show regular output, plus detailed debugging messages."
-    """
-else:
-    verbosity_scope = u"""
+phil_scope = iotbx.phil.parse(
+    u"""
     verbosity = 0
         .type = int(value_min=0)
         .caption = 'Verbosity level of log output'
         .help = "Possible values:\n"
                 "\t• 0: Info log output to stdout/logfile\n"
                 "\t• 1: Info & debug log output to stdout/logfile"
-    """
-
-phil_scope = iotbx.phil.parse(
-    u"""
     minimum_exposure
         .caption = 'Parameters for the calculation of the lower exposure bound'
         {
@@ -124,7 +114,7 @@ phil_scope = iotbx.phil.parse(
                     "a different extension, either '.pdf', '.ps', '.eps' or '.svg', " \
                     "a file of that format will be created instead."
         }
-        """ + verbosity_scope,
+        """,
     process_includes=True,
 )
 
@@ -136,11 +126,11 @@ debug, info, warn = logger.debug, logger.info, logger.warning
 def scaled_debye_waller(x, b, a):
     # type: (float, float, float) -> float
     u"""
-    A scaled isotropic Debye-Waller factor
+    Calculate a scaled isotropic Debye-Waller factor.
 
     By assuming a single isotropic disorder parameter, :param:`b`, this factor
-    approximates the decay of diffracted X-ray intensity increasing resolution (
-    decreasing d, increasing sin(θ)).
+    approximates the decay of diffracted X-ray intensity increasing resolution
+    (decreasing d, increasing sin(θ)).
 
     Args:
         x: Equivalent to 1/d².
@@ -189,11 +179,11 @@ def wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d):
 
 
 def wilson_plot_ascii(
-        crystal_symmetry,  # type: crystal.symmetry
-        indices,  # type: Sequence[flex.miller_index, ...]
-        intensity,  # type: FloatSequence
-        sigma,  # type: FloatSequence
-        d_ticks=None,  # type: Optional[FloatSequence]
+    crystal_symmetry,  # type: crystal.symmetry
+    indices,  # type: Sequence[flex.miller_index, ...]
+    intensity,  # type: FloatSequence
+    sigma,  # type: FloatSequence
+    d_ticks=None,  # type: Optional[FloatSequence]
 ):
     # type: (...) -> None
     u"""
@@ -216,7 +206,7 @@ def wilson_plot_ascii(
     )
     ma = miller.array(ms, data=intensity, sigmas=sigma)
     ma.set_observation_type_xray_intensity()
-    ma.setup_binner_counting_sorted(n_bins=n_bins)
+    ma.setup_binner_counting_sorted(n_bins=n_bins, reflections_per_bin=1)
     wilson = ma.wilson_plot(use_binning=True)
     # Get the relevant plot data from the miller_array:
     binned_intensity = [x if x else 0 for x in wilson.data[1:-1]]
@@ -244,7 +234,7 @@ def wilson_plot_image(
     fit,  # type: Fit
     max_d=None,  # type: Optional[float]
     ticks=None,  # type: Optional[FloatSequence]
-    output="wilson_plot"  # type: str
+    output="wilson_plot",  # type: str
 ):
     # type: (...) -> None
     u"""
@@ -388,19 +378,22 @@ def suggest_minimum_exposure(expts, refls, params):
             u"The estimated minimal sufficient exposure (flux × exposure time) to "
             u"achievea resolution of %.2g Å is %.3g times the exposure used for this "
             "data collection.",
-            target, recommendation,
+            target,
+            recommendation,
         )
 
-    summary = "\nRecommendations, summarised:\n"
+    summary = "\nRecommendations summarised:\n"
     summary += tabulate(
         recommendations,
         [u"Resolution (Å)", "Suggested\nexposure factor"],
-        floatfmt=(".2g", ".3g"),
+        floatfmt=(".3g", ".3g"),
         tablefmt="rst",
     )
-    summary += u"\nExposure is flux × exposure time." \
-               "\nYou can achieve your desired exposure factor by modifying " \
-               "transmission and/or exposure time."
+    summary += (
+        u"\nExposure is flux × exposure time."
+        "\nYou can achieve your desired exposure factor by modifying "
+        "transmission and/or exposure time."
+    )
     info(summary)
 
     # Draw the Wilson plot image and save to file
@@ -428,7 +421,7 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
         args: Arguments to parse. If None, :data:`sys.argv[1:]` will be used.
         set_up_logging: Choose whether to configure :module:`screen19` logging.
     """
-    usage = "%prog [options] experiments.json reflections.pickle"
+    usage = "%prog [options] integrated.expt integrated.refl"
 
     parser = OptionParser(
         usage=usage,
@@ -442,16 +435,19 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
     params, options = parser.parse_args(args=args)
 
     if set_up_logging:
-        from dials.util import log
-
         # Configure the logging
-        log.config(
-            params.verbosity, info=params.output.log, debug=params.output.debug_log
-        )
+        log.config(params.verbosity, params.output.log)
 
     if not (params.input.experiments and params.input.reflections):
+        version_information = "screen19.minimum_exposure v%s using %s (%s)" % (
+            __version__,
+            dials_version(),
+            time.strftime("%Y-%m-%d %H:%M:%S"),
+        )
+
         print(help_message)
-        sys.exit(1)
+        print(version_information)
+        return
 
     if len(params.input.experiments) > 1:
         warn(
@@ -484,7 +480,5 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
 
 def main():
     # type: () -> None
-    """
-    Dispatcher for command-line call.
-    """
+    """Dispatcher for command-line call."""
     run(set_up_logging=True)
