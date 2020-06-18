@@ -1055,11 +1055,6 @@ class Screen19(object):
         self._import(unhandled)
         imported_name = self.params.dials_import.output.experiments
 
-        n_images = self._count_images()
-        fast_mode = n_images < 10
-        if fast_mode:
-            info("%d images found, skipping a lot of processing.", n_images)
-
         self._find_spots()
 
         if not self._index():
@@ -1088,7 +1083,7 @@ class Screen19(object):
                 )
                 sys.exit(1)
 
-        if not fast_mode and not self._create_profile_model():
+        if not self._create_profile_model():
             info("\nRefining model to attempt to increase number of valid spots...")
             self._refine()
             if not self._create_profile_model():
@@ -1101,8 +1096,7 @@ class Screen19(object):
                 )
                 sys.exit(1)
 
-        if not fast_mode:
-            self._check_intensities()
+        self._check_intensities()
 
         if self.params.minimum_exposure.data == "integrated":
             self._integrate()
@@ -1123,8 +1117,7 @@ class Screen19(object):
         else:
             self._refine_bravais()
 
-        if not fast_mode:
-            self._report(experiments, reflections)
+        self._report(experiments, reflections)
 
         runtime = timeit.default_timer() - start
         debug(

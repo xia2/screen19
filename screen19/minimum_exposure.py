@@ -47,7 +47,7 @@ from tabulate import tabulate
 
 import boost.python
 import iotbx.phil
-from cctbx import crystal, miller
+from cctbx import miller
 from libtbx.phil import scope, scope_extract
 
 from dials.array_family import flex
@@ -177,36 +177,23 @@ def wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d):
     return fit
 
 
-def wilson_plot_ascii(
-    crystal_symmetry,  # type: crystal.symmetry
-    indices,  # type: Sequence[flex.miller_index, ...]
-    intensity,  # type: FloatSequence
-    sigma,  # type: FloatSequence
-    d_ticks=None,  # type: Optional[FloatSequence]
-):
-    # type: (...) -> None
+def wilson_plot_ascii(miller_array, d_ticks=None):
+    # type: (miller.array, Optional[Sequence]) -> None
     u"""
     Print an ASCII-art Wilson plot of reflection intensities.
 
     Equivalent reflections will be merged according to the crystal symmetry.
 
     Args:
-        crystal_symmetry: Crystal symmetry.
-        indices: Miller indices of reflections.
-        intensity: Intensities of reflections.
-        sigma: Standard uncertainties in reflection intensities.
+        miller_array: An array of integrated intensities, bundled with appropriate
+                      crystal symmetry and unit cell info.
         d_ticks: d location of ticks on 1/d² axis.
     """
     # Draw the Wilson plot, using existing functionality in cctbx.miller
     columns, rows = terminal_size()
-    n_bins = min(columns, intensity.size())
-    ms = miller.set(
-        crystal_symmetry=crystal_symmetry, anomalous_flag=False, indices=indices
-    )
-    ma = miller.array(ms, data=intensity, sigmas=sigma)
-    ma.set_observation_type_xray_intensity()
-    ma.setup_binner_counting_sorted(n_bins=n_bins, reflections_per_bin=1)
-    wilson = ma.wilson_plot(use_binning=True)
+    n_bins = min(columns, miller_array.data().size())
+    miller_array.setup_binner_counting_sorted(n_bins=n_bins, reflections_per_bin=1)
+    wilson = miller_array.wilson_plot(use_binning=True)
     # Get the relevant plot data from the miller_array:
     binned_intensity = [x if x else 0 for x in wilson.data[1:-1]]
     bins = dict(zip(wilson.binner.bin_centers(1), binned_intensity))
@@ -303,13 +290,38 @@ def suggest_minimum_exposure(expts, refls, params):
     refls.del_selected(refls["id"] == -1)
     # Ignore all spots flagged as overloaded
     refls.del_selected(refls.get_flags(refls.flags.overloaded).iselection())
-    # The Wilson plot fit implicitly involves taking a logarithm of
-    # intensities, so eliminate values that are going to cause problems
-    try:
-        # Work from profile-fitted intensities where possible
-        refls = refls.select(refls["intensity.prf.value"] > 0)
-    except RuntimeError:
-        refls = refls.select(refls["intensity.sum.value"] > 0)
+
+    # Work from profile-fitted intensities where possible but if the number of
+    # profile-fitted intensities is less than 75% of the number of summed
+    # intensities, use summed intensities instead.  This is a very arbitrary heuristic.
+    sel_prf = refls.get_flags(refls.flags.integrated_prf).iselection()
+    sel_sum = refls.get_flags(refls.flags.integrated_sum).iselection()
+    if sel_prf.size() < 0.75 * sel_sum.size():
+        refls = refls.select(sel_sum)
+        intensity = refls["intensity.sum.value"]
+        sigma = flex.sqrt(refls["intensity.sum.variance"])
+    else:
+        refls = refls.select(sel_prf)
+        intensity = refls["intensity.prf.value"]
+        sigma = flex.sqrt(refls["intensity.prf.variance"])
+
+    # Apply French-Wilson scaling to ensure positive intensities.
+    miller_array = miller.array(
+        miller.set(
+            expts[0].crystal.get_crystal_symmetry(),
+            refls["miller_index"],
+            anomalous_flag=False,
+        ),
+        data=intensity,
+        sigmas=sigma,
+    )
+    miller_array.set_observation_type_xray_intensity()
+    miller_array = miller_array.merge_equivalents().array()
+    miller_array = miller_array.french_wilson().as_intensity_array()
+
+    d_star_sq = miller_array.d_star_sq().data()
+    intensity = miller_array.data()
+    sigma = miller_array.sigmas()
 
     # Parameters for the lower-bound exposure estimate:
     min_i_over_sigma = params.minimum_exposure.min_i_over_sigma
@@ -324,17 +336,6 @@ def suggest_minimum_exposure(expts, refls, params):
             0.4,  # Å
         ]
     desired_d.sort(reverse=True)
-
-    # Get d-spacings, intensity & std dev of reflections
-    symmetry = expts[0].crystal.get_crystal_symmetry()
-    d_star_sq = 1 / symmetry.unit_cell().d(refls["miller_index"]) ** 2
-    try:
-        # Work from profile-fitted intensities and uncertainties where possible
-        intensity = refls["intensity.prf.value"]
-        sigma = flex.sqrt(refls["intensity.prf.variance"])
-    except RuntimeError:
-        intensity = refls["intensity.sum.value"]
-        sigma = flex.sqrt(refls["intensity.sum.variance"])
 
     # Perform the Wilson plot fit
     fit = wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d)
@@ -353,7 +354,7 @@ def suggest_minimum_exposure(expts, refls, params):
     recommended_factor += [1]
 
     # Draw the ASCII art Wilson plot
-    wilson_plot_ascii(symmetry, refls["miller_index"], intensity, sigma, d_ticks)
+    wilson_plot_ascii(miller_array, d_ticks)
 
     recommendations = zip(desired_d, recommended_factor)
     recommendations = sorted(recommendations, key=lambda rec: rec[0], reverse=True)

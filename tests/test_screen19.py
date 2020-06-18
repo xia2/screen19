@@ -83,7 +83,6 @@ def test_screen19(dials_data, tmpdir):
 
 
 def test_screen19_single_frame(dials_data, tmpdir):
-    # TODO Use a single frame with fewer than 80 reflections
     image = dials_data("x4wide").join("X4_wide_M1S4_2_0001.cbf").strpath
 
     with tmpdir.as_cwd():
