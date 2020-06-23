@@ -38,25 +38,24 @@ Examples:
 from __future__ import absolute_import, division, print_function
 
 import logging
-import numpy as np
-from tabulate import tabulate
 import time
+from typing import Iterable, List, Optional, Sequence, Union
 
-# Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
-from typing import Iterable, List, Optional, Sequence, Union  # noqa: F401
+import numpy as np
+from scipy.optimize import curve_fit
+from tabulate import tabulate
 
 import boost.python
+import iotbx.phil
 from cctbx import crystal, miller
+from libtbx.phil import scope, scope_extract
+
 from dials.array_family import flex
 from dials.util import log
 from dials.util.options import OptionParser
 from dials.util.version import dials_version
 from dxtbx.model import Experiment, ExperimentList
-import iotbx.phil
-from libtbx.phil import scope, scope_extract
-from scipy.optimize import curve_fit
-from screen19 import d_ticks, plot_intensities, terminal_size, __version__
-
+from screen19 import __version__, d_ticks, plot_intensities, terminal_size
 
 # Custom types
 FloatSequence = Sequence[float]

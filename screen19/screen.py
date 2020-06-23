@@ -44,7 +44,6 @@ Examples:
 
 from __future__ import absolute_import, division, print_function
 
-from six.moves.cPickle import PickleError
 import json
 import logging
 import math
@@ -54,16 +53,23 @@ import sys
 import time
 import timeit
 from glob import glob
+from typing import Dict, List, Optional, Sequence, Tuple
 
-# Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342).
-# This is fixed in Flake8 >= 3.7.0 (Pyflakes >= 2.1.0) and the noqa can then be removed.
-from typing import Dict, List, Optional, Sequence, Tuple  # noqa: F401
+import procrunner
+from six.moves.cPickle import PickleError
 
-from dials.algorithms.shoebox import MaskCode
+import iotbx.phil
+from libtbx import Auto
+from libtbx.introspection import number_of_processors
+from libtbx.phil import scope
+
+import dials.util.version
+import screen19
 from dials.algorithms.indexing import DialsIndexError
 from dials.algorithms.indexing.bravais_settings import (
     refined_settings_from_refined_triclinic,
 )
+from dials.algorithms.shoebox import MaskCode
 from dials.array_family import flex
 from dials.command_line.dials_import import MetaDataUpdater
 from dials.command_line.index import index
@@ -74,24 +80,17 @@ from dials.command_line.refine_bravais_settings import (
     eliminate_sys_absent,
     map_to_primitive,
 )
-from dials.util import log, Sorry, version
+from dials.util import Sorry, log, version
 from dials.util.ascii_art import spot_counts_per_image_plot
 from dials.util.options import OptionParser
-import dials.util.version
 from dxtbx.model import ExperimentList
 from dxtbx.model.experiment_list import (
     BeamComparison,
     DetectorComparison,
-    GoniometerComparison,
     ExperimentListFactory,
     ExperimentListTemplateImporter,
+    GoniometerComparison,
 )
-import iotbx.phil
-from libtbx import Auto
-from libtbx.introspection import number_of_processors
-from libtbx.phil import scope
-import procrunner
-import screen19
 from screen19.minimum_exposure import suggest_minimum_exposure
 
 Templates = List[Tuple[str, Tuple[int, int]]]
