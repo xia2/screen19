@@ -4,13 +4,14 @@
 
 from __future__ import absolute_import, division, print_function
 
-import os
-import sys
-import re
 import logging
+import os
+import re
+import sys
 import traceback
-import procrunner
 from typing import Dict, Tuple  # noqa: F401
+
+import procrunner
 
 # Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
 

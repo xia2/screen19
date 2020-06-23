@@ -7,7 +7,6 @@ import pytest
 from screen19 import minimum_exposure
 from screen19.screen import Screen19
 
-
 # A list of tuples of example sys.argv[1:] cases and associated image count.
 import_checks = [
     ([""], 900),
