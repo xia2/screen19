@@ -158,6 +158,7 @@ def plot_intensities(
         )
     except OSError:
         info(traceback.format_exc())
+        result = {}
 
     debug("result = %s", prettyprint_dictionary(result))
 
