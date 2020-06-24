@@ -1,4 +1,4 @@
-# Run libtbx.pre-commit install to enable repository pre-commits.
+# Run 'libtbx.precommit install' to enable repository pre-commits.
 repos:
 
 # Automatically sort imports with isort
