@@ -43,6 +43,7 @@ from typing import Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 from scipy.optimize import curve_fit
+from six.moves import cStringIO as StringIO
 from tabulate import tabulate
 
 import boost.python
@@ -317,7 +318,9 @@ def suggest_minimum_exposure(expts, refls, params):
     )
     miller_array.set_observation_type_xray_intensity()
     miller_array = miller_array.merge_equivalents().array()
-    miller_array = miller_array.french_wilson().as_intensity_array()
+    cctbx_log = StringIO()  # Prevent idiosyncratic CCTBX logging from polluting stdout.
+    miller_array = miller_array.french_wilson(log=cctbx_log).as_intensity_array()
+    logger.debug(cctbx_log.getvalue())
 
     d_star_sq = miller_array.d_star_sq().data()
     intensity = miller_array.data()
