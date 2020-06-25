@@ -55,7 +55,7 @@ from dials.util import log as dials_logging
 from dials.util.options import OptionParser
 from dials.util.version import dials_version
 from dxtbx.model import Experiment, ExperimentList
-from screen19 import __version__, d_ticks, plot_intensities, terminal_size
+from screen19 import __version__, d_ticks, plot_wilson
 
 # Custom types
 FloatSequence = Sequence[float]
