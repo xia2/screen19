@@ -6,6 +6,15 @@ from setuptools import find_packages, setup
 with open("README.rst") as readme_file:
     readme = readme_file.read()
 
+changelog_header = """
+=========
+Changelog
+=========
+"""
+
+with open("CHANGELOG.rst") as changelog_file:
+    changelog = changelog_file.read()
+
 setup(
     author="Diamond Light Source",
     author_email="scientificsoftware@diamond.ac.uk",
@@ -41,7 +50,7 @@ setup(
     },
     install_requires=['typing;python_version<"3.5"', "procrunner"],
     license="BSD license",
-    long_description=readme,
+    long_description="\n\n".join([readme, changelog_header, changelog]),
     include_package_data=True,
     name="screen19",
     packages=find_packages(),

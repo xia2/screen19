@@ -1,2 +1,0 @@
-Perform French-Wilson scaling on the integrated intensities before performing the Wilson plot analysis.
-This fixes screen19 failures for certain cases where the data consist of few reflections.
