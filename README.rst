@@ -11,7 +11,7 @@ screen19
         :alt: Build status
 
 .. image:: https://img.shields.io/pypi/pyversions/screen19.svg
-        :target: https://pypi.org/project/fast-dp/
+        :target: https://pypi.org/project/screen19
         :alt: Supported Python versions
 
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
