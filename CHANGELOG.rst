@@ -1,3 +1,17 @@
+screen19 0.209 (2020-06-25)
+===========================
+
+Bugfixes
+--------
+
+- Some overly verbose log messages from the French-Wilson calculation are now suppressed by default.
+  You can still see them, if you want to, by running screen19 in debug mode with::
+
+      screen19 verbosity=1 <other arguments>
+
+  (#30)
+
+
 screen19 0.208 (2020-06-25)
 ===========================
 

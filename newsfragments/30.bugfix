@@ -1,4 +1,0 @@
-Some overly verbose log messages from the French-Wilson calculation are now suppressed by default.
-You can still see them by running screen19 in debug mode with::
-
-    screen19 verbosity=1 <other arguments>
