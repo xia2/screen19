@@ -43,6 +43,7 @@ from typing import Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 from scipy.stats import linregress
+from six.moves import cStringIO as StringIO
 from tabulate import tabulate
 
 import boost.python
@@ -391,12 +392,40 @@ def suggest_minimum_exposure(expts, refls, params):
     refls.del_selected(refls["id"] == -1)
     # Ignore all spots flagged as overloaded
     refls.del_selected(refls.get_flags(refls.flags.overloaded).iselection())
+
+    # Work from profile-fitted intensities where possible but if the number of
+    # profile-fitted intensities is less than 75% of the number of summed
+    # intensities, use summed intensities instead.  This is a very arbitrary heuristic.
+    sel_prf = refls.get_flags(refls.flags.integrated_prf).iselection()
+    sel_sum = refls.get_flags(refls.flags.integrated_sum).iselection()
+    if sel_prf.size() < 0.75 * sel_sum.size():
+        refls = refls.select(sel_sum)
+        intensity = refls["intensity.sum.value"]
+        sigma = flex.sqrt(refls["intensity.sum.variance"])
+    else:
+        refls = refls.select(sel_prf)
+        intensity = refls["intensity.prf.value"]
+        sigma = flex.sqrt(refls["intensity.prf.variance"])
+
+    # Apply French-Wilson scaling to ensure positive intensities.
+    miller_array = miller.array(
+        miller.set(
+            expts[0].crystal.get_crystal_symmetry(),
+            refls["miller_index"],
+            anomalous_flag=False,
+        ),
+        data=intensity,
+        sigmas=sigma,
+    )
+    miller_array.set_observation_type_xray_intensity()
+    miller_array = miller_array.merge_equivalents().array()
+    cctbx_log = StringIO()  # Prevent idiosyncratic CCTBX logging from polluting stdout.
+    miller_array = miller_array.french_wilson(log=cctbx_log).as_intensity_array()
+    logger.debug(cctbx_log.getvalue())
+
     # The Wilson plot fit implicitly involves taking a logarithm of
     # intensities, so eliminate values that are going to cause problems
-    try:
-        iobs = refls.as_miller_array(expts[0], intensity="prf").resolution_filter(d_max=100, d_min=0)
-    except:
-        iobs = refls.as_miller_array(expts[0], intensity="sum").resolution_filter(d_max=100, d_min=0)
+    iobs = miller_array.resolution_filter(d_max=100, d_min=0)
     iobs.setup_binner_d_star_sq_step(d_star_sq_step=params.minimum_exposure.dstarsq_bin_size)
 
     # Parameters for the lower-bound exposure estimate:
