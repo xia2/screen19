@@ -1,5 +1,5 @@
 # coding: utf-8
-u"""
+"""
 Perform straight-line Wilson plot fit.  Draw the Wilson plot.
 
 Reflection d-spacings are determined from the crystal symmetry (from
@@ -49,11 +49,11 @@ from six.moves import cStringIO as StringIO
 from tabulate import tabulate
 
 import boost.python
-import iotbx.phil
-from iotbx.reflection_file_reader import any_reflection_file
-from cctbx import miller, crystal
 import cctbx.eltbx.xray_scattering
+import iotbx.phil
+from cctbx import crystal
 from cctbx.xray import observation_types
+from iotbx.reflection_file_reader import any_reflection_file
 from libtbx.phil import scope, scope_extract
 
 from dials.array_family import flex
@@ -74,7 +74,7 @@ help_message = __doc__
 
 
 phil_scope = iotbx.phil.parse(
-    u"""
+    """
     verbosity = 0
         .type = int(value_min=0)
         .caption = 'Verbosity level of log output'
@@ -170,13 +170,13 @@ debug, info, warn = logger.debug, logger.info, logger.warning
 
 
 def read_intensity_values(params):
-    u"""
+    """
     Read intensity data from the input .refl, .expt or .mtz files
     """
     if params.input.experiments and params.input.reflections:
         expts = params.input.experiments[0].data
         refls = params.input.reflections[0].data
-    
+
         if len(expts) > 1:
             warn(
                 "The experiment list you provided, %s, contains more than one "
@@ -190,7 +190,7 @@ def read_intensity_values(params):
         refls.del_selected(refls["id"] == -1)
         # Ignore all spots flagged as overloaded
         refls.del_selected(refls.get_flags(refls.flags.overloaded).iselection())
-    
+
         # Work from profile-fitted intensities where possible but if the number of
         # profile-fitted intensities is less than 75% of the number of summed
         # intensities, use summed intensities instead.  This is a very arbitrary heuristic.
@@ -226,32 +226,48 @@ def setup_data_binning(iobs_ref, params):
     iobs = iobs_ref.resolution_filter(d_max=100, d_min=0)
     if iobs.is_unmerged_intensity_array():
         iobs = iobs.merge_equivalents().array()
-    #iobs.setup_binner_d_star_sq_step(d_star_sq_step=bin_size)
+    # iobs.setup_binner_d_star_sq_step(d_star_sq_step=bin_size)
     logger.debug(f"Number of merged reflections: {iobs.size()}")
     if params.minimum_exposure.use_french_wilson:
         # Apply French-Wilson scaling to ensure positive intensities.
-        cctbx_log = StringIO()  # Prevent idiosyncratic CCTBX logging from polluting stdout.
+        cctbx_log = (
+            StringIO()
+        )  # Prevent idiosyncratic CCTBX logging from polluting stdout.
         iobs = iobs.french_wilson(log=cctbx_log).as_intensity_array()
         logger.debug(cctbx_log.getvalue())
-        logger.debug(f"Number of reflections after French-Wilson scaling: {iobs.size()}")
+        logger.debug(
+            f"Number of reflections after French-Wilson scaling: {iobs.size()}"
+        )
     try:
-        iobs.setup_binner_counting_sorted(n_bins=params.minimum_exposure.n_bins_counting_sorted,
-                                          reflections_per_bin=params.minimum_exposure.n_refl_counting_sorted)
+        iobs.setup_binner_counting_sorted(
+            n_bins=params.minimum_exposure.n_bins_counting_sorted,
+            reflections_per_bin=params.minimum_exposure.n_refl_counting_sorted,
+        )
         return iobs
     except AssertionError:
         pass
 
-    #Find sufficiently large d_starqs bin size to reach minimal reflection count per bin
-    max_dstarsq_bin_size = max(params.minimum_exposure.dstarsq_bin_size,
-                               params.minimum_exposure.max_dstarsq_bin_size)
+    # Find sufficiently large d_starqs bin size to reach minimal reflection count per bin
+    max_dstarsq_bin_size = max(
+        params.minimum_exposure.dstarsq_bin_size,
+        params.minimum_exposure.max_dstarsq_bin_size,
+    )
     bin_size = params.minimum_exposure.dstarsq_bin_size
     while bin_size <= max_dstarsq_bin_size:
         iobs.setup_binner_d_star_sq_step(d_star_sq_step=bin_size)
         logger.debug(f"Trial d_starsq bin_size: {bin_size}")
         logger.debug(f"Total number of d_starsq  bins: {iobs.binner().n_bins_all()}")
-        idx_small = [i for i in iobs.binner().range_used()[:-1] if iobs.binner().count(i) < params.minimum_exposure.min_bin_count]
+        idx_small = [
+            i
+            for i in iobs.binner().range_used()[:-1]
+            if iobs.binner().count(i) < params.minimum_exposure.min_bin_count
+        ]
         logger.debug(f"Indices of bins with insufficient reflection count: {idx_small}")
-        if not idx_small or params.minimum_exposure.n_refl_counting_sorted or params.minimum_exposure.n_bins_counting_sorted:
+        if (
+            not idx_small
+            or params.minimum_exposure.n_refl_counting_sorted
+            or params.minimum_exposure.n_bins_counting_sorted
+        ):
             break
         else:
             bin_size += params.minimum_exposure.incr_dstarsq_bin_size
@@ -259,7 +275,7 @@ def setup_data_binning(iobs_ref, params):
 
 
 def number_residues_estimate(symmetry):
-    u"""
+    """
     Guess the number of residues in the asymmetric unit cell, assuming most frequent
     Matthews coefficient 2.34 Å^3/Da at 50% solvent content, 112.5 Da average residue weight and
     average residue composition from http://www.ccp4.ac.uk/html/matthews_coef.html.
@@ -271,12 +287,13 @@ def number_residues_estimate(symmetry):
 
     v_asu = uc.volume() / n_ops
     n_res = int(round(v_asu / (2.34 * 112.5)))
-    asu_contents = {"C": 5 * n_res,
-                    "N": 1.35 * n_res,
-                    "O": 1.5 * n_res,
-                    "H": 8 * n_res,
-                    "S": 0.05 * n_res
-                    }
+    asu_contents = {
+        "C": 5 * n_res,
+        "N": 1.35 * n_res,
+        "O": 1.5 * n_res,
+        "H": 8 * n_res,
+        "S": 0.05 * n_res,
+    }
     scattering_factors = {}
     for atom in asu_contents.keys():
         scattering_factors[atom] = cctbx.eltbx.xray_scattering.wk1995(atom).fetch()
@@ -285,23 +302,23 @@ def number_residues_estimate(symmetry):
 
 
 def model_f_sq(stol_sq, asu_contents, scattering_factors, symmetry):
-    u"""
+    """
     Compute expected model intensity values in resolution shells
     """
     sum_fj_sq = 0
     for atom, n_atoms in asu_contents.items():
         f0 = scattering_factors[atom].at_stol_sq(stol_sq)
         sum_fj_sq += f0 * f0 * n_atoms
-    sum_fj_sq *= symmetry.space_group().order_z() \
-                        * symmetry.space_group().n_ltr()
+    sum_fj_sq *= symmetry.space_group().order_z() * symmetry.space_group().n_ltr()
     return sum_fj_sq
 
+
 def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, params):
-    u"""
+    """
     Fit a simple Debye-Waller factor, assume isotropic disorder parameter.
     Adapted from cctbx implementation in cctbx.statistics.wilson_plot object.
     Resolution range for Wilson Plot fit is selected based on the best correlation
-    coefficient value obtained from least-squares linear regression fit. 
+    coefficient value obtained from least-squares linear regression fit.
 
     Reflections with d ≥ :param:`wilson_fit_max_d` are ignored.
     Reflections in high resolution area with missing data rate >20% are ignored.
@@ -321,14 +338,12 @@ def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, params):
     """
     assert iobs.is_real_array()
     # compute <fobs^2> in resolution shells
-    mean_iobs = iobs.mean(
-        use_binning=True,
-        use_multiplicities=True).data[1:-1]
+    mean_iobs = iobs.mean(use_binning=True, use_multiplicities=True).data[1:-1]
     n_none = mean_iobs.count(None)
-    if (n_none > 0):
+    if n_none > 0:
         error_message = "wilson_plot error: number of empty bins: %d" % n_none
         info = iobs.info()
-        if (info is not None):
+        if info is not None:
             error_message += "\n  Info: " + str(info)
         error_message += "\n  Number of bins: %d" % len(mean_iobs)
         raise RuntimeError(error_message)
@@ -336,9 +351,9 @@ def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, params):
     # compute <s^2> = <(sin(theta)/lambda)^2> in resolution shells
     stol_sq = iobs.sin_theta_over_lambda_sq()
     stol_sq.use_binner_of(iobs)
-    mean_stol_sq = flex.double(stol_sq.mean(
-        use_binning=True,
-        use_multiplicities=True).data[1:-1])
+    mean_stol_sq = flex.double(
+        stol_sq.mean(use_binning=True, use_multiplicities=True).data[1:-1]
+    )
     # compute expected f_calc^2 in resolution shells
     icalc = flex.double()
     for stol_sq in mean_stol_sq:
@@ -348,55 +363,97 @@ def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, params):
     x = mean_stol_sq
     y = flex.log(mean_iobs / icalc)
     try:
-        idx_resol = [i for i, v in enumerate(x) if v < 1. / (4 * params.minimum_exposure.wilson_fit_max_d**2)][-1]
+        idx_resol = [
+            i
+            for i, v in enumerate(x)
+            if v < 1.0 / (4 * params.minimum_exposure.wilson_fit_max_d ** 2)
+        ][-1]
     except IndexError:
         idx_resol = 0
     if not params.minimum_exposure.use_french_wilson:
-        #Find index of a resolution bin with missing data point that
-        #has more missing data in subsequent resolution bins
+        # Find index of a resolution bin with missing data point that
+        # has more missing data in subsequent resolution bins
         try:
             nan_window = 10
             nan_threshold = 2
-            nan_test_data = [y[j:j+nan_window] for j in range(len(y)-nan_window)]
-            idx_nan = next((i for i, l in enumerate(nan_test_data)
-                             if len([v for v in l if (np.isnan(v) or np.isinf(v)) and (np.isnan(l[0]) or np.isinf(l[0]))]) > nan_threshold))
+            nan_test_data = [y[j : j + nan_window] for j in range(len(y) - nan_window)]
+            idx_nan = next(
+                (
+                    i
+                    for i, l in enumerate(nan_test_data)
+                    if len(
+                        [
+                            v
+                            for v in l
+                            if (np.isnan(v) or np.isinf(v))
+                            and (np.isnan(l[0]) or np.isinf(l[0]))
+                        ]
+                    )
+                    > nan_threshold
+                )
+            )
         except StopIteration:
             idx_nan = len(y) - 1
     else:
-            idx_nan = len(y) - 1
+        idx_nan = len(y) - 1
 
-    print("\nSelected resolution range: %.2f - %.2f Å\n" % (1. / (2 * np.sqrt(x[idx_resol])),
-                                                             1. / (2 * np.sqrt(x[idx_nan]))))
-    #Generate list of resolution intervals for linear regression fit
-    #Use at least a third of the selected resolution range as a fit interval
+    print(
+        "\nSelected resolution range: %.2f - %.2f Å\n"
+        % (1.0 / (2 * np.sqrt(x[idx_resol])), 1.0 / (2 * np.sqrt(x[idx_nan])))
+    )
+    # Generate list of resolution intervals for linear regression fit
+    # Use at least a third of the selected resolution range as a fit interval
     resol_window = int((idx_nan - idx_resol) / 3) + 1
-    resol_intervals = [(i, j) for i in range(idx_resol, idx_nan - resol_window) for j in range(i + resol_window, idx_nan)]
+    resol_intervals = [
+        (i, j)
+        for i in range(idx_resol, idx_nan - resol_window)
+        for j in range(i + resol_window, idx_nan)
+    ]
     if not resol_intervals:
-        resol_intervals = [(idx_resol, idx_resol  + 10)]
+        resol_intervals = [(idx_resol, idx_resol + 10)]
     res_linreg = []
     for i, (idx_res1, idx_res2) in enumerate(resol_intervals):
         sel_x = list(x)[idx_res1:idx_res2]
         sel_y = list(y)[idx_res1:idx_res2]
-        xy_data = np.array(list(zip(*[[tx, ty] for tx, ty in zip(sel_x, sel_y) if not (np.isnan(tx) or
-                                                          np.isnan(ty) or
-                                                          np.isinf(tx) or
-                                                          np.isinf(ty))])))
+        xy_data = np.array(
+            list(
+                zip(
+                    *[
+                        [tx, ty]
+                        for tx, ty in zip(sel_x, sel_y)
+                        if not (
+                            np.isnan(tx) or np.isnan(ty) or np.isinf(tx) or np.isinf(ty)
+                        )
+                    ]
+                )
+            )
+        )
         try:
             fit_slope, fit_y_intercept, r_value, p_value, std_err = linregress(xy_data)
         except Exception:
             continue
         if np.isnan(fit_slope) or np.isnan(fit_y_intercept):
             continue
-        #Use correlation coefficient value normalised by the resolution range
-        #as a metric to select the best Wilson Plot fit
+        # Use correlation coefficient value normalised by the resolution range
+        # as a metric to select the best Wilson Plot fit
         try:
-            rval = log(-r_value)**2 / (idx_res2 - idx_res1)
+            rval = log(-r_value) ** 2 / (idx_res2 - idx_res1)
         except ValueError:
             continue
-        res_linreg.append(((idx_res1, idx_res2), (fit_slope, fit_y_intercept, r_value, p_value, std_err), rval))
+        res_linreg.append(
+            (
+                (idx_res1, idx_res2),
+                (fit_slope, fit_y_intercept, r_value, p_value, std_err),
+                rval,
+            )
+        )
     if not res_linreg:
         raise RuntimeError("Linear regression procedure has failed.")
-    (idx_resol, idx_nan), (fit_slope, fit_y_intercept, r_value, p_value, std_err), _ = min(res_linreg, key=lambda t: t[-1])
+    (
+        (idx_resol, idx_nan),
+        (fit_slope, fit_y_intercept, r_value, p_value, std_err),
+        _,
+    ) = min(res_linreg, key=lambda t: t[-1])
     std_fit_slope = np.std([v[1][0] for v in res_linreg])
     wilson_b = (-fit_slope / 2, std_fit_slope / 2)
     return wilson_b, fit_y_intercept, x, y, (idx_resol, idx_nan)
@@ -410,7 +467,7 @@ def wilson_plot_ascii(
     d_ticks=None,  # type: Optional[FloatSequence]
 ):
     # type: (...) -> None
-    u"""
+    """
     Print an ASCII-art Wilson plot of reflection intensities.
 
     Equivalent reflections will be merged according to the crystal symmetry.
@@ -423,7 +480,9 @@ def wilson_plot_ascii(
         d_ticks: d location of ticks on 1/d² axis.
     """
     # Draw the Wilson plot, using existing functionality in cctbx.miller
-    plot_data = [(s, v, fit_y_intercept - 2 * wilson_b * s) for s, v in zip(stol_sq, intensity)]
+    plot_data = [
+        (s, v, fit_y_intercept - 2 * wilson_b * s) for s, v in zip(stol_sq, intensity)
+    ]
     if d_ticks:
         tick_positions = ", ".join(['"%g" %s' % (d, 1 / (4 * d ** 2)) for d in d_ticks])
         tick_positions = tick_positions.join(["(", ")"])
@@ -449,7 +508,7 @@ def wilson_plot_image(
     output="wilson_plot",  # type: str
 ):
     # type: (...) -> None
-    u"""
+    """
     Generate the Wilson plot as a PNG image.
 
     :param:`max_d` allows greying out of the reflections not included in the
@@ -470,7 +529,7 @@ def wilson_plot_image(
     from matplotlib import pyplot as plt
 
     fig, ax = plt.subplots()
-    plt.scatter(stol_sq, log_i_over_sig, c='b', s=5)
+    plt.scatter(stol_sq, log_i_over_sig, c="b", s=5)
     plt.plot(stol_sq, [-2 * wilson_b[0] * v + fit_y_intercept for v in stol_sq])
     max_stol_sq, min_stol_sq = tuple(stol_sq[i] for i in idx_d_range)
     max_d, min_d = tuple((1.0 / (2 * np.sqrt(x)) for x in (max_stol_sq, min_stol_sq)))
@@ -486,20 +545,21 @@ def wilson_plot_image(
         )
         if idx_d_range[-1] < len(stol_sq) - 1:
             plt.fill_betweenx(
-                y_range,
-                min_stol_sq,
-                plt.xlim()[-1],
-                color="k",
-                alpha=0.25,
-                zorder=2.1
+                y_range, min_stol_sq, plt.xlim()[-1], color="k", alpha=0.25, zorder=2.1
             )
     except TypeError:
         pass
-    plt.title(u"Fitted isotropic displacement parameter, B = %.1f ± %.1f Å²\n Wilson Plot fitting range: %.2f - %.2f Å" % (*wilson_b, max_d, min_d))
-    plt.xlabel(u"d / Å")
-    plt.ylabel(u"log(<I>/Σ)")
+    plt.title(
+        "Fitted isotropic displacement parameter, B = %.1f ± %.1f Å²\n Wilson Plot fitting range: %.2f - %.2f Å"
+        % (*wilson_b, max_d, min_d)
+    )
+    plt.xlabel("d / Å")
+    plt.ylabel("log(<I>/Σ)")
     ax.set_xticklabels(
-            ["{:.2f}".format(np.float64(1.0) / (2 * np.sqrt(x))) if x > 0 else np.inf for x in ax.get_xticks()]
+        [
+            "{:.2f}".format(np.float64(1.0) / (2 * np.sqrt(x))) if x > 0 else np.inf
+            for x in ax.get_xticks()
+        ]
     )
     plt.legend(loc=0)
     plt.savefig(output)
@@ -508,7 +568,7 @@ def wilson_plot_image(
 
 def suggest_minimum_exposure(iobs, params):
     # type: (ExperimentList[Experiment], flex.reflection_table, scope_extract) -> None
-    u"""
+    """
     Suggest an estimated minimum sufficient exposure to achieve a certain resolution.
 
     The estimate is based on a fit of a Debye-Waller factor under the assumption that a
@@ -531,90 +591,120 @@ def suggest_minimum_exposure(iobs, params):
     desired_d = params.minimum_exposure.desired_d
 
     # Get estimated asymmetric unit cell contents and corresponding scattering factors
-    #symmetry = expts[0].crystal.get_crystal_symmetry()
-    symmetry = crystal.symmetry(space_group=iobs.space_group(),
-                                unit_cell=iobs.unit_cell())
+    # symmetry = expts[0].crystal.get_crystal_symmetry()
+    symmetry = crystal.symmetry(
+        space_group=iobs.space_group(), unit_cell=iobs.unit_cell()
+    )
 
     asu_contents, scattering_factors = number_residues_estimate(symmetry)
 
     # Perform the Wilson plot fit
-    (wilson_b, std_wilson_b), fit_y_intercept, x, y, idx_fit_range = wilson_fit(iobs,
-                                                                asu_contents,
-                                                                scattering_factors,
-                                                                symmetry,
-                                                                params)
+    (wilson_b, std_wilson_b), fit_y_intercept, x, y, idx_fit_range = wilson_fit(
+        iobs, asu_contents, scattering_factors, symmetry, params
+    )
     max_d, min_d = tuple((1.0 / (2 * np.sqrt(x[i])) for i in idx_fit_range))
-    
+
     # Find reference resolution bin that matches the reference I/σ value
-    iobs_selected = iobs.select(iobs.data() > 0).select(iobs.d_spacings().data() > min_d)
-    iobs_selected.use_binning_of(iobs) 
+    iobs_selected = iobs.select(iobs.data() > 0).select(
+        iobs.d_spacings().data() > min_d
+    )
+    iobs_selected.use_binning_of(iobs)
     mean_i_over_sigma = iobs_selected.i_over_sig_i(use_binning=True, return_fail=0)
     try:
-        i_over_sigma_vals = list(zip(mean_i_over_sigma.data[1:-1],
-                                                         mean_i_over_sigma.binner.range_all()[1:-1]))
+        i_over_sigma_vals = list(
+            zip(
+                mean_i_over_sigma.data[1:-1], mean_i_over_sigma.binner.range_all()[1:-1]
+            )
+        )
         logger.debug(f"List of I/σ values: {i_over_sigma_vals}")
-        min_i_over_sigma_bin = next((res for val, res in i_over_sigma_vals if val < min_i_over_sigma))
+        min_i_over_sigma_bin = next(
+            (res for val, res in i_over_sigma_vals if val < min_i_over_sigma)
+        )
         dmin_i_over_sigma = mean_i_over_sigma.binner.bin_d_min(min_i_over_sigma_bin)
     except Exception:
         min_i_over_sigma_bin = mean_i_over_sigma.binner.range_all()[-2]
         dmin_i_over_sigma = mean_i_over_sigma.binner.bin_d_min(min_i_over_sigma_bin)
         min_i_over_sigma = mean_i_over_sigma.data[min_i_over_sigma_bin]
 
-    
     # If no target resolution is given, use the following defaults:
     if not params.minimum_exposure.desired_d:
-        desired_d = [dmin_i_over_sigma,]
-        desired_d.extend((round(dmin_i_over_sigma * 10 / sc) / 10. for sc in (1.25, 1.5, 1.75, 2, dmin_i_over_sigma)))
+        desired_d = [
+            dmin_i_over_sigma,
+        ]
+        desired_d.extend(
+            (
+                round(dmin_i_over_sigma * 10 / sc) / 10.0
+                for sc in (1.25, 1.5, 1.75, 2, dmin_i_over_sigma)
+            )
+        )
     desired_d = sorted(set(desired_d), reverse=True)[:5]
 
     # Get recommended exposure factors
     recommended_factor = [
-        exp(-wilson_b / (2.*dmin_i_over_sigma**2) + wilson_b / (2.*target_d**2)) \
-        * model_f_sq(1. / (4.*dmin_i_over_sigma**2), asu_contents, scattering_factors, symmetry) \
-        / model_f_sq(1. / (4.*target_d**2), asu_contents, scattering_factors, symmetry)
+        exp(
+            -wilson_b / (2.0 * dmin_i_over_sigma ** 2)
+            + wilson_b / (2.0 * target_d ** 2)
+        )
+        * model_f_sq(
+            1.0 / (4.0 * dmin_i_over_sigma ** 2),
+            asu_contents,
+            scattering_factors,
+            symmetry,
+        )
+        / model_f_sq(
+            1.0 / (4.0 * target_d ** 2), asu_contents, scattering_factors, symmetry
+        )
         for target_d in desired_d
     ]
 
     # Draw the ASCII art Wilson plot
     wilson_plot_ascii(x, y, wilson_b, fit_y_intercept, d_ticks)
-    
+
     recommendations = zip(desired_d, recommended_factor)
     recommendations = sorted(recommendations, key=lambda rec: rec[0], reverse=True)
 
     # Print a recommendation to the user.
-    info(u"\nFitted isotropic displacement parameter, B = %.1f ± %.1f Å²", wilson_b, std_wilson_b)
-    info(u"\nWilson Plot fitting range: %.2f - %.2f Å", max_d, min_d)
-    info(u"\nSelected reference resolution %.2f Å at I/σ = %.2f", dmin_i_over_sigma, min_i_over_sigma)
+    info(
+        "\nFitted isotropic displacement parameter, B = %.1f ± %.1f Å²",
+        wilson_b,
+        std_wilson_b,
+    )
+    info("\nWilson Plot fitting range: %.2f - %.2f Å", max_d, min_d)
+    info(
+        "\nSelected reference resolution %.2f Å at I/σ = %.2f",
+        dmin_i_over_sigma,
+        min_i_over_sigma,
+    )
     for target, recommendation in recommendations:
         if recommendation < 1:
             debug(
-                u"\nIt is likely that you can achieve a resolution of %g Å using a "
+                "\nIt is likely that you can achieve a resolution of %g Å using a "
                 "lower exposure (lower transmission and/or shorter exposure time).",
                 target,
             )
         elif recommendation > 1:
             debug(
                 "\nIt is likely that you need a higher exposure (higher transmission "
-                u"and/or longer exposure time to achieve a resolution of %g Å.",
+                "and/or longer exposure time to achieve a resolution of %g Å.",
                 target,
             )
         debug(
-            u"The estimated minimal sufficient exposure (flux × exposure time) to "
-            u"achieve a resolution of %.2g Å is %.3g times the exposure used for this "
+            "The estimated minimal sufficient exposure (flux × exposure time) to "
+            "achieve a resolution of %.2g Å is %.3g times the exposure used for this "
             "data collection.",
             target,
             recommendation,
         )
-    
+
     summary = "\nRecommendations summarised:\n"
     summary += tabulate(
         recommendations,
-        [u"Resolution (Å)", "Suggested\nexposure factor"],
+        ["Resolution (Å)", "Suggested\nexposure factor"],
         floatfmt=(".3g", ".3g"),
         tablefmt="rst",
     )
     summary += (
-        u"\nExposure is flux × exposure time."
+        "\nExposure is flux × exposure time."
         "\nYou can achieve your desired exposure factor by modifying "
         "transmission and/or exposure time."
     )
