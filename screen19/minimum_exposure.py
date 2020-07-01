@@ -169,22 +169,11 @@ logger = logging.getLogger(logger_name)
 debug, info, warn = logger.debug, logger.info, logger.warning
 
 
-def read_intensity_values(params):
+def read_intensity_values(expts, refls, params):
     """
     Read intensity data from the input .refl, .expt or .mtz files
     """
-    if params.input.experiments and params.input.reflections:
-        expts = params.input.experiments[0].data
-        refls = params.input.reflections[0].data
-
-        if len(expts) > 1:
-            warn(
-                "The experiment list you provided, %s, contains more than one "
-                "experiment object (perhaps multiple indexing solutions).  Only "
-                "the first will be used, all others will be ignored.",
-                params.input.experiments[0].filename,
-            )
-
+    if expts and refls:
         # Ignore reflections without an index, since uctbx.unit_cell.d returns spurious
         # d == -1 values, rather than None, for unindexed reflections.
         refls.del_selected(refls["id"] == -1)
@@ -566,7 +555,7 @@ def wilson_plot_image(
     plt.close()
 
 
-def suggest_minimum_exposure(iobs, params):
+def suggest_minimum_exposure(expts, refls, params):
     # type: (ExperimentList[Experiment], flex.reflection_table, scope_extract) -> None
     """
     Suggest an estimated minimum sufficient exposure to achieve a certain resolution.
@@ -586,6 +575,8 @@ def suggest_minimum_exposure(iobs, params):
         params: Parameters for calculation of minimum exposure estimate.
     """
 
+    iobs = read_intensity_values(expts, refls, params)
+    iobs = setup_data_binning(iobs, params)
     # Parameters for the lower-bound exposure estimate:
     min_i_over_sigma = params.minimum_exposure.min_i_over_sigma
     desired_d = params.minimum_exposure.desired_d
@@ -777,9 +768,19 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
             ", ".join([refls.filename for refls in params.input.reflections]),
             params.input.reflections[0].filename,
         )
-    iobs = read_intensity_values(params)
-    iobs = setup_data_binning(iobs, params)
-    suggest_minimum_exposure(iobs, params)
+
+    expts = params.input.experiments[0].data
+    refls = params.input.reflections[0].data
+
+    if len(expts) > 1:
+        warn(
+            "The experiment list you provided, %s, contains more than one "
+            "experiment object (perhaps multiple indexing solutions).  Only "
+            "the first will be used, all others will be ignored.",
+            params.input.experiments[0].filename,
+        )
+
+    suggest_minimum_exposure(expts, refls, params)
 
 
 def main():
