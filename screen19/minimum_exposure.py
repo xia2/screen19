@@ -29,8 +29,10 @@ Examples:
 
     screen19.minimum_exposure indexed.expt indexed.refl
 
+    screen19.minimum_exposure mtz=integrated.mtz
+
     screen19.minimum_exposure min_i_over_sigma=2 desired_d=0.84 wilson_fit_max_d=4 \
-        integrated.expt integrated.refl
+integrated.expt integrated.refl
 
 """
 
@@ -48,7 +50,10 @@ from tabulate import tabulate
 
 import boost.python
 import iotbx.phil
+from iotbx.reflection_file_reader import any_reflection_file
+from cctbx import miller, crystal
 import cctbx.eltbx.xray_scattering
+from cctbx.xray import observation_types
 from libtbx.phil import scope, scope_extract
 
 from dials.array_family import flex
@@ -76,6 +81,11 @@ phil_scope = iotbx.phil.parse(
         .help = "Possible values:\n"
                 "\t• 0: Info log output to stdout/logfile\n"
                 "\t• 1: Info & debug log output to stdout/logfile"
+    mtz = None
+        .type = str
+        .caption = '.mtz filename with input intensity data'
+        .help = 'Input merged or unmerged intensity .mtz data file name. This parameter ' \
+                'is ignored if .refl and .expr files are provided.'
     minimum_exposure
         .caption = 'Parameters for the calculation of the lower exposure bound'
         {
@@ -92,16 +102,47 @@ phil_scope = iotbx.phil.parse(
                     u'the exposure (flux × exposure time) required to ensure that the' \
                     'majority of expected reflections at the desired resolution limit' \
                     u'have I/σ greater than or equal to this value.'
-        wilson_fit_max_d = 3  # Å
+        wilson_fit_max_d = 4  # Å
             .type = float
             .caption = u'Maximum d-value (in Ångströms) for displacement parameter fit'
             .help = 'Reflections with lower resolution than this value will be ' \
                     'ignored for the purposes of the Wilson plot.'
-        dstarsq_bin_size = 0.004
+        n_bins_counting_sorted = 40
+            .type = int
+            .caption = u'Number of bins used in counting-sorted binner.'
+            .help = 'When this option is selected counting-sorted binner is used' \
+                    'with the specified number of bins. Set to None together with' \
+                    'n_refl_counting_sorted to use dstarsq binner instead.'
+        n_refl_counting_sorted = None
+            .type = int
+            .caption = u'Number of refelections per bin in counting-sorted binner.'
+            .help = 'When this option is selected counting-sorted binner is used' \
+                    'with the specified number of reflections per bin.. Set to None' \
+                    'together with n_bins_counting_sorted to use dstarsq binner instead.'
+        dstarsq_bin_size = 0.005
             .type = float
             .caption = u'Bin size for averaging intensity data.'
             .help = 'Bin size in 1/d² units used for averaging intensity data' \
                     'in calculation of Wilson plot.'
+        max_dstarsq_bin_size = 0.025
+            .type = float
+            .caption = u'Maximum bin size for averaging intensity data.'
+            .help = 'Maximum bin size in 1/d² units to be used for averaging' \
+                    'intensity data in calculation of Wilson plot.'
+        incr_dstarsq_bin_size = 0.0025
+            .type = float
+            .caption = u'Bin size increment for averaging intensity data.'
+            .help = 'Bin size increment in 1/d² units used in iterative procedure of' \
+                    'finding bin size with minimal number of reflections per bin.'
+        min_bin_count = 20
+            .type = float
+            .caption = u'Minimum number of reflections per resolution bin.'
+            .help = 'Minimum number of reflections per bin that needs to be achieved' \
+                    'in iterative bin size optimisation algorithm.'
+        use_french_wilson = True
+            .type = bool
+            .caption = u'Apply French-Wilson scaling.'
+            .help = 'Apply cctbx implementation of French-Wilson scaling algorithm.'
         }
     output
         .caption = 'Parameters to control the output'
@@ -126,6 +167,95 @@ phil_scope = iotbx.phil.parse(
 logger_name = "dials.screen19.minimum_exposure"
 logger = logging.getLogger(logger_name)
 debug, info, warn = logger.debug, logger.info, logger.warning
+
+
+def read_intensity_values(params):
+    u"""
+    Read intensity data from the input .refl, .expt or .mtz files
+    """
+    if params.input.experiments and params.input.reflections:
+        expts = params.input.experiments[0].data
+        refls = params.input.reflections[0].data
+    
+        if len(expts) > 1:
+            warn(
+                "The experiment list you provided, %s, contains more than one "
+                "experiment object (perhaps multiple indexing solutions).  Only "
+                "the first will be used, all others will be ignored.",
+                params.input.experiments[0].filename,
+            )
+
+        # Ignore reflections without an index, since uctbx.unit_cell.d returns spurious
+        # d == -1 values, rather than None, for unindexed reflections.
+        refls.del_selected(refls["id"] == -1)
+        # Ignore all spots flagged as overloaded
+        refls.del_selected(refls.get_flags(refls.flags.overloaded).iselection())
+    
+        # Work from profile-fitted intensities where possible but if the number of
+        # profile-fitted intensities is less than 75% of the number of summed
+        # intensities, use summed intensities instead.  This is a very arbitrary heuristic.
+        sel_prf = refls.get_flags(refls.flags.integrated_prf).iselection()
+        sel_sum = refls.get_flags(refls.flags.integrated_sum).iselection()
+        if sel_prf.size() < 0.75 * sel_sum.size():
+            iobs = refls.as_miller_array(expts[0], intensity="prf")
+        else:
+            iobs = refls.as_miller_array(expts[0], intensity="sum")
+    elif params.mtz:
+        print("Reading data from %s" % params.mtz)
+        reader = any_reflection_file(params.mtz)
+        file_content = reader.file_content()
+        is_merged = False if file_content.n_batches() > 0 else True
+        data = [
+            m
+            for m in reader.as_miller_arrays(merge_equivalents=is_merged)
+            if type(m.observation_type()) is observation_types.intensity
+        ]
+        if not data:
+            raise ValueError("Intensity data not found in %s" % params.mtz)
+        if is_merged:
+            iobs = data[0]
+        else:
+            indices = file_content.extract_original_index_miller_indices()
+            iobs = data[0].customized_copy(indices=indices, info=data[0].info())
+    return iobs
+
+
+def setup_data_binning(iobs_ref, params):
+    # The Wilson plot fit implicitly involves taking a logarithm of
+    # intensities, so eliminate values that are going to cause problems
+    iobs = iobs_ref.resolution_filter(d_max=100, d_min=0)
+    if iobs.is_unmerged_intensity_array():
+        iobs = iobs.merge_equivalents().array()
+    #iobs.setup_binner_d_star_sq_step(d_star_sq_step=bin_size)
+    logger.debug(f"Number of merged reflections: {iobs.size()}")
+    if params.minimum_exposure.use_french_wilson:
+        # Apply French-Wilson scaling to ensure positive intensities.
+        cctbx_log = StringIO()  # Prevent idiosyncratic CCTBX logging from polluting stdout.
+        iobs = iobs.french_wilson(log=cctbx_log).as_intensity_array()
+        logger.debug(cctbx_log.getvalue())
+        logger.debug(f"Number of reflections after French-Wilson scaling: {iobs.size()}")
+    try:
+        iobs.setup_binner_counting_sorted(n_bins=params.minimum_exposure.n_bins_counting_sorted,
+                                          reflections_per_bin=params.minimum_exposure.n_refl_counting_sorted)
+        return iobs
+    except AssertionError:
+        pass
+
+    #Find sufficiently large d_starqs bin size to reach minimal reflection count per bin
+    max_dstarsq_bin_size = max(params.minimum_exposure.dstarsq_bin_size,
+                               params.minimum_exposure.max_dstarsq_bin_size)
+    bin_size = params.minimum_exposure.dstarsq_bin_size
+    while bin_size <= max_dstarsq_bin_size:
+        iobs.setup_binner_d_star_sq_step(d_star_sq_step=bin_size)
+        logger.debug(f"Trial d_starsq bin_size: {bin_size}")
+        logger.debug(f"Total number of d_starsq  bins: {iobs.binner().n_bins_all()}")
+        idx_small = [i for i in iobs.binner().range_used()[:-1] if iobs.binner().count(i) < params.minimum_exposure.min_bin_count]
+        logger.debug(f"Indices of bins with insufficient reflection count: {idx_small}")
+        if not idx_small or params.minimum_exposure.n_refl_counting_sorted or params.minimum_exposure.n_bins_counting_sorted:
+            break
+        else:
+            bin_size += params.minimum_exposure.incr_dstarsq_bin_size
+    return iobs
 
 
 def number_residues_estimate(symmetry):
@@ -166,7 +296,7 @@ def model_f_sq(stol_sq, asu_contents, scattering_factors, symmetry):
                         * symmetry.space_group().n_ltr()
     return sum_fj_sq
 
-def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, wilson_fit_max_d):
+def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, params):
     u"""
     Fit a simple Debye-Waller factor, assume isotropic disorder parameter.
     Adapted from cctbx implementation in cctbx.statistics.wilson_plot object.
@@ -181,8 +311,7 @@ def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, wilson_fit_max_
         asu_contents: Dictionary with atom quantities in asymmetric unit cell.
         scattering_factors: Dictionary with atomic scattering factors.
         symmetry: Crystal symmetry object.
-        wilson_fit_max_d: The minimum resolution for reflections against which to
-            fit.
+        params: Input phil parameters object.
 
     Returns:
         - The fitted isotropic displacement parameter (units of Å² assumed);
@@ -218,17 +347,24 @@ def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, wilson_fit_max_
     # fit to straight line
     x = mean_stol_sq
     y = flex.log(mean_iobs / icalc)
-    idx_resol = [i for i, v in enumerate(x) if v < 1. / (4 * wilson_fit_max_d**2)][-1]
-    #Find index of a resolution bin with missing data point that
-    #has more missing data in subsequent resolution bins
     try:
-        nan_window = 10
-        nan_threshold = 2
-        nan_test_data = [y[j:j+nan_window] for j in range(len(y)-nan_window)]
-        idx_nan = next((i for i, l in enumerate(nan_test_data)
-                         if len([v for v in l if (np.isnan(v) or np.isinf(v)) and (np.isnan(l[0]) or np.isinf(l[0]))]) > nan_threshold))
-    except StopIteration:
-        idx_nan = len(y) - 1
+        idx_resol = [i for i, v in enumerate(x) if v < 1. / (4 * params.minimum_exposure.wilson_fit_max_d**2)][-1]
+    except IndexError:
+        idx_resol = 0
+    if not params.minimum_exposure.use_french_wilson:
+        #Find index of a resolution bin with missing data point that
+        #has more missing data in subsequent resolution bins
+        try:
+            nan_window = 10
+            nan_threshold = 2
+            nan_test_data = [y[j:j+nan_window] for j in range(len(y)-nan_window)]
+            idx_nan = next((i for i, l in enumerate(nan_test_data)
+                             if len([v for v in l if (np.isnan(v) or np.isinf(v)) and (np.isnan(l[0]) or np.isinf(l[0]))]) > nan_threshold))
+        except StopIteration:
+            idx_nan = len(y) - 1
+    else:
+            idx_nan = len(y) - 1
+
     print("\nSelected resolution range: %.2f - %.2f Å\n" % (1. / (2 * np.sqrt(x[idx_resol])),
                                                              1. / (2 * np.sqrt(x[idx_nan]))))
     #Generate list of resolution intervals for linear regression fit
@@ -258,6 +394,8 @@ def wilson_fit(iobs, asu_contents, scattering_factors, symmetry, wilson_fit_max_
         except ValueError:
             continue
         res_linreg.append(((idx_res1, idx_res2), (fit_slope, fit_y_intercept, r_value, p_value, std_err), rval))
+    if not res_linreg:
+        raise RuntimeError("Linear regression procedure has failed.")
     (idx_resol, idx_nan), (fit_slope, fit_y_intercept, r_value, p_value, std_err), _ = min(res_linreg, key=lambda t: t[-1])
     std_fit_slope = np.std([v[1][0] for v in res_linreg])
     wilson_b = (-fit_slope / 2, std_fit_slope / 2)
@@ -368,7 +506,7 @@ def wilson_plot_image(
     plt.close()
 
 
-def suggest_minimum_exposure(expts, refls, params):
+def suggest_minimum_exposure(iobs, params):
     # type: (ExperimentList[Experiment], flex.reflection_table, scope_extract) -> None
     u"""
     Suggest an estimated minimum sufficient exposure to achieve a certain resolution.
@@ -387,54 +525,16 @@ def suggest_minimum_exposure(expts, refls, params):
         refls: Reflection table of observed reflections.
         params: Parameters for calculation of minimum exposure estimate.
     """
-    # Ignore reflections without an index, since uctbx.unit_cell.d returns spurious
-    # d == -1 values, rather than None, for unindexed reflections.
-    refls.del_selected(refls["id"] == -1)
-    # Ignore all spots flagged as overloaded
-    refls.del_selected(refls.get_flags(refls.flags.overloaded).iselection())
-
-    # Work from profile-fitted intensities where possible but if the number of
-    # profile-fitted intensities is less than 75% of the number of summed
-    # intensities, use summed intensities instead.  This is a very arbitrary heuristic.
-    sel_prf = refls.get_flags(refls.flags.integrated_prf).iselection()
-    sel_sum = refls.get_flags(refls.flags.integrated_sum).iselection()
-    if sel_prf.size() < 0.75 * sel_sum.size():
-        refls = refls.select(sel_sum)
-        intensity = refls["intensity.sum.value"]
-        sigma = flex.sqrt(refls["intensity.sum.variance"])
-    else:
-        refls = refls.select(sel_prf)
-        intensity = refls["intensity.prf.value"]
-        sigma = flex.sqrt(refls["intensity.prf.variance"])
-
-    # Apply French-Wilson scaling to ensure positive intensities.
-    miller_array = miller.array(
-        miller.set(
-            expts[0].crystal.get_crystal_symmetry(),
-            refls["miller_index"],
-            anomalous_flag=False,
-        ),
-        data=intensity,
-        sigmas=sigma,
-    )
-    miller_array.set_observation_type_xray_intensity()
-    miller_array = miller_array.merge_equivalents().array()
-    cctbx_log = StringIO()  # Prevent idiosyncratic CCTBX logging from polluting stdout.
-    miller_array = miller_array.french_wilson(log=cctbx_log).as_intensity_array()
-    logger.debug(cctbx_log.getvalue())
-
-    # The Wilson plot fit implicitly involves taking a logarithm of
-    # intensities, so eliminate values that are going to cause problems
-    iobs = miller_array.resolution_filter(d_max=100, d_min=0)
-    iobs.setup_binner_d_star_sq_step(d_star_sq_step=params.minimum_exposure.dstarsq_bin_size)
 
     # Parameters for the lower-bound exposure estimate:
     min_i_over_sigma = params.minimum_exposure.min_i_over_sigma
-    wilson_fit_max_d = params.minimum_exposure.wilson_fit_max_d
     desired_d = params.minimum_exposure.desired_d
 
     # Get estimated asymmetric unit cell contents and corresponding scattering factors
-    symmetry = expts[0].crystal.get_crystal_symmetry()
+    #symmetry = expts[0].crystal.get_crystal_symmetry()
+    symmetry = crystal.symmetry(space_group=iobs.space_group(),
+                                unit_cell=iobs.unit_cell())
+
     asu_contents, scattering_factors = number_residues_estimate(symmetry)
 
     # Perform the Wilson plot fit
@@ -442,16 +542,24 @@ def suggest_minimum_exposure(expts, refls, params):
                                                                 asu_contents,
                                                                 scattering_factors,
                                                                 symmetry,
-                                                                wilson_fit_max_d)
+                                                                params)
     max_d, min_d = tuple((1.0 / (2 * np.sqrt(x[i])) for i in idx_fit_range))
     
-    # Get reference resolution from I/σ value
-    iobs_selected = iobs.select(iobs.data() > 0)
+    # Find reference resolution bin that matches the reference I/σ value
+    iobs_selected = iobs.select(iobs.data() > 0).select(iobs.d_spacings().data() > min_d)
     iobs_selected.use_binning_of(iobs) 
     mean_i_over_sigma = iobs_selected.i_over_sig_i(use_binning=True, return_fail=0)
-    min_i_over_sigma_bin = next((res for val, res in zip(mean_i_over_sigma.data[1:-1],
-                                                         mean_i_over_sigma.binner.range_all()[1:-1]) if val < min_i_over_sigma))
-    dmin_i_over_sigma = mean_i_over_sigma.binner.bin_d_min(min_i_over_sigma_bin)
+    try:
+        i_over_sigma_vals = list(zip(mean_i_over_sigma.data[1:-1],
+                                                         mean_i_over_sigma.binner.range_all()[1:-1]))
+        logger.debug(f"List of I/σ values: {i_over_sigma_vals}")
+        min_i_over_sigma_bin = next((res for val, res in i_over_sigma_vals if val < min_i_over_sigma))
+        dmin_i_over_sigma = mean_i_over_sigma.binner.bin_d_min(min_i_over_sigma_bin)
+    except Exception:
+        min_i_over_sigma_bin = mean_i_over_sigma.binner.range_all()[-2]
+        dmin_i_over_sigma = mean_i_over_sigma.binner.bin_d_min(min_i_over_sigma_bin)
+        min_i_over_sigma = mean_i_over_sigma.data[min_i_over_sigma_bin]
+
     
     # If no target resolution is given, use the following defaults:
     if not params.minimum_exposure.desired_d:
@@ -554,7 +662,7 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
         # Configure the logging
         dials_logging.config(params.verbosity, params.output.log)
 
-    if not (params.input.experiments and params.input.reflections):
+    if not (params.input.experiments and params.input.reflections or params.mtz):
         version_information = "screen19.minimum_exposure v%s using %s (%s)" % (
             __version__,
             dials_version(),
@@ -579,19 +687,9 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
             ", ".join([refls.filename for refls in params.input.reflections]),
             params.input.reflections[0].filename,
         )
-
-    expts = params.input.experiments[0].data
-    refls = params.input.reflections[0].data
-
-    if len(expts) > 1:
-        warn(
-            "The experiment list you provided, %s, contains more than one "
-            "experiment object (perhaps multiple indexing solutions).  Only "
-            "the first will be used, all others will be ignored.",
-            params.input.experiments[0].filename,
-        )
-
-    suggest_minimum_exposure(expts, refls, params)
+    iobs = read_intensity_values(params)
+    iobs = setup_data_binning(iobs, params)
+    suggest_minimum_exposure(iobs, params)
 
 
 def main():
