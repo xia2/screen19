@@ -769,16 +769,21 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
             params.input.reflections[0].filename,
         )
 
-    expts = params.input.experiments[0].data
-    refls = params.input.reflections[0].data
+    try:
+        expts = params.input.experiments[0].data
+        refls = params.input.reflections[0].data
 
-    if len(expts) > 1:
-        warn(
-            "The experiment list you provided, %s, contains more than one "
-            "experiment object (perhaps multiple indexing solutions).  Only "
-            "the first will be used, all others will be ignored.",
-            params.input.experiments[0].filename,
-        )
+        if len(expts) > 1:
+            warn(
+                "The experiment list you provided, %s, contains more than one "
+                "experiment object (perhaps multiple indexing solutions).  Only "
+                "the first will be used, all others will be ignored.",
+                params.input.experiments[0].filename,
+            )
+    except IndexError:
+        # screen19 must be running using input mtz file
+        expts = None
+        refls = None
 
     suggest_minimum_exposure(expts, refls, params)
 
