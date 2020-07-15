@@ -73,7 +73,7 @@ from dials.algorithms.shoebox import MaskCode
 from dials.array_family import flex
 from dials.command_line.dials_import import MetaDataUpdater
 from dials.command_line.index import index
-from dials.command_line.integrate import Script
+from dials.command_line.integrate import run_integration
 from dials.command_line.refine import run_dials_refine
 from dials.command_line.refine_bravais_settings import (
     bravais_lattice_to_space_group_table,
@@ -869,23 +869,25 @@ class Screen19(object):
         dials_start = timeit.default_timer()
         info("\nIntegrating...")
 
-        args = [
-            self.params.dials_index.output.experiments,
-            self.params.dials_index.output.reflections,
-        ]
-
         # Don't waste time recreating the profile model
         self.params.dials_integrate.create_profile_model = False
         # Get the dials.integrate PHIL scope, populated with parsed input parameters
         integrate_scope = phil_scope.get("dials_integrate").objects[0]
         integrate_scope.name = ""
         integrate_scope = integrate_scope.format(self.params.dials_integrate)
-        # Set up the dials.integrate script
-        integrate = Script(phil=integrate_scope)
 
         try:
             # Run dials.integrate
-            integrated_experiments, integrated = integrate.run(args)
+            integrated_experiments, integrated, _ = run_integration(
+                integrate_scope.extract(),
+                ExperimentList.from_file(self.params.dials_index.output.experiments),
+                self.refls,
+            )
+            integrated.as_file(self.params.dials_integrate.output.reflections)
+            integrated_experiments.as_file(
+                self.params.dials_integrate.output.experiments
+            )
+
             self.expts, self.refls = integrated_experiments, integrated
             info(
                 "Successfully completed (%.1f sec)",
