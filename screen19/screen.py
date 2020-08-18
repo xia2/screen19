@@ -63,6 +63,7 @@ from libtbx import Auto
 from libtbx.introspection import number_of_processors
 from libtbx.phil import scope
 
+import dials.command_line.integrate
 import dials.util.version
 import screen19
 from dials.algorithms.indexing import DialsIndexError
@@ -73,7 +74,6 @@ from dials.algorithms.shoebox import MaskCode
 from dials.array_family import flex
 from dials.command_line.dials_import import MetaDataUpdater
 from dials.command_line.index import index
-from dials.command_line.integrate import run_integration
 from dials.command_line.refine import run_dials_refine
 from dials.command_line.refine_bravais_settings import (
     bravais_lattice_to_space_group_table,
@@ -213,6 +213,36 @@ procrunner_debug = False
 
 logger = logging.getLogger("dials.screen19")
 debug, info, warning = logger.debug, logger.info, logger.warning
+
+
+def _run_integration(scope, experiments_file, reflections_file):
+    # type: (scope, str, str) -> Tuple[ExperimentList, flex.reflection_table]
+    """Run integration programatically, compatible with multiple DIALS versions.
+
+    Args:
+        scope: The dials.integrate phil scope
+        experiments_file: Path to the experiment list file
+        reflections_file: Path to the reflection table file
+    """
+
+    if hasattr(dials.command_line.integrate, "run_integration"):
+        # DIALS 3.1+ interface
+        expts, refls = dials.command_line.integrate.run_integration(
+            scope.extract(),
+            ExperimentList.from_file(experiments_file),
+            flex.reflection_table.from_file(reflections_file),
+        )
+    elif hasattr(dials.command_line_integrate, "Script"):
+        # Pre-3.1-style programmatic interface
+        expts, refls = dials.command_line.integrate.Script(phil=scope).run(
+            [experiments_file, reflections_file]
+        )
+    else:
+        raise RuntimeError(
+            "Could not find dials.integrate programmatic interface 'run_integration' or 'Script'"
+        )
+
+    return expts, refls
 
 
 def overloads_histogram(d_spacings, ticks=None, output="overloads"):
@@ -877,18 +907,20 @@ class Screen19(object):
         integrate_scope = integrate_scope.format(self.params.dials_integrate)
 
         try:
-            # Run dials.integrate
-            integrated_experiments, integrated, _ = run_integration(
-                integrate_scope.extract(),
-                ExperimentList.from_file(self.params.dials_index.output.experiments),
-                self.refls,
+            integrated_experiments, integrated_reflections = _run_integration(
+                integrate_scope,
+                self.params.dials_index.output.experiments,
+                self.params.dials_index.output.reflections,
             )
-            integrated.as_file(self.params.dials_integrate.output.reflections)
+            # Save the output to files
+            integrated_reflections.as_file(
+                self.params.dials_integrate.output.reflections
+            )
             integrated_experiments.as_file(
                 self.params.dials_integrate.output.experiments
             )
-
-            self.expts, self.refls = integrated_experiments, integrated
+            # ... and also store the output internally
+            self.expts, self.refls = integrated_experiments, integrated_reflections
             info(
                 "Successfully completed (%.1f sec)",
                 timeit.default_timer() - dials_start,
