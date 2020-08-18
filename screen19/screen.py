@@ -232,7 +232,7 @@ def _run_integration(scope, experiments_file, reflections_file):
             ExperimentList.from_file(experiments_file),
             flex.reflection_table.from_file(reflections_file),
         )
-    elif hasattr(dials.command_line_integrate, "Script"):
+    elif hasattr(dials.command_line.integrate, "Script"):
         # Pre-3.1-style programmatic interface
         expts, refls = dials.command_line.integrate.Script(phil=scope).run(
             [experiments_file, reflections_file]
