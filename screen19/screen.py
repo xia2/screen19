@@ -227,7 +227,7 @@ def _run_integration(scope, experiments_file, reflections_file):
 
     if hasattr(dials.command_line.integrate, "run_integration"):
         # DIALS 3.1+ interface
-        expts, refls = dials.command_line.integrate.run_integration(
+        expts, refls, _ = dials.command_line.integrate.run_integration(
             scope.extract(),
             ExperimentList.from_file(experiments_file),
             flex.reflection_table.from_file(reflections_file),
