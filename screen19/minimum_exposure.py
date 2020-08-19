@@ -248,7 +248,7 @@ def wilson_plot_image(
     plt.ylabel(u"Intensity (counts)")
     if ticks:
         plt.xticks([1 / d ** 2 for d in ticks], ["%g" % d for d in ticks])
-    plt.yscale("log", nonposy="clip")
+    plt.yscale("log", nonpositive="clip")
     plt.plot(d_star_sq, intensity, "b.", label=None)
     plt.plot(
         d_star_sq, scaled_debye_waller(d_star_sq, *fit), "r-", label="Debye-Waller fit"
