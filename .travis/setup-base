@@ -1,6 +1,6 @@
 #!/bin/bash
 
-EXPECTED_CACHE_REVISION=20200611
+EXPECTED_CACHE_REVISION=20200819
 
 if [ "$TRAVIS_EVENT_TYPE" == "cron" ]; then
   echo -e "\e[31;1mCron job build detected. Invalidating cache.\e[0m"
@@ -13,7 +13,7 @@ if [ -f $HOME/build_dials/.cache_valid ] && [ "$EXPECTED_CACHE_REVISION" == "$(c
 else
   echo -e "\e[31;1mThis is not the cache you are looking for: Starting from scratch\e[0m"
   cd $HOME
-  wget https://dials.diamond.ac.uk/diamond_builds/dials-v2-2-linux-x86_64.tar.xz -O - | tar xJ
+  wget https://dials.diamond.ac.uk/diamond_builds/dials-v2.2-release-candidate-linux-x86_64.tar.gz -O - | tar xz
   cd dials-installer
   ./install --nopycompile --verbose --prefix=..
   cd ..
