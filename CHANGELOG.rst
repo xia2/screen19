@@ -1,3 +1,14 @@
+screen19 0.211 (2020-08-19)
+===========================
+
+Misc
+----
+
+- The way that dials.integrate code is called from screen19 has changed to accommodate code changes in DIALS.
+
+  (#31)
+
+
 screen19 0.210 (2020-06-26)
 ===========================
 
