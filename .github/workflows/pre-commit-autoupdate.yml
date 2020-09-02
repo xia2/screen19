@@ -1,0 +1,42 @@
+name: Automatically update pre-commit hooks
+
+# Run daily at midnight.
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  # This workflow contains a single job called "autoupdate"
+  autoupdate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: >3
+      
+      - name: Install pre-commit
+        run: pip install -y pre-commit
+        
+      - name: Automatically update and run pre-commit hooks
+        run: |
+          pre-commit autoupdate
+          pre-commit run --all-files
+      
+      - name: Create a new branch pre-commit-autoupdate and push the changes to it
+        run: |
+          git checkout -B pre-commit-autoupdate
+          git commit -m "Automatically update and run pre-commit hooks"
+          git push -fu origin pre-commit-autoupdate
+          
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v3
+        with:
+          branch: pre-commit-autoupdate
+          base: master
+          commit-message: Automatically update and run pre-commit hooks
+          title: Automatically update and run pre-commit hooks
+          
+      # TODO: Create a newsfragment, commit and push it.
