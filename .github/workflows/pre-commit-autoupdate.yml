@@ -23,7 +23,7 @@ jobs:
           python-version: >3
 
       - name: Install pre-commit
-        run: pip install pre-commit
+        run: pip3 install pre-commit
 
       - name: ${{ github.action }}
         run: |
