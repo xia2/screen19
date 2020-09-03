@@ -2,8 +2,9 @@ name: Automatically update and run pre-commit hooks
 
 # Run daily at midnight.
 on:
-  schedule:
-    - cron: '*/5 * * * *'
+  workflow_dispatch:
+  # schedule:
+  #   - cron: '*/5 * * * *'
 
 jobs:
   # This workflow contains a single job called "autoupdate"
