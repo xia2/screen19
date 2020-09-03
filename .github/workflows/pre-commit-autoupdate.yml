@@ -42,6 +42,7 @@ jobs:
           git add .
           git commit -m "${{ github.workflow }}"
           git push -fu origin ${{ steps.branch.outputs.branchname }}
+          git checkout master
 
       - name: Create pull request
         id: pr
@@ -60,6 +61,7 @@ jobs:
         if: ${{ steps.pr.outputs.pull-request-number }}
         run: |
           echo "${{ github.workflow }}" > ${{ steps.newsfile.outputs.filename }}
+          git checkout ${{ steps.branch.outputs.branchname }}
           git add ${{ steps.newsfile.outputs.filename }}
           git commit -m "Add news fragment"
           git push origin ${{ steps.branch.outputs.branchname }}
