@@ -23,9 +23,9 @@ jobs:
           python-version: >3
 
       - name: Install pre-commit
-        run: pip3 install pre-commit
+        run: pip install pre-commit
 
-      - name: ${{ github.action }}
+      - name: ${{ github.action.name }}
         run: |
           pre-commit autoupdate
           pre-commit run --all-files
@@ -34,7 +34,7 @@ jobs:
         run: |
           git checkout -B ${{ steps.branch.branchname }}
           git add .
-          git commit -m "${{ github.action }}"
+          git commit -m "${{ github.action.name }}"
           git push -fu origin ${{ steps.branch.branchname }}
 
       - name: Create pull request
@@ -43,8 +43,8 @@ jobs:
         with:
           branch: pre-commit-autoupdate
           base: master
-          commit-message: ${{ github.action }}
-          title: ${{ github.action }}
+          commit-message: ${{ github.action.name }}
+          title: ${{ github.action.name }}
 
       - name: Set the file name for the Towncrier news fragment
         id: newsfile
@@ -52,7 +52,7 @@ jobs:
 
       - name: Make a Towncrier news fragment and push it to the branch
         run: |
-          echo "${{ github.action }}" > ${{ steps.newsfile.filename }}
+          echo "${{ github.action.name }}" > ${{ steps.newsfile.filename }}
           git add ${{ steps.newsfile.filename }}
           git commit -m "Add news fragment"
           git push origin ${{ steps.branch.branchname }}
