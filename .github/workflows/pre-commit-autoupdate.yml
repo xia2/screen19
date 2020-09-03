@@ -12,29 +12,31 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      
+
+      - name: Set the name of the branch for these changes
+        id: branch
+        run: echo "::set-output name=branchname::pre-commit-autoupdate"
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: >3
-      
+
       - name: Install pre-commit
         run: pip install -y pre-commit
-        
+
       - name: ${{ github.action }}
         run: |
           pre-commit autoupdate
           pre-commit run --all-files
-      
+
       - name: Create a new branch pre-commit-autoupdate and push the changes to it
-        id: branch
-        branchname: pre-commit-autoupdate
         run: |
           git checkout -B ${{ steps.branch.branchname }}
           git add .
           git commit -m "${{ github.action }}"
           git push -fu origin ${{ steps.branch.branchname }}
-          
+
       - name: Create pull request
         id: pr
         uses: peter-evans/create-pull-request@v3
@@ -44,11 +46,13 @@ jobs:
           commit-message: ${{ github.action }}
           title: ${{ github.action }}
 
+      - name: Set the file name for the Towncrier news fragment
+        id: newsfile
+        run: echo "::set-output name=filename::${{ steps.pr.outputs.pull-request-number }}.misc"
+
       - name: Make a Towncrier news fragment and push it to the branch
-        id: news
-        filename: ${{ steps.pr.outputs.pull-request-number }}.misc
         run: |
-          echo "${{ github.action }}" > ${{ steps.news.filename }}
-          git add ${{ steps.news.filename }}
+          echo "${{ github.action }}" > ${{ steps.newsfile.filename }}
+          git add ${{ steps.newsfile.filename }}
           git commit -m "Add news fragment"
           git push origin ${{ steps.branch.branchname }}
