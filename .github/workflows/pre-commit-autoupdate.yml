@@ -35,10 +35,10 @@ jobs:
 
       - name: Create a new branch pre-commit-autoupdate and push the changes to it
         run: |
-          git checkout -B ${{ steps.branch.branchname }}
+          git checkout -B "${{ steps.branch.branchname }}"
           git add .
           git commit -m "${{ github.workflow }}"
-          git push -fu origin ${{ steps.branch.branchname }}
+          git push -fu origin "${{ steps.branch.branchname }}"
 
       - name: Create pull request
         id: pr
@@ -55,7 +55,7 @@ jobs:
 
       - name: Make a Towncrier news fragment and push it to the branch
         run: |
-          echo "${{ github.workflow }}" > ${{ steps.newsfile.filename }}
-          git add ${{ steps.newsfile.filename }}
+          echo "${{ github.workflow }}" > "${{ steps.newsfile.filename }}"
+          git add "${{ steps.newsfile.filename }}"
           git commit -m "Add news fragment"
-          git push origin ${{ steps.branch.branchname }}
+          git push origin "${{ steps.branch.branchname }}"
