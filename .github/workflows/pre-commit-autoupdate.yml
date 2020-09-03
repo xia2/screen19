@@ -34,33 +34,26 @@ jobs:
             echo "Re-running pre-commits..."
           done
 
-      - name: Create a new branch pre-commit-autoupdate and push the changes to it
-        run: |
-          git config user.name "GitHub"
-          git config user.email "noreply@github.com"
-          git checkout -B ${{ steps.branch.outputs.branchname }}
-          git add .
-          git commit -m "${{ github.workflow }}"
-          git push -fu origin ${{ steps.branch.outputs.branchname }}
-          git checkout master
-
       - name: Create pull request
         id: pr
         uses: peter-evans/create-pull-request@v3
         with:
-          branch: pre-commit-autoupdate
-          base: master
+          branch: ${{ steps.branch.outputs.branchname }}
           commit-message: ${{ github.workflow }}
           title: ${{ github.workflow }}
+          body: Automated changes performed by a GitHub workflow.
 
       - name: Set the file name for the Towncrier news fragment
         id: newsfile
+        if: ${{ steps.pr.outputs.pull-request-number }}
         run: echo "::set-output name=filename::${{ steps.pr.outputs.pull-request-number }}.misc"
 
       - name: Make a Towncrier news fragment and push it to the branch
         if: ${{ steps.pr.outputs.pull-request-number }}
         run: |
           echo "${{ github.workflow }}" > ${{ steps.newsfile.outputs.filename }}
+          git config user.name "GitHub"
+          git config user.email "noreply@github.com"
           git checkout ${{ steps.branch.outputs.branchname }}
           git add ${{ steps.newsfile.outputs.filename }}
           git commit -m "Add news fragment"
