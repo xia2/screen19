@@ -57,6 +57,7 @@ jobs:
         run: echo "::set-output name=filename::${{ steps.pr.outputs.pull-request-number }}.misc"
 
       - name: Make a Towncrier news fragment and push it to the branch
+        if: ${{ steps.pr.outputs.pull-request-number }}
         run: |
           echo "${{ github.workflow }}" > ${{ steps.newsfile.outputs.filename }}
           git add ${{ steps.newsfile.outputs.filename }}
