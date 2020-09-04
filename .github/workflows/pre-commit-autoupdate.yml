@@ -1,7 +1,7 @@
 name: Automatically update and run pre-commit hooks
 
 on:
-  # Run daily at seventeen minutes past midnight (hopefully this plays nice with the infrastructure).
+  # Run weekly at seventeen minutes past midnight (hopefully this plays nice with the infrastructure).
   schedule:
     - cron: '17 0 * * 1'
 
