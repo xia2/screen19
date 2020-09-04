@@ -57,8 +57,8 @@ jobs:
         run: echo "::set-output name=filename::${{ steps.pr.outputs.pull-request-number }}.misc"
 
       - name: Make a Towncrier news fragment and push it to the branch
-        # Only run if the PR exists and there isn't already a news fragment.
-        if: ${{ steps.newsfile.outputs.filename }} && [[ ! -e ${{ steps.newsfile.outputs.filename }} ]]
+        # Only run if the PR exists.
+        if: ${{ steps.newsfile.outputs.filename }}
         run: |
           echo "${{ github.workflow }}." > ${{ steps.newsfile.outputs.filename }}
           git config user.name "GitHub"
