@@ -1,7 +1,7 @@
 name: Automatically update and run pre-commit hooks
 
 on:
-  # Run daily at midnight.
+  # Run daily at seventeen minutes past midnight (hopefully this plays nice with the infrastructure).
   schedule:
     - cron: '17 0 * * 1'
 
@@ -28,10 +28,16 @@ jobs:
 
       - name: ${{ github.workflow }}
         run: |
-          pre-commit autoupdate
-          until pre-commit run --all-files
-          do
-          echo -e "\e[1mRe-running pre-commits...\e[0m"
+          while :; do
+            pre-commit run --all-files && break || {
+              git diff --quiet && {
+                echo One or more pre-commit hooks failed but re-running will not result in changes.
+                exit 1
+              }
+            echo One or more pre-commit hooks failed and there are changes to the repository.
+            echo -e "\e[1mRe-running pre-commit hooks...\e[0m"
+            git add -A
+            }
           done
 
       - name: Create pull request
