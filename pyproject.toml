@@ -9,5 +9,4 @@ known_cctbx="boost,boost_adaptbx,cbflib_adaptbx,cctbx,chiltbx,clipper_adaptbx,cm
 known_dxtbx="dxtbx"
 known_dials="dials"
 known_xia2="xia2"
-float_to_top=true
 profile="black"
