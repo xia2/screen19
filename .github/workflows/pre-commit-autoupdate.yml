@@ -28,6 +28,7 @@ jobs:
 
       - name: ${{ github.workflow }}
         run: |
+          pre-commit autoupdate
           while :; do
             pre-commit run --all-files && break || {
               git diff --quiet && {
