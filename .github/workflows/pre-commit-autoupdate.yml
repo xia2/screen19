@@ -9,12 +9,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  # This workflow contains a single job called "autoupdate".
+  # This workflow contains a single job called 'autoupdate'.
   autoupdate:
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out the repository
+        # Don't use release tags for actions:  https://julienrenaux.fr/2019/12/20/github-actions-security-risk/
+        # Commit is equivalent to release tag v2.3.2.
         uses: actions/checkout@2036a08e25fa78bbd946711a407b529a0a1204bf
 
       - name: Set the name of the branch for these changes
@@ -22,6 +24,7 @@ jobs:
         run: echo "::set-output name=branchname::pre-commit-autoupdate"
 
       - name: Set up Python
+        # Commit is equivalent to release tag v2.1.2.
         uses: actions/setup-python@24156c231c5e9d581bde27d0cdbb72715060ea51
         with:
           python-version: '>=3'
@@ -39,6 +42,7 @@ jobs:
 
       - name: Create pull request
         id: pr
+        # Commit is equivalent to release tag v3.2.0.
         uses: peter-evans/create-pull-request@9bf4b302a561e1fe9120f6dc81cc39daed984a99
         with:
           branch: ${{ steps.branch.outputs.branchname }}
@@ -48,11 +52,13 @@ jobs:
 
       - name: Set the file name for the Towncrier news fragment
         id: newsfile
+        # Only run if the PR exists.
         if: ${{ steps.pr.outputs.pull-request-number }}
         run: echo "::set-output name=filename::${{ steps.pr.outputs.pull-request-number }}.misc"
 
       - name: Make a Towncrier news fragment and push it to the branch
-        if: ${{ steps.pr.outputs.pull-request-number }}
+        # Only run if the PR exists and there isn't already a news fragment.
+        if: ${{ steps.newsfile.outputs.filename }} && [[ ! -e ${{ steps.newsfile.outputs.filename }} ]]
         run: |
           echo "${{ github.workflow }}." > ${{ steps.newsfile.outputs.filename }}
           git config user.name "GitHub"
