@@ -50,13 +50,13 @@ jobs:
         id: newsfile
         # Only run if the PR exists.
         if: ${{ steps.pr.outputs.pull-request-number }}
-        run: echo "::set-output name=filename::${{ steps.pr.outputs.pull-request-number }}.misc"
+        run: echo "::set-output name=filename::newsfragments/${{ steps.pr.outputs.pull-request-number }}.misc"
 
       - name: Make a Towncrier news fragment and push it to the branch
         # Only run if the PR exists.
         if: ${{ steps.newsfile.outputs.filename }}
         run: |
-          echo "${{ github.workflow }}." > newsfragments/${{ steps.newsfile.outputs.filename }}
+          echo "${{ github.workflow }}." > ${{ steps.newsfile.outputs.filename }}
           git checkout ${{ steps.branch.outputs.branchname }}
           git add ${{ steps.newsfile.outputs.filename }}
           git commit -m "Add news fragment"
