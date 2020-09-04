@@ -37,7 +37,7 @@ jobs:
           pre-commit autoupdate
           until pre-commit run --all-files
           do
-            echo "Re-running pre-commits..."
+            printf "\nRe-running pre-commits...\n"
           done
 
       - name: Create pull request
