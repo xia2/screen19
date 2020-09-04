@@ -65,7 +65,6 @@ from libtbx.phil import scope
 
 import dials.command_line.integrate
 import dials.util.version
-import screen19
 from dials.algorithms.indexing import DialsIndexError
 from dials.algorithms.indexing.bravais_settings import (
     refined_settings_from_refined_triclinic,
@@ -91,6 +90,8 @@ from dxtbx.model.experiment_list import (
     ExperimentListTemplateImporter,
     GoniometerComparison,
 )
+
+import screen19
 from screen19.minimum_exposure import suggest_minimum_exposure
 
 Templates = List[Tuple[str, Tuple[int, int]]]

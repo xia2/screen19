@@ -3,14 +3,14 @@ repos:
 
 # Automatically sort imports with isort
 - repo: https://github.com/timothycrosley/isort.git
-  rev: 4.3.21-2
+  rev: 5.5.1
   hooks:
   - id: isort
     additional_dependencies: [toml]
 
 # Automatic source code formatting with Black
 - repo: https://github.com/psf/black
-  rev: 19.10b0
+  rev: 20.8b1
   hooks:
   - id: black
     args: [--safe, --quiet]
@@ -24,7 +24,7 @@ repos:
 
 # Syntax check with pre-commit out-of-the-box hooks
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v3.1.0
+  rev: v3.2.0
   hooks:
   - id: check-ast
   - id: check-yaml
