@@ -582,7 +582,7 @@ class Screen19(object):
         command = ["xia2.overload", "nproc=%s" % self.nproc, "indexed.expt"]
         debug("running %s", command)
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s", screen19.prettyprint_dictionary(result))
+        debug("result = %s", screen19.prettyprint_procrunner(result))
         info("Successfully completed (%.1f sec)", result["runtime"])
 
         if result["exitcode"] != 0:
@@ -878,7 +878,7 @@ class Screen19(object):
             "output = %s" % self.params.dials_index.output.experiments,
         ]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s", screen19.prettyprint_dictionary(result))
+        debug("result = %s", screen19.prettyprint_procrunner(result))
         self._sigma_m = None
         if result["exitcode"] == 0:
             db = ExperimentList.from_file(self.params.dials_index.output.experiments)[0]
@@ -946,7 +946,7 @@ class Screen19(object):
             info("\nRefining Bravais settings...")
             command = ["dials.refine_bravais_settings", experiments, reflections]
             result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-            debug("result = %s", screen19.prettyprint_dictionary(result))
+            debug("result = %s", screen19.prettyprint_procrunner(result))
             if result["exitcode"] == 0:
                 m = re.search(
                     r"[-+]{3,}\n[^\n]*\n[-+|]{3,}\n(.*\n)*[-+]{3,}",
@@ -1010,7 +1010,7 @@ class Screen19(object):
         info("\nCreating report...")
         command = ["dials.report", experiments, reflections]
         result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s", screen19.prettyprint_dictionary(result))
+        debug("result = %s", screen19.prettyprint_procrunner(result))
         if result["exitcode"] == 0:
             info("Successfully completed (%.1f sec)", result["runtime"])
         #     if sys.stdout.isatty():

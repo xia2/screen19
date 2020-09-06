@@ -73,6 +73,28 @@ def prettyprint_dictionary(d):
     )
 
 
+def prettyprint_procrunner(d):
+    """
+    Produce a nice string representation of a procrunner ReturnObject, for printing.
+
+    :param d: ReturnObject to be printed.
+    :return: String representation of :param d:.
+    :rtype: str
+    """
+    return prettyprint_dictionary(
+        {
+            "command": d.args,
+            "exitcode": d.returncode,
+            "stdout": d.stdout,
+            "stderr": d.stderr,
+            "time_start": d["time_start"],
+            "time_end": d["time_end"],
+            "runtime": d["runtime"],
+            "timeout": d["timeout"],
+        }
+    )
+
+
 def make_template(f):
     """
     Generate a xia2-style filename template.
@@ -160,7 +182,7 @@ def plot_intensities(
         info(traceback.format_exc())
         result = {}
 
-    debug("result = %s", prettyprint_dictionary(result))
+    debug("result = %s", prettyprint_procrunner(result))
 
     if result["exitcode"] == 0:
         star = re.compile(r"\*")
