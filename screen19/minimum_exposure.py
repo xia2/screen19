@@ -46,7 +46,6 @@ from scipy.optimize import curve_fit
 from six.moves import cStringIO as StringIO
 from tabulate import tabulate
 
-import boost.python
 import iotbx.phil
 from cctbx import miller
 from libtbx.phil import scope, scope_extract
@@ -62,9 +61,6 @@ from screen19 import __version__, d_ticks, plot_intensities, terminal_size
 # Custom types
 FloatSequence = Sequence[float]
 Fit = Union[np.ndarray, Iterable, int, float]
-
-# Suppress unhelpful matplotlib crash due to boost.python's overzealous allergy to FPEs
-boost.python.floating_point_exceptions.division_by_zero_trapped = False
 
 help_message = __doc__
 
