@@ -29,16 +29,14 @@ jobs:
       - name: ${{ github.workflow }}
         run: |
           pre-commit autoupdate
-          while :; do
-            pre-commit run --all-files && break || {
-              git diff --quiet && {
-                echo One or more pre-commit hooks failed but re-running will not result in changes.
-                exit 1
-              }
+          until pre-commit run --all-files
+            git diff --quiet && {
+              echo One or more pre-commit hooks failed but re-running will not result in changes.
+              exit 1
+            }
             echo One or more pre-commit hooks failed and there are changes to the repository.
             echo -e "\e[1mRe-running pre-commit hooks...\e[0m"
             git add -A
-            }
           done
 
       - name: Create pull request
