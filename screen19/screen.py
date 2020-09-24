@@ -266,7 +266,14 @@ def overloads_histogram(d_spacings, ticks=None, output="overloads"):
     plt.ylabel(u"Number of overloaded reflections")
     if ticks:
         plt.xticks([1 / d for d in ticks], ["%g" % d for d in ticks])
-    plt.yscale("log", nonposy="clip")
+
+    # Matplotlib v3.3.0 includes API change 'nonposy' → 'noonpositive'
+    # https://matplotlib.org/api/api_changes.html#log-symlog-scale-base-ticks-and-nonpos-specification
+    try:
+        plt.yscale("log", nonpositive="clip")
+    except ValueError:
+        plt.yscale("log", nonposy="clip")
+
     plt.hist(d_spacings, min(100, d_spacings.size()))
     plt.savefig(output)
     plt.close()
