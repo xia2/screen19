@@ -246,7 +246,7 @@ def wilson_plot_image(
     if ticks:
         plt.xticks([1 / d ** 2 for d in ticks], ["%g" % d for d in ticks])
 
-    # Matplotlib v3.3.0 includes API change 'nonposy' → 'noonpositive'
+    # Matplotlib v3.3.0 includes API change 'nonposy' → 'nonpositive'
     # https://matplotlib.org/api/api_changes.html#log-symlog-scale-base-ticks-and-nonpos-specification
     try:
         plt.yscale("log", nonpositive="clip")
