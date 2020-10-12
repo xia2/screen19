@@ -1,3 +1,14 @@
+screen19 0.212 (2020-10-12)
+===========================
+
+Update screen19 to work with upstream API changes in `python-procrunner <https://github.com/DiamondLightSource/python-procrunner/pull/60>`_ version 2.1.x.
+
+Misc
+----
+
+- #37, #38, #39, #40, #41
+
+
 screen19 0.211 (2020-08-19)
 ===========================
 
