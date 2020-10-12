@@ -55,6 +55,6 @@ setup(
     test_suite="tests",
     tests_require=["mock>=2.0", "pytest>=4.5"],
     url="https://github.com/xia2/screen19",
-    version="0.211",
+    version="0.212",
     zip_safe=False,
 )
