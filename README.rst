@@ -1,6 +1,6 @@
-========
+********
 screen19
-========
+********
 
 .. image:: https://img.shields.io/pypi/v/screen19.svg
         :target: https://pypi.python.org/pypi/screen19
@@ -29,7 +29,7 @@ screen19
 Screening program for small-molecule single-crystal X-ray diffraction data
 
 Install as a user
------------------
+=================
 To use screen19, you need to have a Python environment containing DIALS_.
 Instructions for installing DIALS can be found here_.
 You can then install screen19 with::
@@ -37,7 +37,7 @@ You can then install screen19 with::
     libtbx.pip install screen19
 
 Install as a developer
-----------------------
+======================
 If you want to develop screen19 then check out a local copy of the repository and install it with::
 
     git clone git@github.com:xia2/screen19.git
