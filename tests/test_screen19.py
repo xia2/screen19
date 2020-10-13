@@ -36,7 +36,7 @@ import_checks_zero = [
 ]
 
 
-def import_data(data: str, image_count: int) -> None:
+def import_data(data, image_count):  # type: (str, int) -> None
     """
     Generate and verify an imageset from spoof command-line input.
 
