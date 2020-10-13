@@ -11,7 +11,7 @@ from screen19.screen import Screen19
 
 
 def image(n):
-    return f"x3_1_{n:04d}.cbf.gz"
+    return "x3_1_{:04d}.cbf.gz".format(n)
 
 
 # A list of tuples of example sys.argv[1:] cases and associated image count.
