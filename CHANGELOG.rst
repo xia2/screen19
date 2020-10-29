@@ -6,7 +6,7 @@ Update screen19 to work with upstream API changes in `python-procrunner <https:/
 Misc
 ----
 
-- #37, #38, #39, #40, #41
+- `#37 <https://github.com/xia2/screen19/issues/37>`_, `#38 <https://github.com/xia2/screen19/issues/38>`_, `#39 <https://github.com/xia2/screen19/issues/39>`_, `#40 <https://github.com/xia2/screen19/issues/40>`_, `#41 <https://github.com/xia2/screen19/issues/41>`_
 
 
 screen19 0.211 (2020-08-19)
@@ -17,7 +17,7 @@ Misc
 
 - The way that dials.integrate code is called from screen19 has changed to accommodate code changes in DIALS.
 
-  (#31)
+  (`#31 <https://github.com/xia2/screen19/issues/31>`_)
 
 
 screen19 0.210 (2020-06-26)
@@ -39,7 +39,7 @@ Bugfixes
 
       screen19 verbosity=1 <other arguments>
 
-  (#30)
+  (`#30 <https://github.com/xia2/screen19/issues/30>`_)
 
 
 screen19 0.208 (2020-06-25)
@@ -54,11 +54,11 @@ Features
 
   * DIALS 3 is the latest major release and is actively supported.  It is currently Python 3.6 only.
   * DIALS 2.2 is a long-term support release.  It only receives bug fixes and support will be withdrawn at the end of 2020.  It supports Python 2.7 and 3.6.
-  * DIALS 1.14 is no longer under active development and screen19 support for it has been withdrawn. (#25)
+  * DIALS 1.14 is no longer under active development and screen19 support for it has been withdrawn. (`#25 <https://github.com/xia2/screen19/issues/25>`_)
 
 
 Bugfixes
 --------
 
 - Perform French-Wilson scaling on the integrated intensities before performing the Wilson plot analysis.
-  This fixes screen19 failures for certain cases where the data consist of few reflections. (#29)
+  This fixes screen19 failures for certain cases where the data consist of few reflections. (`#29 <https://github.com/xia2/screen19/issues/29>`_)
