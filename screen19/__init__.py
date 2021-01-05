@@ -95,7 +95,7 @@ def prettyprint_procrunner(d):
     )
 
 
-def make_template(f):
+def make_template(f):  # type: (str) -> (str, int)
     """
     Generate a xia2-style filename template.
 
@@ -104,25 +104,32 @@ def make_template(f):
     before the file extension.
     For example, the filename example_01_0001.cbf becomes example_01_####.cbf.
 
+    If the input data are in a single file and its name doesn't match the above
+    template, the resulting filename template is simply the input file name and the
+    resultant image number is None.
+    This might be the case for input data in NeXus NXmx HDF5 format, for example,
+    where one typically passes a file with a name like example_master.h5.
+
     :param f: Filename, with extension.
-    :type f: str
     :return: Filename template, with extension; image number.
-    :rtype: Tuple(str, int)
     """
     # Split the file from its path
     directory, f = os.path.split(f)
     # Split off the file extension, assuming it begins at the first full stop,
     # also split the last contiguous group of digits off the filename root
-    parts = re.split(r"([0-9#]+)(?=\.\w)", f, 1)
-    # Get the number of digits in the group we just isolated and their value
     try:
-        # Combine the root, a hash for each digit and the extension
-        length = len(parts[1])
-        template = parts[0] + "#" * length + parts[2]
-        image = int(parts[1].replace("#", "0"))
-    except IndexError:
-        template = parts[0]
+        root, number, extension = re.split(r"([0-9#]+)(?=\.\w)", f, 1)
+    # Catch the case where the input data file name doesn't match the numbered pattern.
+    except ValueError:
+        template = f
         image = None
+    else:
+        # Get the number of digits in the group we just isolated and their value
+        length = len(number)
+        image = int(number.replace("#", "0"))
+        # Combine the root, a hash for each digit and the extension
+        template = root + "#" * length + extension
+
     return os.path.join(directory, template), image
 
 

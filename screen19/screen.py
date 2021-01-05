@@ -53,9 +53,10 @@ import sys
 import time
 import timeit
 from glob import glob
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import procrunner
+import py.path
 from six.moves.cPickle import PickleError
 
 import iotbx.phil
@@ -94,6 +95,7 @@ from dxtbx.model.experiment_list import (
 import screen19
 from screen19.minimum_exposure import suggest_minimum_exposure
 
+ImportType = List[Union[str, py.path.local]]
 Templates = List[Tuple[str, Tuple[int, int]]]
 
 phil_scope = iotbx.phil.parse(
@@ -291,7 +293,7 @@ class Screen19(object):
         # iotbx.phil.parse.  Confused?  Blame PHIL.
         self.params = phil_scope.fetch(iotbx.phil.parse("")).extract()
 
-    def _quick_import(self, files):  # type: (List[str]) -> bool
+    def _quick_import(self, files):  # type: (ImportType) -> bool
         """
         Generate xia2-style templates from file names and attempt a quick import.
 
@@ -322,7 +324,7 @@ class Screen19(object):
         for f in files:
             template, image = screen19.make_template(f)
             if template not in templates:
-                image_range = [image, image] if image else []
+                image_range = [image, image] if image is not None else []
                 templates.update({template: [image_range]})
             elif image == templates[template][-1][-1] + 1:
                 templates[template][-1][-1] = image
@@ -374,7 +376,7 @@ class Screen19(object):
 
         return True
 
-    def _import(self, files):  # type: (List[str]) -> None
+    def _import(self, files):  # type: (ImportType) -> None
         """
         Try to run a quick call of dials.import.  Failing that, run a slow call.
 
@@ -384,6 +386,9 @@ class Screen19(object):
         Args:
             files:  List of image filenames.
         """
+        # Convert py.path.local objects to strings.
+        files = [str(file) for file in files]
+
         info("\nImporting data...")
         if len(files) == 1:
             if os.path.isdir(files[0]):

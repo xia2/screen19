@@ -1,0 +1,2 @@
+Support input files numbered zero, such as ``filename_00000.cbf``, ``filename_#####.cbf:0:99``, or similar.
+Previously, passing a filename numbered zero would cause screen19 to exit with an error.
