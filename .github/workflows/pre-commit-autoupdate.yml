@@ -50,8 +50,8 @@ jobs:
           commit-message: ${{ github.workflow }}
           title: ${{ github.workflow }}
           body: Update pre-commit hooks and run them on the entire code base.
-          committer: Diamond Light Source build server <diamondlightsource-build-server@users.noreply.github.com>
-          author: Diamond Light Source build server <diamondlightsource-build-server@users.noreply.github.com>
+          committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
 
       - name: Set the file name for the Towncrier news fragment
         id: newsfile
@@ -64,8 +64,8 @@ jobs:
         if: ${{ steps.newsfile.outputs.filename }}
         run: |
           echo "${{ github.workflow }}." > ${{ steps.newsfile.outputs.filename }}
-          git config user.name "Diamond Light Source build server"
-          git config user.email "diamondlightsource-build-server@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ${{ steps.newsfile.outputs.filename }}
           git commit -m "Add news fragment"
           git push origin ${{ steps.branch.outputs.branchname }}
