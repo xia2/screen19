@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, print_function
 import logging
 import os
 import re
+import subprocess
 import sys
 import traceback
 from typing import Dict, Tuple  # noqa: F401
@@ -25,13 +26,11 @@ debug, info, warn = logger.debug, logger.info, logger.warning
 d_ticks = [5, 3, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4]
 
 
-def terminal_size(procrunner_debug=False):
+def terminal_size() -> Tuple[int]:
     """
     Find the current size of the terminal window.
 
-    :param procrunner_debug:
     :return: Number of columns; number of rows.
-    :rtype: Tuple[int]
     """
     columns, rows = 80, 25
     if sys.stdout.isatty():
@@ -39,11 +38,11 @@ def terminal_size(procrunner_debug=False):
             result = procrunner.run(
                 ["stty", "size"],
                 timeout=1,
+                raise_timeout_exception=True,
                 print_stdout=False,
                 print_stderr=False,
-                debug=procrunner_debug,
             )
-            rows, columns = [int(i) for i in result["stdout"].decode("utf-8").split()]
+            rows, columns = [int(i) for i in result.stdout.decode("utf-8").split()]
         except Exception:  # ignore any errors and use default size
             pass  # FIXME: Can we be more specific about the type of exception?
     columns = min(columns, 120)
@@ -87,10 +86,6 @@ def prettyprint_procrunner(d):
             "exitcode": d.returncode,
             "stdout": d.stdout,
             "stderr": d.stderr,
-            "time_start": d["time_start"],
-            "time_end": d["time_end"],
-            "runtime": d["runtime"],
-            "timeout": d["timeout"],
         }
     )
 
@@ -134,7 +129,6 @@ def plot_intensities(
     ylabel="'Number of pixels'",
     xticks="",
     style="with boxes",
-    procrunner_debug=False,
 ):
     """
     Create an ASCII art histogram of intensities.
@@ -146,7 +140,6 @@ def plot_intensities(
     :param ylabel:
     :param xticks:
     :param style:
-    :param procrunner_debug:
     """
     columns, rows = terminal_size()
 
@@ -173,21 +166,26 @@ def plot_intensities(
             command,
             stdin="\n".join(plot_commands).encode("utf-8") + b"\n",
             timeout=120,
+            raise_timeout_exception=True,
             print_stdout=False,
             print_stderr=False,
-            debug=procrunner_debug,
             environment_override={"LD_LIBRARY_PATH": ""},
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         info(traceback.format_exc())
-        result = {}
+        warn(
+            "Error running gnuplot. Cannot plot intensity distribution.  "
+            "No exit code."
+        )
+        return
+    else:
+        debug("result = %s", prettyprint_procrunner(result))
 
-    debug("result = %s", prettyprint_procrunner(result))
-
-    if result["exitcode"] == 0:
+    returncode = getattr(result, "returncode")
+    if returncode:
         star = re.compile(r"\*")
         state = set()
-        for line in result["stdout"].decode("utf-8").split("\n"):
+        for line in result.stdout.decode("utf-8").split("\n"):
             if line.strip() != "":
                 stars = {m.start(0) for m in re.finditer(star, line)}
                 if not stars:
@@ -202,5 +200,5 @@ def plot_intensities(
         warn(
             "Error running gnuplot. Cannot plot intensity distribution. "
             "Exit code %d",
-            result["exitcode"],
+            returncode,
         )
