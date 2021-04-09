@@ -26,7 +26,7 @@ debug, info, warn = logger.debug, logger.info, logger.warning
 d_ticks = [5, 3, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4]
 
 
-def terminal_size() -> Tuple[int]:
+def terminal_size():  # type: () -> Tuple[int, int]
     """
     Find the current size of the terminal window.
 
