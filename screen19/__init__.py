@@ -183,6 +183,12 @@ def plot_intensities(
 
     returncode = getattr(result, "returncode")
     if returncode:
+        warn(
+            "Error running gnuplot. Cannot plot intensity distribution. "
+            "Exit code %d",
+            returncode,
+        )
+    else:
         star = re.compile(r"\*")
         state = set()
         for line in result.stdout.decode("utf-8").split("\n"):
@@ -196,9 +202,3 @@ def plot_intensities(
                     for s in state:
                         line[s] = "*"
                 info("".join(line))
-    else:
-        warn(
-            "Error running gnuplot. Cannot plot intensity distribution. "
-            "Exit code %d",
-            returncode,
-        )
