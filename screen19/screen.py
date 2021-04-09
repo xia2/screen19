@@ -87,7 +87,6 @@ from dxtbx.model.experiment_list import (
     BeamComparison,
     DetectorComparison,
     ExperimentListFactory,
-    ExperimentListTemplateImporter,
     GoniometerComparison,
 )
 
@@ -507,8 +506,9 @@ class Screen19(object):
         else:
             # Use the template importer.
             if len(self.params.dials_import.input.template) > 0:
-                importer = ExperimentListTemplateImporter(
-                    self.params.dials_import.input.template, format_kwargs=format_kwargs
+                importer = ExperimentList.from_templates(
+                    [self.params.dials_import.input.template],
+                    format_kwargs=format_kwargs,
                 )
                 # Record the imported experiments for use elsewhere.
                 # Quit if there aren't any.
