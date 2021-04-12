@@ -13,7 +13,7 @@ jobs:
       python: 3.6
       install:
          # Setup a DIALS installation
-         - ./.travis/setup-base3
+         - ./.travis/setup-base
 
       before_script:
          # Enter DIALS environment, install screen19, and update dispatchers
