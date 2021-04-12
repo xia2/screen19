@@ -1,0 +1,2 @@
+Fix a case of screen19 failing when trying to refine the different possible Bravais settings of the found lattice.
+This was happening because screen19 was failing to filter out reflections with zero variance in the position of their observed centroids before performing the refinement.
