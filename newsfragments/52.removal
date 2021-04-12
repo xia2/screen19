@@ -1,0 +1,1 @@
+screen19 no longer supports DIALS 2.2 or Python 2.7.  To install screen19, it is recommended that yous start by `installing DIALS<https://dials.github.io/installation.html>`_ version 3.4 or greater.
