@@ -981,9 +981,18 @@ class Screen19(object):
             self.refls = eliminate_sys_absent(self.expts, self.refls)
             map_to_primitive(self.expts, self.refls)
 
+            # We can only refine against reflections with non-zero variance in
+            # observed centroid position.
+            x_valid, y_valid, z_valid = [
+                part > 0 for part in self.refls["xyzobs.mm.variance"].parts()
+            ]
+            nonzero_variance = x_valid | y_valid | z_valid
+
             try:
                 refined_settings = refined_settings_from_refined_triclinic(
-                    self.expts, self.refls, self.params.dials_refine_bravais
+                    self.expts,
+                    self.refls.select(nonzero_variance),
+                    self.params.dials_refine_bravais,
                 )
             except RuntimeError as e:
                 warning("dials.refine_bravais_settings failed.\nGiving up.")
