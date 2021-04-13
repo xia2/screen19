@@ -1,5 +1,5 @@
 # coding: utf-8
-u"""
+"""
 Perform straight-line Wilson plot fit.  Draw the Wilson plot.
 
 Reflection d-spacings are determined from the crystal symmetry (from
@@ -66,7 +66,7 @@ help_message = __doc__
 
 
 phil_scope = iotbx.phil.parse(
-    u"""
+    """
     verbosity = 0
         .type = int(value_min=0)
         .caption = 'Verbosity level of log output'
@@ -122,7 +122,7 @@ debug, info, warn = logger.debug, logger.info, logger.warning
 
 def scaled_debye_waller(x, b, a):
     # type: (float, float, float) -> float
-    u"""
+    """
     Calculate a scaled isotropic Debye-Waller factor.
 
     By assuming a single isotropic disorder parameter, :param:`b`, this factor
@@ -142,7 +142,7 @@ def scaled_debye_waller(x, b, a):
 
 def wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d):
     # type: (FloatSequence, FloatSequence, FloatSequence, float) -> Fit
-    u"""
+    """
     Fit a simple Debye-Waller factor, assume isotropic disorder parameter.
 
     Reflections with d ≥ :param:`wilson_fit_max_d` are ignored.
@@ -177,7 +177,7 @@ def wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d):
 
 def wilson_plot_ascii(miller_array, d_ticks=None):
     # type: (miller.array, Optional[Sequence]) -> None
-    u"""
+    """
     Print an ASCII-art Wilson plot of reflection intensities.
 
     Equivalent reflections will be merged according to the crystal symmetry.
@@ -196,7 +196,7 @@ def wilson_plot_ascii(miller_array, d_ticks=None):
     binned_intensity = [x if x else 0 for x in wilson.data[1:-1]]
     bins = dict(zip(wilson.binner.bin_centers(1), binned_intensity))
     if d_ticks:
-        tick_positions = ", ".join(['"%g" %s' % (d, 1 / d ** 2) for d in d_ticks])
+        tick_positions = ", ".join([f'"{d:g}" {1 / d ** 2}' for d in d_ticks])
         tick_positions = tick_positions.join(["(", ")"])
     else:
         tick_positions = ""
@@ -221,7 +221,7 @@ def wilson_plot_image(
     output="wilson_plot",  # type: str
 ):
     # type: (...) -> None
-    u"""
+    """
     Generate the Wilson plot as a PNG image.
 
     :param:`max_d` allows greying out of the reflections not included in the
@@ -241,8 +241,8 @@ def wilson_plot_image(
     matplotlib.use("Agg")
     from matplotlib import pyplot as plt
 
-    plt.xlabel(u"d (Å) (inverse-square scale)")
-    plt.ylabel(u"Intensity (counts)")
+    plt.xlabel("d (Å) (inverse-square scale)")
+    plt.ylabel("Intensity (counts)")
     if ticks:
         plt.xticks([1 / d ** 2 for d in ticks], ["%g" % d for d in ticks])
 
@@ -273,7 +273,7 @@ def wilson_plot_image(
 
 def suggest_minimum_exposure(expts, refls, params):
     # type: (ExperimentList[Experiment], flex.reflection_table, scope_extract) -> None
-    u"""
+    """
     Suggest an estimated minimum sufficient exposure to achieve a certain resolution.
 
     The estimate is based on a fit of a Debye-Waller factor under the assumption that a
@@ -367,23 +367,23 @@ def suggest_minimum_exposure(expts, refls, params):
     recommendations = sorted(recommendations, key=lambda rec: rec[0], reverse=True)
 
     # Print a recommendation to the user.
-    info(u"\nFitted isotropic displacement parameter, B = %.3g Å²", fit[0])
+    info("\nFitted isotropic displacement parameter, B = %.3g Å²", fit[0])
     for target, recommendation in recommendations:
         if recommendation < 1:
             debug(
-                u"\nIt is likely that you can achieve a resolution of %g Å using a "
+                "\nIt is likely that you can achieve a resolution of %g Å using a "
                 "lower exposure (lower transmission and/or shorter exposure time).",
                 target,
             )
         elif recommendation > 1:
             debug(
                 "\nIt is likely that you need a higher exposure (higher transmission "
-                u"and/or longer exposure time to achieve a resolution of %g Å.",
+                "and/or longer exposure time to achieve a resolution of %g Å.",
                 target,
             )
         debug(
-            u"The estimated minimal sufficient exposure (flux × exposure time) to "
-            u"achievea resolution of %.2g Å is %.3g times the exposure used for this "
+            "The estimated minimal sufficient exposure (flux × exposure time) to "
+            "achievea resolution of %.2g Å is %.3g times the exposure used for this "
             "data collection.",
             target,
             recommendation,
@@ -392,12 +392,12 @@ def suggest_minimum_exposure(expts, refls, params):
     summary = "\nRecommendations summarised:\n"
     summary += tabulate(
         recommendations,
-        [u"Resolution (Å)", "Suggested\nexposure factor"],
+        ["Resolution (Å)", "Suggested\nexposure factor"],
         floatfmt=(".3g", ".3g"),
         tablefmt="rst",
     )
     summary += (
-        u"\nExposure is flux × exposure time."
+        "\nExposure is flux × exposure time."
         "\nYou can achieve your desired exposure factor by modifying "
         "transmission and/or exposure time."
     )
@@ -446,10 +446,9 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
         log.config(params.verbosity, params.output.log)
 
     if not (params.input.experiments and params.input.reflections):
-        version_information = "screen19.minimum_exposure v%s using %s (%s)" % (
-            __version__,
-            dials_version(),
-            time.strftime("%Y-%m-%d %H:%M:%S"),
+        version_information = (
+            f"screen19.minimum_exposure v{__version__} using {dials_version()} "
+            f"({time.strftime('%Y-%m-%d %H:%M:%S')})"
         )
 
         print(help_message)

@@ -1,6 +1,6 @@
 # coding: utf-8
 
-u"""
+"""
 Process screening data obtained at Diamond Light Source Beamline I19.
 
 This program presents the user with recommendations for adjustments to beam
@@ -97,7 +97,7 @@ from screen19.minimum_exposure import suggest_minimum_exposure
 Templates = List[Tuple[str, Tuple[int, int]]]
 
 phil_scope = iotbx.phil.parse(
-    u"""
+    """
     verbosity = 0
         .type = int(value_min=0)
         .caption = 'Verbosity level of log output'
@@ -262,8 +262,8 @@ def overloads_histogram(d_spacings, ticks=None, output="overloads"):
     matplotlib.use("Agg")
     from matplotlib import pyplot as plt
 
-    plt.xlabel(u"d (Å) (inverse scale)")
-    plt.ylabel(u"Number of overloaded reflections")
+    plt.xlabel("d (Å) (inverse scale)")
+    plt.ylabel("Number of overloaded reflections")
     if ticks:
         plt.xticks([1 / d for d in ticks], ["%g" % d for d in ticks])
 
@@ -892,7 +892,7 @@ class Screen19(object):
             self._oscillation = db.imageset.get_scan().get_oscillation()[1]
             self._sigma_m = db.profile.sigma_m()
             info(
-                u"%d images, %s° oscillation, σ_m=%.3f°",
+                "%d images, %s° oscillation, σ_m=%.3f°",
                 db.imageset.get_scan().get_num_images(),
                 str(self._oscillation),
                 self._sigma_m,
@@ -1056,10 +1056,10 @@ class Screen19(object):
             args=args, show_diff_phil=True, return_unhandled=True, quick_parse=True
         )
 
-        version_information = "screen19 v%s using %s (%s)" % (
-            screen19.__version__,
-            dials.util.version.dials_version(),
-            time.strftime("%Y-%m-%d %H:%M:%S"),
+        version_information = (
+            f"screen19 v{screen19.__version__} "
+            f"using {dials.util.version.dials_version()} "
+            f"({time.strftime('%Y-%m-%d %H:%M:%S')})"
         )
 
         start = timeit.default_timer()
