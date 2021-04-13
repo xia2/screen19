@@ -35,15 +35,13 @@ Examples:
 
 """
 
-from __future__ import absolute_import, division, print_function
-
 import logging
 import time
+from io import StringIO
 from typing import Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 from scipy.optimize import curve_fit
-from six.moves import cStringIO as StringIO
 from tabulate import tabulate
 
 import iotbx.phil

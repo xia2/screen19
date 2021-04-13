@@ -42,8 +42,6 @@ Examples:
 
 """
 
-from __future__ import absolute_import, division, print_function
-
 import json
 import logging
 import math
@@ -53,10 +51,10 @@ import sys
 import time
 import timeit
 from glob import glob
+from pickle import PickleError
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import procrunner
-from six.moves.cPickle import PickleError
 
 import iotbx.phil
 from libtbx import Auto

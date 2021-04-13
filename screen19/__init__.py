@@ -2,8 +2,6 @@
 
 """Common tools for the I19 module."""
 
-from __future__ import absolute_import, division, print_function
-
 import logging
 import os
 import re
