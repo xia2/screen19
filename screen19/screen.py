@@ -1,6 +1,4 @@
-# coding: utf-8
-
-u"""
+"""
 Process screening data obtained at Diamond Light Source Beamline I19.
 
 This program presents the user with recommendations for adjustments to beam
@@ -42,8 +40,6 @@ Examples:
 
 """
 
-from __future__ import absolute_import, division, print_function
-
 import json
 import logging
 import math
@@ -53,10 +49,10 @@ import sys
 import time
 import timeit
 from glob import glob
+from pickle import PickleError
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import procrunner
-from six.moves.cPickle import PickleError
 
 import iotbx.phil
 from libtbx import Auto
@@ -87,7 +83,6 @@ from dxtbx.model.experiment_list import (
     BeamComparison,
     DetectorComparison,
     ExperimentListFactory,
-    ExperimentListTemplateImporter,
     GoniometerComparison,
 )
 
@@ -97,7 +92,7 @@ from screen19.minimum_exposure import suggest_minimum_exposure
 Templates = List[Tuple[str, Tuple[int, int]]]
 
 phil_scope = iotbx.phil.parse(
-    u"""
+    """
     verbosity = 0
         .type = int(value_min=0)
         .caption = 'Verbosity level of log output'
@@ -215,12 +210,12 @@ debug, info, warning = logger.debug, logger.info, logger.warning
 
 
 def _run_integration(
-    scope: scope, experiments_file: str, reflections_file: str
+    phil_scope: scope, experiments_file: str, reflections_file: str
 ) -> Tuple[ExperimentList, flex.reflection_table]:
-    """Run integration programatically, compatible with multiple DIALS versions.
+    """Run integration programmatically, compatible with multiple DIALS versions.
 
     Args:
-        scope: The dials.integrate phil scope
+        phil_scope: The dials.integrate phil scope
         experiments_file: Path to the experiment list file
         reflections_file: Path to the reflection table file
     """
@@ -228,13 +223,13 @@ def _run_integration(
     if hasattr(dials.command_line.integrate, "run_integration"):
         # DIALS 3.1+ interface
         expts, refls, _ = dials.command_line.integrate.run_integration(
-            scope.extract(),
+            phil_scope.extract(),
             ExperimentList.from_file(experiments_file),
             flex.reflection_table.from_file(reflections_file),
         )
     elif hasattr(dials.command_line.integrate, "Script"):
         # Pre-3.1-style programmatic interface
-        expts, refls = dials.command_line.integrate.Script(phil=scope).run(
+        expts, refls = dials.command_line.integrate.Script(phil=phil_scope).run(
             [experiments_file, reflections_file]
         )
     else:
@@ -264,8 +259,8 @@ def overloads_histogram(
     matplotlib.use("Agg")
     from matplotlib import pyplot as plt
 
-    plt.xlabel(u"d (Å) (inverse scale)")
-    plt.ylabel(u"Number of overloaded reflections")
+    plt.xlabel("d (Å) (inverse scale)")
+    plt.ylabel("Number of overloaded reflections")
     if ticks:
         plt.xticks([1 / d for d in ticks], ["%g" % d for d in ticks])
 
@@ -281,7 +276,7 @@ def overloads_histogram(
     plt.close()
 
 
-class Screen19(object):
+class Screen19:
     """Encapsulates the screening script."""
 
     def __init__(self):
@@ -421,7 +416,7 @@ class Screen19(object):
                 )
                 try:
                     self.expts = ExperimentList.from_file(files[0])
-                except (IOError, PickleError, ValueError):
+                except (OSError, PickleError, ValueError):
                     pass
                 else:
                     self.params.dials_import.output.experiments = files[0]
@@ -495,7 +490,7 @@ class Screen19(object):
                     scan_tolerance=scan_tolerance,
                     format_kwargs=format_kwargs,
                 )
-            except IOError as e:
+            except OSError as e:
                 warning("%s '%s'", e.strerror, e.filename)
                 sys.exit(1)
 
@@ -509,12 +504,13 @@ class Screen19(object):
         else:
             # Use the template importer.
             if len(self.params.dials_import.input.template) > 0:
-                importer = ExperimentListTemplateImporter(
-                    self.params.dials_import.input.template, format_kwargs=format_kwargs
+                experiments = ExperimentList.from_templates(
+                    self.params.dials_import.input.template,
+                    format_kwargs=format_kwargs,
                 )
                 # Record the imported experiments for use elsewhere.
                 # Quit if there aren't any.
-                self.expts.extend(importer.experiments)
+                self.expts.extend(experiments)
                 if not self.expts:
                     warning(
                         "No images found matching template %s"
@@ -536,7 +532,7 @@ class Screen19(object):
         given, the number of available processors is returned.
 
         Args:
-            nproc (optional):  Number of processors.
+            nproc:  Number of processors.
         """
         if nproc and nproc is not Auto:
             self.nproc = nproc
@@ -585,7 +581,7 @@ class Screen19(object):
         correction.  See https://github.com/xia2/screen19/wiki#mosaicity-correction
 
         Args:
-            mosaicity_correction (optional):  default is `True`.
+            mosaicity_correction:  default is `True`.
         """
         info("\nTesting pixel intensities...")
         command = ["xia2.overload", "nproc=%s" % self.nproc, "indexed.expt"]
@@ -722,8 +718,7 @@ class Screen19(object):
         Call `dials.find_spots` on the imported experiment list.
 
         Args:
-            args (optional):  List of any additional PHIL parameters to be used by
-                              dials.import.
+            args:  List of any additional PHIL parameters to be used by dials.import.
         """
         info("\nFinding spots...")
 
@@ -898,7 +893,7 @@ class Screen19(object):
             self._oscillation = db.imageset.get_scan().get_oscillation()[1]
             self._sigma_m = db.profile.sigma_m()
             info(
-                u"%d images, %s° oscillation, σ_m=%.3f°",
+                "%d images, %s° oscillation, σ_m=%.3f°",
                 db.imageset.get_scan().get_num_images(),
                 str(self._oscillation),
                 self._sigma_m,
@@ -993,9 +988,18 @@ class Screen19(object):
             self.refls = eliminate_sys_absent(self.expts, self.refls)
             map_to_primitive(self.expts, self.refls)
 
+            # We can only refine against reflections with non-zero variance in
+            # observed centroid position.
+            x_valid, y_valid, z_valid = [
+                part > 0 for part in self.refls["xyzobs.mm.variance"].parts()
+            ]
+            nonzero_variance = x_valid | y_valid | z_valid
+
             try:
                 refined_settings = refined_settings_from_refined_triclinic(
-                    self.expts, self.refls, self.params.dials_refine_bravais
+                    self.expts,
+                    self.refls.select(nonzero_variance),
+                    self.params.dials_refine_bravais,
                 )
             except RuntimeError as e:
                 warning("dials.refine_bravais_settings failed.\nGiving up.")
@@ -1076,10 +1080,10 @@ class Screen19(object):
             args=args, show_diff_phil=True, return_unhandled=True, quick_parse=True
         )
 
-        version_information = "screen19 v%s using %s (%s)" % (
-            screen19.__version__,
-            dials.util.version.dials_version(),
-            time.strftime("%Y-%m-%d %H:%M:%S"),
+        version_information = (
+            f"screen19 v{screen19.__version__} "
+            f"using {dials.util.version.dials_version()} "
+            f"({time.strftime('%Y-%m-%d %H:%M:%S')})"
         )
 
         start = timeit.default_timer()
