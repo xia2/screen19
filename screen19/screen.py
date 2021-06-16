@@ -211,12 +211,13 @@ logger = logging.getLogger("dials.screen19")
 debug, info, warning = logger.debug, logger.info, logger.warning
 
 
-def _run_integration(scope, experiments_file, reflections_file):
-    # type: (scope, str, str) -> Tuple[ExperimentList, flex.reflection_table]
-    """Run integration programatically, compatible with multiple DIALS versions.
+def _run_integration(
+    phil_scope: scope, experiments_file: str, reflections_file: str
+) -> Tuple[ExperimentList, flex.reflection_table]:
+    """Run integration programmatically, compatible with multiple DIALS versions.
 
     Args:
-        scope: The dials.integrate phil scope
+        phil_scope: The dials.integrate phil scope
         experiments_file: Path to the experiment list file
         reflections_file: Path to the reflection table file
     """
@@ -224,13 +225,13 @@ def _run_integration(scope, experiments_file, reflections_file):
     if hasattr(dials.command_line.integrate, "run_integration"):
         # DIALS 3.1+ interface
         expts, refls, _ = dials.command_line.integrate.run_integration(
-            scope.extract(),
+            phil_scope.extract(),
             ExperimentList.from_file(experiments_file),
             flex.reflection_table.from_file(reflections_file),
         )
     elif hasattr(dials.command_line.integrate, "Script"):
         # Pre-3.1-style programmatic interface
-        expts, refls = dials.command_line.integrate.Script(phil=scope).run(
+        expts, refls = dials.command_line.integrate.Script(phil=phil_scope).run(
             [experiments_file, reflections_file]
         )
     else:
@@ -241,8 +242,11 @@ def _run_integration(scope, experiments_file, reflections_file):
     return expts, refls
 
 
-def overloads_histogram(d_spacings, ticks=None, output="overloads"):
-    # type: (Sequence[float], Optional[Sequence[float]], Optional[str]) -> None
+def overloads_histogram(
+    d_spacings: Sequence[float],
+    ticks: Optional[Sequence[float]] = None,
+    output: Optional[str] = "overloads",
+) -> None:
     """
     Generate a histogram of reflection d-spacings as an image, default is .png.
 
@@ -286,7 +290,7 @@ class Screen19:
         # iotbx.phil.parse.  Confused?  Blame PHIL.
         self.params = phil_scope.fetch(iotbx.phil.parse("")).extract()
 
-    def _quick_import(self, files):  # type: (List[str]) -> bool
+    def _quick_import(self, files: List[str]) -> bool:
         """
         Generate xia2-style templates from file names and attempt a quick import.
 
@@ -313,7 +317,7 @@ class Screen19:
             return False
         debug("Attempting quick import...")
         files.sort()
-        templates = {}  # type: Dict[str, List[Optional[List[int]]]]
+        templates: Dict[str, List[Optional[List[int]]]] = {}
         for f in files:
             template, image = screen19.make_template(f)
             if template not in templates:
@@ -327,12 +331,12 @@ class Screen19:
             else:
                 templates[template].append([image, image])
         # Return tuple of template and image range for each unique image range
-        templates = [
+        templates: Templates = [
             (t, tuple(r)) for t, ranges in templates.items() for r in ranges
-        ]  # type: Templates
+        ]
         return self._quick_import_templates(templates)
 
-    def _quick_import_templates(self, templates):  # type: (Templates) -> bool
+    def _quick_import_templates(self, templates: Templates) -> bool:
         """
         Take image file templates and frame number ranges and try to run dials.import.
 
@@ -354,7 +358,7 @@ class Screen19:
             return False
 
         try:
-            scan_range = templates[0][1]  # type: Tuple[int, int]
+            scan_range: Tuple[int, int] = templates[0][1]
             if not scan_range:
                 raise IndexError
         except IndexError:
@@ -369,7 +373,7 @@ class Screen19:
 
         return True
 
-    def _import(self, files):  # type: (List[str]) -> None
+    def _import(self, files: List[str]) -> None:
         """
         Try to run a quick call of dials.import.  Failing that, run a slow call.
 
@@ -522,7 +526,7 @@ class Screen19:
         # Extract the experiments and loop through
         self.expts = metadata_updater(self.expts.imagesets())
 
-    def _count_processors(self, nproc=None):  # type: (Optional[int]) -> None
+    def _count_processors(self, nproc: Optional[int] = None) -> None:
         """
         Determine the number of processors and save it as an instance variable.
 
@@ -530,7 +534,7 @@ class Screen19:
         given, the number of available processors is returned.
 
         Args:
-            nproc (optional):  Number of processors.
+            nproc:  Number of processors.
         """
         if nproc and nproc is not Auto:
             self.nproc = nproc
@@ -552,7 +556,7 @@ class Screen19:
             )
             sys.exit(1)
 
-    def _count_images(self):  # type: () -> int
+    def _count_images(self) -> int:
         """
         Attempt to determine the number of diffraction images.
 
@@ -570,7 +574,7 @@ class Screen19:
             warning("Could not determine number of images in dataset.")
             sys.exit(1)
 
-    def _check_intensities(self, mosaicity_correction=True):  # type: (bool) -> None
+    def _check_intensities(self, mosaicity_correction: bool = True) -> None:
         """
         Run xia2.overload and plot a histogram of pixel intensities.
 
@@ -579,7 +583,7 @@ class Screen19:
         correction.  See https://github.com/xia2/screen19/wiki#mosaicity-correction
 
         Args:
-            mosaicity_correction (optional):  default is `True`.
+            mosaicity_correction:  default is `True`.
         """
         info("\nTesting pixel intensities...")
         command = ["xia2.overload", "nproc=%s" % self.nproc, "indexed.expt"]
@@ -710,13 +714,12 @@ class Screen19:
 
         info("Total sum of counts in dataset: %d", count_sum)
 
-    def _find_spots(self, args=None):  # type: (Optional[List[str]]) -> None
+    def _find_spots(self, args: Optional[List[str]] = None) -> None:
         """
         Call `dials.find_spots` on the imported experiment list.
 
         Args:
-            args (optional):  List of any additional PHIL parameters to be used by
-                              dials.import.
+            args:  List of any additional PHIL parameters to be used by dials.import.
         """
         info("\nFinding spots...")
 
@@ -746,7 +749,7 @@ class Screen19:
             timeit.default_timer() - dials_start,
         )
 
-    def _index(self):  # type: () -> bool
+    def _index(self) -> bool:
         """
         Call `dials.index` on the output of spot finding.
 
@@ -830,7 +833,7 @@ class Screen19:
         # Report the indexing successful.
         return True
 
-    def _wilson_calculation(self):  # type: () -> None
+    def _wilson_calculation(self) -> None:
         """
         Run `screen19.minimum_exposure` on an experiment list and reflection table.
 
@@ -845,7 +848,7 @@ class Screen19:
 
         info("Successfully completed (%.1f sec)", timeit.default_timer() - dials_start)
 
-    def _refine(self):  # type: () -> None
+    def _refine(self) -> None:
         """
         Run `dials.refine` on the results of indexing.
         """
@@ -862,7 +865,7 @@ class Screen19:
 
         info("Successfully refined (%.1f sec)", timeit.default_timer() - dials_start)
 
-    def _create_profile_model(self):  # type: () -> bool
+    def _create_profile_model(self) -> bool:
         """
         Run `dials.create_profile_model` on indexed reflections.
 
@@ -898,7 +901,7 @@ class Screen19:
         warning("Failed with exit code %d", result["exitcode"])
         return False
 
-    def _integrate(self):  # type: () -> None
+    def _integrate(self) -> None:
         """Run `dials.integrate` to integrate reflection intensities."""
         dials_start = timeit.default_timer()
         info("\nIntegrating...")
@@ -937,8 +940,9 @@ class Screen19:
     # This is a hacky check but should work for as long as DIALS 2.0 is supported.
     if version.dials_version() < "DIALS 2.1":
 
-        def _refine_bravais(self, experiments, reflections):
-            # type: (ExperimentList, flex.reflection_table) -> None
+        def _refine_bravais(
+            self, experiments: ExperimentList, reflections: flex.reflection_table
+        ) -> None:
             """
             Run `dials.refine_bravais_settings` on an experiments and reflections.
 
@@ -969,7 +973,7 @@ class Screen19:
 
     else:
 
-        def _refine_bravais(self):  # type: () -> None
+        def _refine_bravais(self) -> None:
             """Run `dials.refine_bravais_settings` to determine the space group."""
             dials_start = timeit.default_timer()
             info("\nRefining Bravais settings...")
@@ -1010,8 +1014,9 @@ class Screen19:
                 timeit.default_timer() - dials_start,
             )
 
-    def _report(self, experiments, reflections):
-        # type: (ExperimentList, flex.reflection_table) -> None
+    def _report(
+        self, experiments: ExperimentList, reflections: flex.reflection_table
+    ) -> None:
         """
         Run `dials.report` on an experiment list and reflection table.
 
@@ -1038,8 +1043,12 @@ class Screen19:
             warning("Failed with exit code %d", result["exitcode"])
             sys.exit(1)
 
-    def run(self, args=None, phil=phil_scope, set_up_logging=False):
-        # type: (Optional[List[str]], scope, bool) -> None
+    def run(
+        self,
+        args: Optional[List[str]] = None,
+        phil: scope = phil_scope,
+        set_up_logging: bool = False,
+    ) -> None:
         """
         TODO: Docstring.
 
@@ -1175,6 +1184,6 @@ class Screen19:
         info("screen19 successfully completed (%.1f sec).", runtime)
 
 
-def main():  # type: () -> None
+def main() -> None:
     """Dispatcher for command-line call."""
     Screen19().run(set_up_logging=True)
