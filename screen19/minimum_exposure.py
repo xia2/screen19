@@ -1,4 +1,3 @@
-# coding: utf-8
 """
 Perform straight-line Wilson plot fit.  Draw the Wilson plot.
 

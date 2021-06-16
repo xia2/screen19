@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Process screening data obtained at Diamond Light Source Beamline I19.
 
@@ -277,7 +275,7 @@ def overloads_histogram(d_spacings, ticks=None, output="overloads"):
     plt.close()
 
 
-class Screen19(object):
+class Screen19:
     """Encapsulates the screening script."""
 
     def __init__(self):
@@ -417,7 +415,7 @@ class Screen19(object):
                 )
                 try:
                     self.expts = ExperimentList.from_file(files[0])
-                except (IOError, PickleError, ValueError):
+                except (OSError, PickleError, ValueError):
                     pass
                 else:
                     self.params.dials_import.output.experiments = files[0]
@@ -491,7 +489,7 @@ class Screen19(object):
                     scan_tolerance=scan_tolerance,
                     format_kwargs=format_kwargs,
                 )
-            except IOError as e:
+            except OSError as e:
                 warning("%s '%s'", e.strerror, e.filename)
                 sys.exit(1)
 

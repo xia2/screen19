@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """Common tools for the I19 module."""
 
 import logging
