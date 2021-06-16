@@ -2,7 +2,7 @@
 repos:
 
 # Automatically sort imports with isort
-- repo: https://github.com/PyCQA/isort.git
+- repo: https://github.com/PyCQA/isort
   rev: 5.7.0
   hooks:
   - id: isort
