@@ -3,41 +3,17 @@ language: python
 jobs:
   include:
     - stage: check
-      name: "Syntax validation - Python 2.7"
-      python: 2.7
-      script:
-         - python -m compileall -q *
-
-    - name: "Syntax validation - Python 3.8"
+      name: "Syntax validation - Python 3.8"
       python: 3.8
       script:
          - python3 -m compileall -q *
 
     - stage: build
-      name: "Build - Python 2.7"
-      python: 2.7
-      install:
-         # Setup a DIALS installation
-         - ./.travis/setup-base
-
-      before_script:
-         # Enter DIALS environment, install screen19, and update dispatchers
-         - cd $HOME/build_dials/build
-         - . setpaths.sh
-         - libtbx.pip install -e $HOME/build/xia2/screen19
-         - libtbx.configure .
-
-      script:
-         # Run the tests
-         - cd $HOME/build/xia2/screen19
-         - pytest -ra -n auto
-         - .travis/check-working-directory-is-clean
-
-    - name: "Build - Python 3.6"
+      name: "Build - Python 3.6"
       python: 3.6
       install:
          # Setup a DIALS installation
-         - ./.travis/setup-base3
+         - ./.travis/setup-base
 
       before_script:
          # Enter DIALS environment, install screen19, and update dispatchers
@@ -65,11 +41,6 @@ jobs:
         on:
           tags: true
           repo: xia2/screen19
-
-    - name: "Flake8 - Python 2.7"
-      python: 2.7
-      script: .travis/run-flake8
-      if: type = pull_request
 
     - name: "Flake8 - Python 3.8"
       python: 3.8

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 from setuptools import find_packages, setup
 
@@ -18,15 +17,6 @@ with open("CHANGELOG.rst") as changelog_file:
 setup(
     author="Diamond Light Source",
     author_email="scientificsoftware@diamond.ac.uk",
-    classifiers=[
-        "Development Status :: 4 - Beta",
-        "License :: OSI Approved :: BSD License",
-        "Natural Language :: English",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
-    ],
     description="Screening program for small-molecule single-crystal X-ray diffraction "
     "data",
     entry_points={
@@ -54,7 +44,6 @@ setup(
     packages=find_packages(),
     test_suite="tests",
     tests_require=["mock>=2.0", "pytest>=4.5"],
-    url="https://github.com/xia2/screen19",
     version="0.212",
     zip_safe=False,
 )
