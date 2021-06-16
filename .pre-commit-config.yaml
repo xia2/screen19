@@ -9,7 +9,7 @@ repos:
     args: ["--py36-plus"]
 
 # Automatically sort imports with isort
-- repo: https://github.com/timothycrosley/isort.git
+- repo: https://github.com/PyCQA/isort
   rev: 5.7.0
   hooks:
   - id: isort
