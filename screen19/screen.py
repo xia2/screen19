@@ -205,8 +205,6 @@ phil_scope = iotbx.phil.parse(
     process_includes=True,
 )
 
-procrunner_debug = False
-
 logger = logging.getLogger("dials.screen19")
 debug, info, warning = logger.debug, logger.info, logger.warning
 
@@ -587,13 +585,16 @@ class Screen19:
         """
         info("\nTesting pixel intensities...")
         command = ["xia2.overload", "nproc=%s" % self.nproc, "indexed.expt"]
-        debug("running %s", command)
-        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
-        debug("result = %s", screen19.prettyprint_procrunner(result))
-        info("Successfully completed (%.1f sec)", result["runtime"])
 
-        if result["exitcode"] != 0:
-            warning("Failed with exit code %d", result["exitcode"])
+        debug("running %s", command)
+        start = timeit.default_timer()
+        result = procrunner.run(command, print_stdout=False)
+
+        debug("result = %s", screen19.prettyprint_procrunner(result))
+        info("Successfully completed (%.1f sec)", timeit.default_timer() - start)
+
+        if result.returncode:
+            warning("Failed with exit code %d", result.returncode)
             sys.exit(1)
 
         with open("overload.json") as fh:
@@ -653,9 +654,7 @@ class Screen19:
             ),
         )
 
-        screen19.plot_intensities(
-            hist, 1 / hist_granularity, procrunner_debug=procrunner_debug
-        )
+        screen19.plot_intensities(hist, 1 / hist_granularity)
 
         linear_response_limit = 100 * self.params.maximum_flux.trusted_range_correction
         marginal_limit = max(70, linear_response_limit)
@@ -883,10 +882,13 @@ class Screen19:
             self.params.dials_index.output.reflections,
             "output = %s" % self.params.dials_index.output.experiments,
         ]
-        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
+
+        start = timeit.default_timer()
+        result = procrunner.run(command, print_stdout=False)
+
         debug("result = %s", screen19.prettyprint_procrunner(result))
         self._sigma_m = None
-        if result["exitcode"] == 0:
+        if result.returncode == 0:
             db = ExperimentList.from_file(self.params.dials_index.output.experiments)[0]
             self._oscillation = db.imageset.get_scan().get_oscillation()[1]
             self._sigma_m = db.profile.sigma_m()
@@ -896,9 +898,9 @@ class Screen19:
                 str(self._oscillation),
                 self._sigma_m,
             )
-            info("Successfully completed (%.1f sec)", result["runtime"])
+            info("Successfully completed (%.1f sec)", timeit.default_timer() - start)
             return True
-        warning("Failed with exit code %d", result["exitcode"])
+        warning("Failed with exit code %d", result.returncode)
         return False
 
     def _integrate(self) -> None:
@@ -952,12 +954,15 @@ class Screen19:
             """
             info("\nRefining Bravais settings...")
             command = ["dials.refine_bravais_settings", experiments, reflections]
-            result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
+
+            start = timeit.default_timer()
+            result = procrunner.run(command, print_stdout=False)
+
             debug("result = %s", screen19.prettyprint_procrunner(result))
-            if result["exitcode"] == 0:
+            if result.returncode == 0:
                 m = re.search(
                     r"[-+]{3,}\n[^\n]*\n[-+|]{3,}\n(.*\n)*[-+]{3,}",
-                    result["stdout"].decode("utf-8"),
+                    result.stdout.decode("utf-8"),
                 )
                 if m:
                     info(m.group(0))
@@ -966,9 +971,11 @@ class Screen19:
                         "Could not interpret dials.refine_bravais_settings output, "
                         "please check dials.refine_bravais_settings.log"
                     )
-                info("Successfully completed (%.1f sec)", result["runtime"])
+                info(
+                    "Successfully completed (%.1f sec)", timeit.default_timer() - start
+                )
             else:
-                warning("Failed with exit code %d", result["exitcode"])
+                warning("Failed with exit code %d", result.returncode)
                 sys.exit(1)
 
     else:
@@ -1026,10 +1033,13 @@ class Screen19:
         """
         info("\nCreating report...")
         command = ["dials.report", experiments, reflections]
-        result = procrunner.run(command, print_stdout=False, debug=procrunner_debug)
+
+        start = timeit.default_timer()
+        result = procrunner.run(command, print_stdout=False)
+
         debug("result = %s", screen19.prettyprint_procrunner(result))
-        if result["exitcode"] == 0:
-            info("Successfully completed (%.1f sec)", result["runtime"])
+        if result.returncode == 0:
+            info("Successfully completed (%.1f sec)", timeit.default_timer() - start)
         #     if sys.stdout.isatty():
         #       info("Trying to start browser")
         #       try:
@@ -1040,7 +1050,7 @@ class Screen19:
         #       except Exception as e:
         #         debug("Could not open browser\n%s", str(e))
         else:
-            warning("Failed with exit code %d", result["exitcode"])
+            warning("Failed with exit code %d", result.returncode)
             sys.exit(1)
 
     def run(
