@@ -117,8 +117,7 @@ logger = logging.getLogger(logger_name)
 debug, info, warn = logger.debug, logger.info, logger.warning
 
 
-def scaled_debye_waller(x, b, a):
-    # type: (float, float, float) -> float
+def scaled_debye_waller(x: float, b: float, a: float) -> float:
     """
     Calculate a scaled isotropic Debye-Waller factor.
 
@@ -137,8 +136,12 @@ def scaled_debye_waller(x, b, a):
     return a * np.exp(-b / 2 * x)
 
 
-def wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d):
-    # type: (FloatSequence, FloatSequence, FloatSequence, float) -> Fit
+def wilson_fit(
+    d_star_sq: FloatSequence,
+    intensity: FloatSequence,
+    sigma: FloatSequence,
+    wilson_fit_max_d: float,
+) -> Fit:
     """
     Fit a simple Debye-Waller factor, assume isotropic disorder parameter.
 
@@ -172,8 +175,9 @@ def wilson_fit(d_star_sq, intensity, sigma, wilson_fit_max_d):
     return fit
 
 
-def wilson_plot_ascii(miller_array, d_ticks=None):
-    # type: (miller.array, Optional[Sequence]) -> None
+def wilson_plot_ascii(
+    miller_array: miller.array, d_ticks: Optional[Sequence] = None
+) -> None:
     """
     Print an ASCII-art Wilson plot of reflection intensities.
 
@@ -210,14 +214,13 @@ def wilson_plot_ascii(miller_array, d_ticks=None):
 
 
 def wilson_plot_image(
-    d_star_sq,  # type: FloatSequence
-    intensity,  # type: FloatSequence
-    fit,  # type: Fit
-    max_d=None,  # type: Optional[float]
-    ticks=None,  # type: Optional[FloatSequence]
-    output="wilson_plot",  # type: str
-):
-    # type: (...) -> None
+    d_star_sq: FloatSequence,
+    intensity: FloatSequence,
+    fit: Fit,
+    max_d: Optional[float] = None,
+    ticks: Optional[FloatSequence] = None,
+    output: str = "wilson_plot",
+) -> None:
     """
     Generate the Wilson plot as a PNG image.
 
@@ -268,8 +271,11 @@ def wilson_plot_image(
     plt.close()
 
 
-def suggest_minimum_exposure(expts, refls, params):
-    # type: (ExperimentList[Experiment], flex.reflection_table, scope_extract) -> None
+def suggest_minimum_exposure(
+    expts: ExperimentList[Experiment],
+    refls: flex.reflection_table,
+    params: scope_extract,
+) -> None:
     """
     Suggest an estimated minimum sufficient exposure to achieve a certain resolution.
 
@@ -411,8 +417,11 @@ def suggest_minimum_exposure(expts, refls, params):
     )
 
 
-def run(phil=phil_scope, args=None, set_up_logging=False):
-    # type: (scope, Optional[List[str, ...]], bool) -> None
+def run(
+    phil: scope = phil_scope,
+    args: Optional[List[str, ...]] = None,
+    set_up_logging: bool = False,
+) -> None:
     """
     Parse command-line arguments, run the script.
 
@@ -481,7 +490,6 @@ def run(phil=phil_scope, args=None, set_up_logging=False):
     suggest_minimum_exposure(expts, refls, params)
 
 
-def main():
-    # type: () -> None
+def main() -> None:
     """Dispatcher for command-line call."""
     run(set_up_logging=True)
