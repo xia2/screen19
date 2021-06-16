@@ -51,7 +51,7 @@ from dials.array_family import flex
 from dials.util import log
 from dials.util.options import OptionParser
 from dials.util.version import dials_version
-from dxtbx.model import Experiment, ExperimentList
+from dxtbx.model import ExperimentList
 
 from screen19 import __version__, d_ticks, plot_intensities, terminal_size
 
@@ -272,9 +272,7 @@ def wilson_plot_image(
 
 
 def suggest_minimum_exposure(
-    expts: ExperimentList[Experiment],
-    refls: flex.reflection_table,
-    params: scope_extract,
+    expts: ExperimentList, refls: flex.reflection_table, params: scope_extract
 ) -> None:
     """
     Suggest an estimated minimum sufficient exposure to achieve a certain resolution.
@@ -419,7 +417,7 @@ def suggest_minimum_exposure(
 
 def run(
     phil: scope = phil_scope,
-    args: Optional[List[str, ...]] = None,
+    args: Optional[List[str]] = None,
     set_up_logging: bool = False,
 ) -> None:
     """
