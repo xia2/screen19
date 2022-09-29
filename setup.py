@@ -44,6 +44,6 @@ setup(
     packages=find_packages(),
     test_suite="tests",
     tests_require=["mock>=2.0", "pytest>=4.5"],
-    version="0.212",
+    version="0.213",
     zip_safe=False,
 )

@@ -1,3 +1,26 @@
+Screen19 0.213 (2022-09-29)
+===========================
+
+Bugfixes
+--------
+
+- Fix a case of screen19 failing when trying to refine the different possible Bravais settings of the found lattice.
+  This was happening because screen19 was failing to filter out reflections with zero variance in the position of their observed centroids before performing the refinement. (`#53 <https://github.com/xia2/screen19/issues/53>`_)
+- Fix broken help messages for ``screen19`` and ``screen19.minimum_exposure``. (`#58 <https://github.com/xia2/screen19/issues/58>`_)
+
+
+Deprecations and Removals
+-------------------------
+
+- screen19 no longer supports DIALS 2.2 or Python 2.7.  To install screen19, it is recommended that yous start by `installing DIALS<https://dials.github.io/installation.html>`_ version 3.4 or greater. (`#52 <https://github.com/xia2/screen19/issues/52>`_)
+
+
+Misc
+----
+
+- `#43 <https://github.com/xia2/screen19/issues/43>`_, `#44 <https://github.com/xia2/screen19/issues/44>`_, `#46 <https://github.com/xia2/screen19/issues/46>`_, `#48 <https://github.com/xia2/screen19/issues/48>`_, `#50 <https://github.com/xia2/screen19/issues/50>`_, `#51 <https://github.com/xia2/screen19/issues/51>`_, `#55 <https://github.com/xia2/screen19/issues/55>`_
+
+
 screen19 0.212 (2020-10-12)
 ===========================
 

@@ -12,7 +12,7 @@ import procrunner
 
 # Flake8 does not detect typing yet (https://gitlab.com/pycqa/flake8/issues/342)
 
-__version__ = "0.212"
+__version__ = "0.213"
 
 logger = logging.getLogger("dials.screen19")
 debug, info, warn = logger.debug, logger.info, logger.warning
