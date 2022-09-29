@@ -12,7 +12,7 @@ Bugfixes
 Deprecations and Removals
 -------------------------
 
-- screen19 no longer supports DIALS 2.2 or Python 2.7.  To install screen19, it is recommended that yous start by `installing DIALS<https://dials.github.io/installation.html>`_ version 3.4 or greater. (`#52 <https://github.com/xia2/screen19/issues/52>`_)
+- screen19 no longer supports DIALS 2.2 or Python 2.7.  To install screen19, it is recommended that you start by `installing DIALS <https://dials.github.io/installation.html>`_ version 3.4 or greater. (`#52 <https://github.com/xia2/screen19/issues/52>`_)
 
 
 Misc
