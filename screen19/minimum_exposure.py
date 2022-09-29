@@ -161,7 +161,7 @@ def wilson_fit(
 
     """
     # Eliminate reflections with d > wilson_fit_max_d from the fit
-    sel = d_star_sq > 1 / wilson_fit_max_d ** 2
+    sel = d_star_sq > 1 / wilson_fit_max_d**2
 
     # Perform a weighted Wilson plot fit to the reflection intensities
     fit, cov = curve_fit(
@@ -244,7 +244,7 @@ def wilson_plot_image(
     plt.xlabel("d (Å) (inverse-square scale)")
     plt.ylabel("Intensity (counts)")
     if ticks:
-        plt.xticks([1 / d ** 2 for d in ticks], ["%g" % d for d in ticks])
+        plt.xticks([1 / d**2 for d in ticks], ["%g" % d for d in ticks])
 
     # Matplotlib v3.3.0 includes API change 'nonposy' → 'nonpositive'
     # https://matplotlib.org/api/api_changes.html#log-symlog-scale-base-ticks-and-nonpos-specification
@@ -350,8 +350,8 @@ def suggest_minimum_exposure(
 
     # Get recommended exposure factors
     # Use the fact that σ² = I for indexed data, so I/σ = √̅I
-    desired_d_star_sq = [1 / d ** 2 for d in desired_d]
-    target_i = min_i_over_sigma ** 2
+    desired_d_star_sq = [1 / d**2 for d in desired_d]
+    target_i = min_i_over_sigma**2
     recommended_factor = [
         (target_i / scaled_debye_waller(target_d, *fit))
         for target_d in desired_d_star_sq
