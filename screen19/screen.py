@@ -262,7 +262,7 @@ def overloads_histogram(
     plt.xlabel("d (Å) (inverse scale)")
     plt.ylabel("Number of overloaded reflections")
     if ticks:
-        plt.xticks([1 / d for d in ticks], ["%g" % d for d in ticks])
+        plt.xticks([1 / d for d in ticks], [f"{d:g}" for d in ticks])
 
     # Matplotlib v3.3.0 includes API change 'nonposy' → 'nonpositive'
     # https://matplotlib.org/api/api_changes.html#log-symlog-scale-base-ticks-and-nonpos-specification
@@ -513,8 +513,8 @@ class Screen19:
                 self.expts.extend(experiments)
                 if not self.expts:
                     warning(
-                        "No images found matching template %s"
-                        % self.params.dials_import.input.template[0]
+                        "No images found matching template %s",
+                        self.params.dials_import.input.template[0],
                     )
                     sys.exit(1)
 
@@ -584,7 +584,7 @@ class Screen19:
             mosaicity_correction:  default is `True`.
         """
         info("\nTesting pixel intensities...")
-        command = ["xia2.overload", "nproc=%s" % self.nproc, "indexed.expt"]
+        command = ["xia2.overload", f"nproc={self.nproc}", "indexed.expt"]
 
         debug("running %s", command)
         start = timeit.default_timer()
@@ -629,15 +629,15 @@ class Screen19:
 
         debug(
             "intensity histogram: { %s }",
-            ", ".join(["%d:%d" % (k, hist[k]) for k in sorted(hist)]),
+            ", ".join([f"{k:d}:{hist[k]:d}" for k in sorted(hist)]),
         )
         max_count = max(hist.keys())
         hist_max = max_count * scale
-        hist_granularity, hist_format = 1, "%.0f"
+        hist_granularity, hist_format = 1, ".0f"
         if hist_max < 50:
-            hist_granularity, hist_format = 2, "%.1f"
+            hist_granularity, hist_format = 2, ".1f"
         if hist_max < 15:
-            hist_granularity, hist_format = 10, "%.1f"
+            hist_granularity, hist_format = 10, ".1f"
         rescaled_hist = {}
         for x in hist.keys():
             rescaled = round(x * scale * hist_granularity)
@@ -648,7 +648,7 @@ class Screen19:
             "rescaled histogram: { %s }",
             ", ".join(
                 [
-                    (hist_format + ":%d") % (k / hist_granularity, hist[k])
+                    f"{k / hist_granularity:{hist_format}}:{hist[k]:d}"
                     for k in sorted(hist)
                 ]
             ),
@@ -659,12 +659,8 @@ class Screen19:
         linear_response_limit = 100 * self.params.maximum_flux.trusted_range_correction
         marginal_limit = max(70, linear_response_limit)
 
-        text = "".join(
-            (
-                "Strongest pixel (%d counts) " % max_count,
-                "reaches %.1f%% " % hist_max,
-                "of the detector count rate limit",
-            )
+        text = (
+            f"Strongest pixel ({max_count:d} counts) reaches {hist_max:.1f}% of the detector count rate limit",
         )
         if hist_max > 100:
             warning("Warning: %s!", text)
@@ -680,28 +676,25 @@ class Screen19:
                 "limits of the detector.\n"
                 "         The built-in detector count rate correction cannot "
                 "adjust for this.\n"
-                "         You should aim for count rates below {:.0%} of the "
-                "detector limit.".format(
-                    self.params.maximum_flux.trusted_range_correction
-                )
+                "         You should aim for count rates below "
+                f"{self.params.maximum_flux.trusted_range_correction:.0%} of the "
+                "detector limit."
             )
         elif hist_max > marginal_limit:
             warning(
                 "Warning: The photon incidence rate is well outside the "
-                "linear response region of the detector (<{:.0%}).\n"
+                "linear response region of the detector "
+                f"(<{self.params.maximum_flux.trusted_range_correction:.0%}).\n"
                 "    The built-in detector count rate correction may not be "
-                "able to adjust for this.".format(
-                    self.params.maximum_flux.trusted_range_correction
-                )
+                "able to adjust for this."
             )
         elif hist_max > linear_response_limit:
             info(
                 "The photon incidence rate is outside the linear response "
-                "region of the detector (<{:.0%}).\n"
+                "region of the detector "
+                f"(<{self.params.maximum_flux.trusted_range_correction:.0%}).\n"
                 "    The built-in detector count rate correction may be able "
-                "to adjust for this.".format(
-                    self.params.maximum_flux.trusted_range_correction
-                )
+                "to adjust for this."
             )
         if not mosaicity_correction:
             warning(
@@ -880,7 +873,7 @@ class Screen19:
             "dials.create_profile_model",
             self.params.dials_index.output.experiments,
             self.params.dials_index.output.reflections,
-            "output = %s" % self.params.dials_index.output.experiments,
+            f"output = {self.params.dials_index.output.experiments}",
         ]
 
         start = timeit.default_timer()
@@ -1070,7 +1063,7 @@ class Screen19:
         Returns:
 
         """
-        usage = "%prog [options] image_directory | image_files.cbf | imported.expt"
+        usage = "%(prog)s [options] image_directory | image_files.cbf | imported.expt"
 
         parser = OptionParser(
             usage=usage, epilog=__doc__, phil=phil, check_format=False

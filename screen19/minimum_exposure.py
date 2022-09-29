@@ -244,7 +244,7 @@ def wilson_plot_image(
     plt.xlabel("d (Å) (inverse-square scale)")
     plt.ylabel("Intensity (counts)")
     if ticks:
-        plt.xticks([1 / d**2 for d in ticks], ["%g" % d for d in ticks])
+        plt.xticks([1 / d**2 for d in ticks], [f"{d:g}" for d in ticks])
 
     # Matplotlib v3.3.0 includes API change 'nonposy' → 'nonpositive'
     # https://matplotlib.org/api/api_changes.html#log-symlog-scale-base-ticks-and-nonpos-specification
@@ -432,7 +432,7 @@ def run(
         args: Arguments to parse. If None, :data:`sys.argv[1:]` will be used.
         set_up_logging: Choose whether to configure :module:`screen19` logging.
     """
-    usage = "%prog [options] integrated.expt integrated.refl"
+    usage = "%(prog)s [options] integrated.expt integrated.refl"
 
     parser = OptionParser(
         usage=usage,
