@@ -38,7 +38,7 @@ def terminal_size() -> Tuple[int, int]:
                 print_stdout=False,
                 print_stderr=False,
             )
-            rows, columns = [int(i) for i in result.stdout.decode("utf-8").split()]
+            rows, columns = (int(i) for i in result.stdout.decode("utf-8").split())
         except Exception:  # ignore any errors and use default size
             pass  # FIXME: Can we be more specific about the type of exception?
     columns = min(columns, 120)

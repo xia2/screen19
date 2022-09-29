@@ -619,9 +619,9 @@ class Screen19:
                 delta_z = self._oscillation / self._sigma_m / math.sqrt(2)
                 average_to_peak = (
                     math.sqrt(math.pi) * delta_z * math.erf(delta_z)
-                    + math.exp(-(delta_z ** 2))
+                    + math.exp(-(delta_z**2))
                     - 1
-                ) / delta_z ** 2
+                ) / delta_z**2
                 info("Average-to-peak intensity ratio: %f", average_to_peak)
 
         scale = 100 * overload_data["scale_factor"] / average_to_peak
@@ -990,9 +990,9 @@ class Screen19:
 
             # We can only refine against reflections with non-zero variance in
             # observed centroid position.
-            x_valid, y_valid, z_valid = [
+            x_valid, y_valid, z_valid = (
                 part > 0 for part in self.refls["xyzobs.mm.variance"].parts()
-            ]
+            )
             nonzero_variance = x_valid | y_valid | z_valid
 
             try:
