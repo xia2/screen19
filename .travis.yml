@@ -35,9 +35,9 @@ jobs:
       deploy:
         provider: pypi
         distributions: sdist bdist_wheel
-        user: mgerstel
+        user: __token__
         password:
-          secure: RpF4KMjtacB2oiznZDydkcT/69YHKWs2eP+Ec8SDSb8tYIekYNKKNHXT2GPNpdj7yX6PCBC1uY4y1szrlv95Vn1pzXNQ4lQHsWMMGue6aVhQaixx5qMDCDJrD1CVbAy5JNMXmJ8CQxikA6QQ+cmECR4rGResk7ZhEh7f//IXXZCMD+Xf8vDVYBpzW+5a21eT1H5wHUp7cIlfFXn6ew2Exg/lpTUhC/KNoJ/g8fOND7/4eQTG8c5wKvLznEsdttOw3DY3G6fG/BkpBpaEb/1PVlzQKiN4XYwoWoP+PMJgSZ4LkPTQ/zeIJ+JPvP5AT1PGQhYBz4gzP9FtwFyqQhjFEYab/m0vukZz4gk6rDjZNoi1RMSuZqBXvz8c9yi+4aqtypTkXg5Hl5ypoRCveR8222UogmXUqLhvx8MhQeQcabTkAXSab33/XcdbqWMgqiIF830cm/k9MkugTXK/69uXeMVbV4CxAhXHg34J1s7Bu3j7lqJZfpGv6duDVhfjAVgaBfUO7SmIuBwWJskvSijGTAxKS54tLCR2C2ZXplwKMDDsmZmGt+e7q2Rby8n96vY9UwuNARgfU5LGE4EQP4Vq3TnnbnVaTIZ617E7hlZm43ntU5xO4deM0hiyidcUWj30WiwE+z83XOeV4scaYE+NzovlVUsBGejjUlDTyh88Ez0=
+          secure: T0QEH1dDT3ZG3Ao+jJUpHCzQpxfBdU2xTExSAkjf4Oc8Dk04nhlVV14TIiMjpqll98MpCKcOEjqcsm2VpuJrP0pzgtzqVXMl3Rsc+pm58PheDuaSgsg+vkV3MbBQOhRYWQLz+0+bjSCRcNTam+B+R1oCcYoI5wpODdHoDSsCwK3QBpk71qLRUQ8c7CT728PSVvBAORiR1y8JVdfIAa6299siiFspCwBT5N3yxqAXDZXZ6FQMIp1AjubGvE4E3K9nARQOhoa2NRvsH1r4i354l0o4PlUzjjogD8/qqX2dBMcd7lExJoIBJLMAEVZ0zKC46pmBI/LX0gczBG3hpgD/WPmBqqhfdzl/tkqKLB+LXP/voJf5rTAw63Rb80ibcCt+7b2IYWvpQx1qXlvQyAHwmmL/2/aX/QJ1HSrZ5Y4DQJtkEKBY+GsyqNxXXqDaQy6AO57Y+SVe7LBZh4Q8J6stoGUeYny7ABJzl+lZbc7w3yUpbF54PnFIcRfA/b9kX3cr2wWeZHR9uYMmsRLwWHOh5+9xqrdzDzxoq28zIiaNrivTRLvzmXocKF5pAHtfcP5oSwnSIy0Ut0QC5e6q05kOPtDc7ew/WIs39ZXpAOm0em+ae7UHYbzcQgqIyG3biSrUrQ+OotCj79ZTLwjdI4x+505AiT799c5ino1jmOKot2w=
         on:
           tags: true
           repo: xia2/screen19
