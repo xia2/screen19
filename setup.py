@@ -20,20 +20,8 @@ setup(
     description="Screening program for small-molecule single-crystal X-ray diffraction "
     "data",
     entry_points={
-        "console_scripts": [
-            "i19.screen = screen19.screen:main",
-            "screen19 = screen19.screen:main",
-            "i19.stability_fft = screen19.stability_fft:main",
-            "i19.minimum_exposure = screen19.minimum_exposure:main",
-            "screen19.minimum_exposure = screen19.minimum_exposure:main",
-        ],
-        "libtbx.dispatcher.script": [
-            "i19.screen = i19.screen",
-            "screen19 = screen19",
-            "i19.stability_fft = i19.stability_fft",
-            "i19.minimum_exposure = i19.minimum_exposure",
-            "screen19.minimum_exposure = screen19.minimum_exposure",
-        ],
+        "console_scripts": [],
+        "libtbx.dispatcher.script": [],
         "libtbx.precommit": ["screen19 = screen19"],
     },
     install_requires=['typing;python_version<"3.5"', "procrunner"],
