@@ -93,12 +93,12 @@ Templates = List[Tuple[str, Tuple[int, int]]]
 
 phil_scope = iotbx.phil.parse(
     """
-    verbosity = 0
-        .type = int(value_min=0)
+    verbosity = 1
+        .type = int(value_min=1)
         .caption = 'Verbosity level of log output'
         .help = "Possible values:\n"
-                "\t• 0: Info log output to stdout/logfile\n"
-                "\t• 1: Info & debug log output to stdout/logfile"
+                "\t• 1: Info log output to stdout/logfile\n"
+                "\t• 2: Info & debug log output to stdout/logfile"
 
     output
         .caption = 'Options to control the output files'

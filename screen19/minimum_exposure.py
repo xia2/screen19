@@ -64,12 +64,12 @@ help_message = __doc__
 
 phil_scope = iotbx.phil.parse(
     """
-    verbosity = 0
-        .type = int(value_min=0)
+    verbosity = 1
+        .type = int(value_min=1)
         .caption = 'Verbosity level of log output'
         .help = "Possible values:\n"
-                "\t• 0: Info log output to stdout/logfile\n"
-                "\t• 1: Info & debug log output to stdout/logfile"
+                "\t• 1: Info log output to stdout/logfile\n"
+                "\t• 2: Info & debug log output to stdout/logfile"
     minimum_exposure
         .caption = 'Parameters for the calculation of the lower exposure bound'
         {
@@ -98,9 +98,6 @@ phil_scope = iotbx.phil.parse(
         log = 'screen19.minimum_exposure.log'
             .type = str
             .caption = 'Location for the info log'
-        debug_log = 'screen19.minimum_exposure.debug.log'
-            .type = str
-            .caption = 'Location for the debug log'
         wilson_plot = 'wilson_plot'
             .type = str
             .caption = 'Filename for the Wilson plot image'
