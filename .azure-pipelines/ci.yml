@@ -22,12 +22,12 @@ steps:
 
 - script: |
     set -eux
-    pip install -r "$(Pipeline.Workspace)/src/requirements_dev.txt"
-    pip install "$(Pipeline.Workspace)/src"
+    libtbx.pip install -r "$(Pipeline.Workspace)/src/requirements_dev.txt"
+    libtbx.pip install "$(Pipeline.Workspace)/src"
   displayName: Install package
 
 - script: |
-    PYTHONDEVMODE=1 pytest -ra --cov=tristan --cov-report=xml --cov-branch
+    PYTHONDEVMODE=1 pytest -ra --cov=screen19 --cov-report=xml --cov-branch
   displayName: Run tests
   workingDirectory: $(Pipeline.Workspace)/src
 

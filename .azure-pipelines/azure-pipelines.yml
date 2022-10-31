@@ -123,8 +123,8 @@ stages:
     - task: TwineAuthenticate@1
       displayName: Set up credentials
       inputs:
-        pythonUploadServiceConnection: pypi-tristan
+        pythonUploadServiceConnection: pypi-screen19
 
     - bash: |
-        libtbx.python -m twine upload -r pypi-tristan --config-file $(PYPIRC_PATH) $(System.ArtifactsDirectory)/package/pypi/*.tar.gz $(System.ArtifactsDirectory)/package/pypi/*.whl
+        libtbx.python -m twine upload -r pypi-screen19 --config-file $(PYPIRC_PATH) $(System.ArtifactsDirectory)/package/pypi/*.tar.gz $(System.ArtifactsDirectory)/package/pypi/*.whl
       displayName: Publish package
