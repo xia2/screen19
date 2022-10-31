@@ -26,7 +26,7 @@ import_checks = [
 
 
 def test_screen19_help_does_not_crash():
-    screen.main(args=[])
+    screen.main(args=[None])
 
 
 def test_minimum_exposure_help_does_not_crash():
