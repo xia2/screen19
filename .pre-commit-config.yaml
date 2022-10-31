@@ -6,7 +6,7 @@ repos:
   rev: v2.38.2
   hooks:
   - id: pyupgrade
-    args: ["--py36-plus"]
+    args: ["--py38-plus"]
 
 # Automatically sort imports with isort
 - repo: https://github.com/PyCQA/isort
