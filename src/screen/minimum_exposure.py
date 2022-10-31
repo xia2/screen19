@@ -43,26 +43,27 @@ import numpy as np
 from scipy.optimize import curve_fit
 from tabulate import tabulate
 
-import iotbx.phil
+import libtbx.phil
 from cctbx import miller
-from libtbx.phil import scope, scope_extract
 
 from dials.array_family import flex
 from dials.util import log
-from dials.util.options import OptionParser
+from dials.util.options import ArgumentParser  # OptionParser deprecated anyway
 from dials.util.version import dials_version
 from dxtbx.model import ExperimentList
 
-from screen19 import __version__, d_ticks, plot_intensities, terminal_size
+from screen import __version__, d_ticks, plot_intensities, terminal_size
 
 # Custom types
 FloatSequence = Sequence[float]
 Fit = Union[np.ndarray, Iterable, int, float]
+Scope = libtbx.phil.scope
+ScopeExtract = libtbx.phil.scope_extract
 
 help_message = __doc__
 
 
-phil_scope = iotbx.phil.parse(
+phil_scope = libtbx.phil.parse(
     """
     verbosity = 0
         .type = int(value_min=0)
@@ -272,7 +273,7 @@ def wilson_plot_image(
 
 
 def suggest_minimum_exposure(
-    expts: ExperimentList, refls: flex.reflection_table, params: scope_extract
+    expts: ExperimentList, refls: flex.reflection_table, params: ScopeExtract
 ) -> None:
     """
     Suggest an estimated minimum sufficient exposure to achieve a certain resolution.
@@ -416,7 +417,7 @@ def suggest_minimum_exposure(
 
 
 def run(
-    phil: scope = phil_scope,
+    phil: Scope = phil_scope,
     args: Optional[List[str]] = None,
     set_up_logging: bool = False,
 ) -> None:
@@ -434,7 +435,7 @@ def run(
     """
     usage = "%(prog)s [options] integrated.expt integrated.refl"
 
-    parser = OptionParser(
+    parser = ArgumentParser(
         usage=usage,
         phil=phil,
         read_experiments=True,
@@ -443,7 +444,7 @@ def run(
         epilog=help_message,
     )
 
-    params, options = parser.parse_args(args=args)
+    params, _ = parser.parse_args(args=args)
 
     if set_up_logging:
         # Configure the logging
