@@ -18,7 +18,7 @@ upper- and lower-bound estimate of suitable flux.
 Target I/σ and target d (in Ångström) can be set using the parameters
 'min_i_over_sigma' and 'desired_d'.  One can set multiple values of the latter.
 
-By default the disorder parameter fit is conducted on the
+By default, the disorder parameter fit is conducted on the
 integrated data.  This ought to provide a reasonably true fit, but requires
 an integration step, which can take some time.  You can achieve a quicker,
 dirtier answer by fitting to the indexed data (i.e. only the stronger
@@ -93,12 +93,15 @@ Templates = List[Tuple[str, Tuple[int, int]]]
 
 phil_scope = iotbx.phil.parse(
     """
-    verbosity = 1
-        .type = int(value_min=1)
+    verbosity = 0
+        .type = int(value_min=0)
         .caption = 'Verbosity level of log output'
         .help = "Possible values:\n"
-                "\t• 1: Info log output to stdout/logfile\n"
-                "\t• 2: Info & debug log output to stdout/logfile"
+                "\t• 0: Info log output to stdout/logfile\n"
+                "\t• 1: Info log output to stdout/logfile, logfile contains timing"
+                "information\n"
+                "\t• 2: Info & debug log output to stdout/logfile, logfile contains"
+                "timing information"
 
     output
         .caption = 'Options to control the output files'
