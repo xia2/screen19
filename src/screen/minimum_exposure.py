@@ -65,12 +65,15 @@ help_message = __doc__
 
 phil_scope = libtbx.phil.parse(
     """
-    verbosity = 1
-        .type = int(value_min=1)
+    verbosity = 0
+        .type = int(value_min=0)
         .caption = 'Verbosity level of log output'
         .help = "Possible values:\n"
-                "\t• 1: Info log output to stdout/logfile\n"
-                "\t• 2: Info & debug log output to stdout/logfile"
+                "\t• 0: Info log output to stdout/logfile\n"
+                "\t• 1: Info log output to stdout/logfile, logfile contains timing"
+                "information\n"
+                "\t• 2: Info & debug log output to stdout/logfile, logfile contains"
+                "timing information"
     minimum_exposure
         .caption = 'Parameters for the calculation of the lower exposure bound'
         {
