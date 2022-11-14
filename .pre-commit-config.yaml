@@ -3,7 +3,7 @@ repos:
 
 # Bring Python code up to date with pyupgrade
 - repo: https://github.com/asottile/pyupgrade
-  rev: v2.38.2
+  rev: v3.2.2
   hooks:
   - id: pyupgrade
     args: ["--py36-plus"]
@@ -17,7 +17,7 @@ repos:
 
 # Automatic source code formatting with Black
 - repo: https://github.com/psf/black
-  rev: 22.8.0
+  rev: 22.10.0
   hooks:
   - id: black
     args: [--safe, --quiet]
