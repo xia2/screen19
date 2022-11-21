@@ -17,6 +17,20 @@ import_scope = libtbx.phil.parse(
     process_includes=True,
 )
 
+find_spots_scope = libtbx.phil.parse(
+    """
+    include scope dials.command_line.find_spots.phil_scope
+  """,
+    process_includes=True,
+)
+
+index_scope = libtbx.phil.parse(
+    """
+    include scope dials.command_line.index.phil_scope
+  """,
+    process_includes=True,
+)
+
 phil_scope = libtbx.phil.parse(
     """
     log = False
@@ -25,7 +39,10 @@ phil_scope = libtbx.phil.parse(
       include scope screen.import_scope
     }
     dials_find_spots{
-      include scope dials.command_line.find_spots.phil_scope
+      include scope screen.find_spots_scope
+    }
+    dials_index {
+      include scope screen.index_scope
     }
     """,
     process_includes=True,
@@ -61,14 +78,30 @@ parser.add_argument(
 parser.add_argument("phil_args", nargs="*")
 
 
-def run_import(images, import_params):
+def run_import(images, params):
     # Ugly, but works
+    import_params = import_scope.format(python_object=params)
+
     if images and type(images) is str:
         subprocess.run(["dials.import", images, import_params.as_str()])
     elif images and type(images) is list:
         subprocess.run(["dials.import", *images, import_params.as_str()])
     else:
-        subprocess.run(["dials.import", import_params.as_str()])  # FIXME
+        subprocess.run(["dials.import", import_params.as_str()])
+
+
+def run_find_spots(params):
+    find_spots_params = import_scope.format(python_object=params)
+
+    subprocess.run(["dials.find_spots", "imported.expt", find_spots_params.as_str()])
+
+
+def run_indexing(params):
+    index_params = import_scope.format(python_object=params)
+
+    subprocess.run(
+        ["dials.index", "imported.expt", "strong.refl", index_params.as_str()]
+    )
 
 
 def pipeline(args, working_phil):
@@ -78,15 +111,13 @@ def pipeline(args, working_phil):
     params.dials_import.input.directory = [args.directory] if args.directory else []
     params.dials_import.input.template = [args.template] if args.template else []
 
-    import_params = import_scope.format(python_object=params.dials_import)
-
-    run_import(args.experiments, import_params)
-    subprocess.run(["dials.find_spots", "imported.expt"])
+    run_import(args.experiments, params.dials_import)
+    run_find_spots(params.dials_find_spots)
+    run_indexing(params.dials_index)
+    subprocess.run(["dev.dials.pixel_histogram", "indexed.refl"])
 
 
 # def pipeline(images):
-# subprocess.run(["dials.index", "imported.expt", "strong.refl"])
-# subprocess.run(["dev.dials.pixel_histogram", "indexed.refl"])
 # subprocess.run(["dials.refine", "indexed.expt", "indexed.refl"])
 # subprocess.run(["dials.integrate", "refined.expt", "refined.refl"])
 # subprocess.run(["screen19.minimum_exposure", "integrated.expt", "integrated.refl"])
