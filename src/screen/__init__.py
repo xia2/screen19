@@ -7,15 +7,43 @@ __version__ = "0.213"
 __version_tuple__ = tuple(int(x) for x in __version__.split("."))
 
 
+import argparse
 import logging
 import re
 import subprocess
 import sys
 import traceback
 
+from dials.util import version
+
 logger = logging.getLogger("dials.screen19")
 debug, info, warn = logger.debug, logger.info, logger.warning
-# FIXME setting verbosity to 1 doesn't seem to print any debugging.
+
+version_parser = argparse.ArgumentParser(add_help=False)
+version_parser.add_argument(
+    "-V",
+    "--version",
+    action="version",
+    version=f"Screen19 version {__version__}, using DIALS {version.dials_version()}.",
+)
+
+config_parser = argparse.ArgumentParser(add_help=False)
+config_parser.add_argument(
+    "-c",
+    "--show-config",
+    action="store_true",
+    default=False,
+    dest="show_config",
+    help="Show the configuration parameters.",
+)
+config_parser.add_argument(
+    "-a",
+    "--attributes-level",
+    default=0,
+    type=int,
+    dest="attributes_level",
+    help="Set the attributes level for showing the configuration parameters.",
+)
 
 # Set axis tick positions manually. Accounts for reciprocal(-square) d-scaling
 d_ticks = [5, 3, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4]

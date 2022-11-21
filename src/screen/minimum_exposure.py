@@ -52,7 +52,12 @@ from dials.util.options import ArgumentParser  # OptionParser deprecated anyway
 from dials.util.version import dials_version
 from dxtbx.model import ExperimentList
 
-from screen import __version__, d_ticks, plot_intensities, terminal_size
+from screen import (  # FIXME TODO change to relative import
+    __version__,
+    d_ticks,
+    plot_intensities,
+    terminal_size,
+)
 
 # Custom types
 FloatSequence = Sequence[float]

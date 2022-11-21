@@ -4,7 +4,13 @@ from __future__ import annotations
 import argparse
 import re
 import subprocess
+import sys
 from pathlib import Path
+
+from __init__ import (  # FIXME TODO change to relative import
+    config_parser,
+    version_parser,
+)
 
 import libtbx.phil
 
@@ -91,7 +97,9 @@ class _ImportImages(argparse.Action):
             return in_value.as_posix(), None, None
 
 
-parser = argparse.ArgumentParser(description=__doc__)
+parser = argparse.ArgumentParser(
+    description=__doc__, parents=[version_parser, config_parser]
+)
 parser.add_argument(
     "experiments", type=str, nargs="+", action=_ImportImages, help=""
 )  # FIXME TODO add file.cbf:1:100
@@ -166,6 +174,11 @@ def main(args=None):
     args = parser.parse_args(args)
     cl = phil_scope.command_line_argument_interpreter()
     working_phil = phil_scope.fetch(cl.process_and_fetch(args.phil_args))
+
+    if args.show_config:
+        # FIXME doesn't work unless some words are passed as positional arguments
+        working_phil.show(attributes_level=args.attributes_level)
+        sys.exit()
 
     pipeline(args, working_phil)
 
