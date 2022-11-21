@@ -31,6 +31,20 @@ index_scope = libtbx.phil.parse(
     process_includes=True,
 )
 
+refine_scope = libtbx.phil.parse(
+    """
+    include scope dials.command_line.refine.phil_scope
+  """,
+    process_includes=True,
+)
+
+integrate_scope = libtbx.phil.parse(
+    """
+    include scope dials.command_line.integrate.phil_scope
+  """,
+    process_includes=True,
+)
+
 phil_scope = libtbx.phil.parse(
     """
     log = False
@@ -43,6 +57,12 @@ phil_scope = libtbx.phil.parse(
     }
     dials_index {
       include scope screen.index_scope
+    }
+    dials_refine {
+      include scope screen.refine_scope
+    }
+    dials_integrate {
+      include scope screen.integrate_scope
     }
     """,
     process_includes=True,
@@ -104,6 +124,27 @@ def run_indexing(params):
     )
 
 
+def run_refine(params):
+    refine_params = import_scope.format(python_object=params)
+
+    subprocess.run(
+        ["dials.refine", "indexed.expt", "indexed.refl", refine_params.as_str()]
+    )
+
+
+def run_integrate(params):
+    integrate_params = import_scope.format(python_object=params)
+
+    subprocess.run(
+        ["dials.integrate", "refined.expt", "refined.refl", integrate_params.as_str()]
+    )
+
+
+def run_minimum_exposure():
+    # subprocess.run(["screen19.minimum_exposure", "integrated.expt", "integrated.refl"])
+    pass
+
+
 def pipeline(args, working_phil):
     params = working_phil.extract()
 
@@ -112,15 +153,13 @@ def pipeline(args, working_phil):
     params.dials_import.input.template = [args.template] if args.template else []
 
     run_import(args.experiments, params.dials_import)
+    # FIXME at the moment after dials_import it doesn't seem to correctly read input phil parameters ...
     run_find_spots(params.dials_find_spots)
     run_indexing(params.dials_index)
     subprocess.run(["dev.dials.pixel_histogram", "indexed.refl"])
-
-
-# def pipeline(images):
-# subprocess.run(["dials.refine", "indexed.expt", "indexed.refl"])
-# subprocess.run(["dials.integrate", "refined.expt", "refined.refl"])
-# subprocess.run(["screen19.minimum_exposure", "integrated.expt", "integrated.refl"])
+    run_refine(params.dials_refine)
+    run_integrate(params.dials_integrate)
+    run_minimum_exposure()
 
 
 def main(args=None):
