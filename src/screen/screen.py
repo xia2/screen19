@@ -48,24 +48,25 @@ integrate_scope = libtbx.phil.parse(
     process_includes=True,
 )
 
+
 phil_scope = libtbx.phil.parse(
     """
     log = False
       .type = bool
     dials_import {
-      include scope screen.screen.import_scope
+      include scope screen.import_scope
     }
     dials_find_spots{
-      include scope screen.screen.find_spots_scope
+      include scope screen.find_spots_scope
     }
     dials_index {
-      include scope screen.screen.index_scope
+      include scope screen.index_scope
     }
     dials_refine {
-      include scope screen.screen.refine_scope
+      include scope screen.refine_scope
     }
     dials_integrate {
-      include scope screen.screen.integrate_scope
+      include scope screen.integrate_scope
     }
     """,
     process_includes=True,
@@ -116,13 +117,13 @@ def run_import(images, params):
 
 
 def run_find_spots(params):
-    find_spots_params = import_scope.format(python_object=params)
+    find_spots_params = find_spots_scope.format(python_object=params)
 
     subprocess.run(["dials.find_spots", "imported.expt", find_spots_params.as_str()])
 
 
 def run_indexing(params):
-    index_params = import_scope.format(python_object=params)
+    index_params = index_scope.format(python_object=params)
 
     subprocess.run(
         ["dials.index", "imported.expt", "strong.refl", index_params.as_str()]
@@ -130,7 +131,7 @@ def run_indexing(params):
 
 
 def run_refine(params):
-    refine_params = import_scope.format(python_object=params)
+    refine_params = refine_scope.format(python_object=params)
 
     subprocess.run(
         ["dials.refine", "indexed.expt", "indexed.refl", refine_params.as_str()]
@@ -138,7 +139,7 @@ def run_refine(params):
 
 
 def run_integrate(params):
-    integrate_params = import_scope.format(python_object=params)
+    integrate_params = integrate_scope.format(python_object=params)
 
     subprocess.run(
         ["dials.integrate", "refined.expt", "refined.refl", integrate_params.as_str()]
