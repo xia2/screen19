@@ -10,43 +10,15 @@ from pathlib import Path
 import libtbx.phil
 
 from screen import config_parser, version_parser  # FIXME TODO change to relative import
+from screen.scopes import (
+    find_spots_scope,
+    import_scope,
+    index_scope,
+    integrate_scope,
+    refine_scope,
+)
 
 template_pattern = re.compile(r"(.*)_(?:[0-9]*\#+).(.*)")
-
-import_scope = libtbx.phil.parse(
-    """
-      include scope dials.command_line.dials_import.phil_scope
-    """,
-    process_includes=True,
-)
-
-find_spots_scope = libtbx.phil.parse(
-    """
-    include scope dials.command_line.find_spots.phil_scope
-  """,
-    process_includes=True,
-)
-
-index_scope = libtbx.phil.parse(
-    """
-    include scope dials.command_line.index.phil_scope
-  """,
-    process_includes=True,
-)
-
-refine_scope = libtbx.phil.parse(
-    """
-    include scope dials.command_line.refine.phil_scope
-  """,
-    process_includes=True,
-)
-
-integrate_scope = libtbx.phil.parse(
-    """
-    include scope dials.command_line.integrate.phil_scope
-  """,
-    process_includes=True,
-)
 
 
 phil_scope = libtbx.phil.parse(
@@ -54,19 +26,19 @@ phil_scope = libtbx.phil.parse(
     log = False
       .type = bool
     dials_import {
-      include scope screen.screen.import_scope
+      include scope screen.scopes.import_scope
     }
     dials_find_spots{
-      include scope screen.screen.find_spots_scope
+      include scope screen.scopes.find_spots_scope
     }
     dials_index {
-      include scope screen.screen.index_scope
+      include scope screen.scopes.index_scope
     }
     dials_refine {
-      include scope screen.screen.refine_scope
+      include scope screen.scopes.refine_scope
     }
     dials_integrate {
-      include scope screen.screen.integrate_scope
+      include scope screen.scopes.integrate_scope
     }
     """,
     process_includes=True,
