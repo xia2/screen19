@@ -47,24 +47,35 @@ phil_scope = libtbx.phil.parse(
 
 class _ImportImages(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        if len(values) > 1:  # ie. already a list
-            expt, directory, template = (values, None, None)
-        else:
-            expt, directory, template = self.find_import_arguments(values)
+        expt, directory, template, image_range = self.find_import_arguments(values)
         setattr(namespace, self.dest, expt)
         setattr(namespace, "directory", directory)
         setattr(namespace, "template", template)
+        setattr(namespace, "image_range", image_range)
 
     @staticmethod
-    def find_import_arguments(val) -> tuple[str | None]:  # expts, dir, template
+    def find_import_arguments(
+        val,
+    ) -> tuple[str | None]:  # expts, dir, template, image_range
+        if len(val) > 1:
+            return val, None, None, None
+
         in_value = Path(val[0]).expanduser().resolve()
         match = template_pattern.fullmatch(in_value.stem)
         if in_value.is_dir() is True:
-            return None, in_value.as_posix(), None
+            return None, in_value.as_posix(), None, None
         elif match:
-            return None, None, in_value.as_posix()
+            return None, None, in_value.as_posix(), None
+        elif ":" in in_value.as_posix():
+            if len(in_value.name.split(":")) != 3:
+                raise OSError(5, "Please specify both start and end of image range.")
+            filename, start, end = in_value.name.split(":")
+            temp = re.split(r"([0-9#]+)(?=\.\w)", filename)[1]
+            template = in_value.parent / filename.replace(temp, "#" * len(temp))
+            image_range = (int(start), int(end))
+            return None, None, template.as_posix(), image_range
         else:
-            return in_value.as_posix(), None, None
+            return in_value.as_posix(), None, None, None
 
 
 parser = argparse.ArgumentParser(
@@ -74,6 +85,7 @@ parser.add_argument(
     "experiments", type=str, nargs="+", action=_ImportImages, help=""
 )  # FIXME TODO add file.cbf:1:100
 parser.add_argument("phil_args", nargs="*")
+options_group = parser.add_argument_group("")
 
 
 def run_import(images, params):
@@ -129,9 +141,11 @@ def pipeline(args, working_phil):
     # Set directory/template if that's what's been parsed.
     params.dials_import.input.directory = [args.directory] if args.directory else []
     params.dials_import.input.template = [args.template] if args.template else []
+    params.dials_import.geometry.scan.image_range = (
+        args.image_range if args.image_range else None
+    )
 
     run_import(args.experiments, params.dials_import)
-    # FIXME at the moment after dials_import it doesn't seem to correctly read input phil parameters ...
     run_find_spots(params.dials_find_spots)
     run_indexing(params.dials_index)
     subprocess.run(["dev.dials.pixel_histogram", "indexed.refl"])
