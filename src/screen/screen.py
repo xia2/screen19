@@ -10,11 +10,12 @@ from pathlib import Path
 import libtbx.phil
 
 from screen import config_parser, version_parser  # FIXME TODO change to relative import
-from screen.scopes import (
+from screen.inputs import (
     find_spots_scope,
     import_scope,
     index_scope,
     integrate_scope,
+    options_parser,
     refine_scope,
 )
 
@@ -79,13 +80,10 @@ class _ImportImages(argparse.Action):
 
 
 parser = argparse.ArgumentParser(
-    description=__doc__, parents=[version_parser, config_parser]
+    description=__doc__, parents=[version_parser, config_parser, options_parser]
 )
-parser.add_argument(
-    "experiments", type=str, nargs="+", action=_ImportImages, help=""
-)  # FIXME TODO add file.cbf:1:100
+parser.add_argument("experiments", type=str, nargs="+", action=_ImportImages, help="")
 parser.add_argument("phil_args", nargs="*")
-options_group = parser.add_argument_group("")
 
 
 def run_import(images, params):
@@ -100,33 +98,47 @@ def run_import(images, params):
         subprocess.run(["dials.import", import_params.as_str()])
 
 
-def run_find_spots(params):
+def run_find_spots(params, options=[]):
     find_spots_params = find_spots_scope.format(python_object=params)
 
-    subprocess.run(["dials.find_spots", "imported.expt", find_spots_params.as_str()])
+    subprocess.run(
+        ["dials.find_spots", "imported.expt", find_spots_params.as_str(), *options]
+    )
 
 
-def run_indexing(params):
+def run_indexing(params, options=[]):
     index_params = index_scope.format(python_object=params)
 
     subprocess.run(
-        ["dials.index", "imported.expt", "strong.refl", index_params.as_str()]
+        ["dials.index", "imported.expt", "strong.refl", index_params.as_str(), *options]
     )
 
 
-def run_refine(params):
+def run_refine(params, options=[]):
     refine_params = refine_scope.format(python_object=params)
 
     subprocess.run(
-        ["dials.refine", "indexed.expt", "indexed.refl", refine_params.as_str()]
+        [
+            "dials.refine",
+            "indexed.expt",
+            "indexed.refl",
+            refine_params.as_str(),
+            *options,
+        ]
     )
 
 
-def run_integrate(params):
+def run_integrate(params, options=[]):
     integrate_params = integrate_scope.format(python_object=params)
 
     subprocess.run(
-        ["dials.integrate", "refined.expt", "refined.refl", integrate_params.as_str()]
+        [
+            "dials.integrate",
+            "refined.expt",
+            "refined.refl",
+            integrate_params.as_str(),
+            *options,
+        ]
     )
 
 
@@ -145,13 +157,18 @@ def pipeline(args, working_phil):
         args.image_range if args.image_range else None
     )
 
+    spot_finding_options = args.find_spots
+    indexing_options = args.index
+    refinement_options = args.refine
+    integration_options = args.integrate
+
     run_import(args.experiments, params.dials_import)
-    run_find_spots(params.dials_find_spots)
-    run_indexing(params.dials_index)
+    run_find_spots(params.dials_find_spots, spot_finding_options)
+    run_indexing(params.dials_index, indexing_options)
     subprocess.run(["dev.dials.pixel_histogram", "indexed.refl"])
-    run_refine(params.dials_refine)
-    run_integrate(params.dials_integrate)
-    run_minimum_exposure()
+    run_refine(params.dials_refine, refinement_options)
+    run_integrate(params.dials_integrate, integration_options)
+    run_minimum_exposure()  # If minimum exposure at indexing, stope there, else go on to integrate
 
 
 def main(args=None):
