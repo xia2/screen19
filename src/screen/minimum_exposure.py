@@ -75,6 +75,13 @@ phil_scope = libtbx.phil.parse(
     minimum_exposure
       .caption = 'Parameters for the calculation of the lower exposure bound'
       {
+      data = indexed *integrated
+        .type = choice
+        .caption = ''
+        .help = 'Choice of data for the displacement parameter fit'
+          'For the lower-bound exposure estimate, choose whether to use '
+          'indexed (quicker) or integrated (better) data in fitting '
+          'the isotropic displacement parameter.'
       desired_d = None
         .multiple = True
         .type = float
@@ -300,19 +307,24 @@ def suggest_minimum_exposure(
     # Ignore all spots flagged as overloaded
     refls.del_selected(refls.get_flags(refls.flags.overloaded).iselection())
 
-    # Work from profile-fitted intensities where possible but if the number of
-    # profile-fitted intensities is less than 75% of the number of summed
-    # intensities, use summed intensities instead.  This is a very arbitrary heuristic.
-    sel_prf = refls.get_flags(refls.flags.integrated_prf).iselection()
-    sel_sum = refls.get_flags(refls.flags.integrated_sum).iselection()
-    if sel_prf.size() < 0.75 * sel_sum.size():
-        refls = refls.select(sel_sum)
+    if params.minimum_exposure.data == "integrated":
+        # Work from profile-fitted intensities where possible but if the number of
+        # profile-fitted intensities is less than 75% of the number of summed
+        # intensities, use summed intensities instead.  This is a very arbitrary heuristic.
+        sel_prf = refls.get_flags(refls.flags.integrated_prf).iselection()
+        sel_sum = refls.get_flags(refls.flags.integrated_sum).iselection()
+        if sel_prf.size() < 0.75 * sel_sum.size():
+            refls = refls.select(sel_sum)
+            intensity = refls["intensity.sum.value"]
+            sigma = flex.sqrt(refls["intensity.sum.variance"])
+        else:
+            refls = refls.select(sel_prf)
+            intensity = refls["intensity.prf.value"]
+            sigma = flex.sqrt(refls["intensity.prf.variance"])
+    else:
+        # This is still a bit rough
         intensity = refls["intensity.sum.value"]
         sigma = flex.sqrt(refls["intensity.sum.variance"])
-    else:
-        refls = refls.select(sel_prf)
-        intensity = refls["intensity.prf.value"]
-        sigma = flex.sqrt(refls["intensity.prf.variance"])
 
     # Apply French-Wilson scaling to ensure positive intensities.
     miller_array = miller.array(
@@ -451,7 +463,7 @@ def run(set_up_logging: bool = False):
 
     if set_up_logging:
         # Configure the logging
-        log.config(params.verbosity, params.output.log)
+        log.config(params.output.verbosity, params.output.log)
 
     expt = ExperimentList.from_file(args.experiments)
     refl = flex.reflection_table.from_file(args.reflections)

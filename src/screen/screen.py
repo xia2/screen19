@@ -55,6 +55,7 @@ from screen.inputs import (
     options_parser,
     refine_scope,
 )
+from screen.minimum_exposure import phil_scope as minimum_exposure_scope
 
 # Custom types
 Scope = libtbx.phil.scope
@@ -217,14 +218,28 @@ def run_integrate(params: ScopeExtract, options: list = []):
     )
 
 
-def run_minimum_exposure(params, choice):
+def run_minimum_exposure(params: ScopeExtract, choice: str):
+    min_exp_params = minimum_exposure_scope.format(python_object=params)
+
     if choice == "indexed":
-        # subprocess.run
-        print(params.__dict__)
-        pass
+        subprocess.run(
+            [
+                "screen19.minimum_exposure",
+                "indexed.expt",
+                "indexed.refl",
+                f"minimum_exposure.data={choice}",
+                min_exp_params.as_str(),
+            ]
+        )
     else:
         subprocess.run(
-            ["screen19.minimum_exposure", "integrated.expt", "integrated.refl"]
+            [
+                "screen19.minimum_exposure",
+                "integrated.expt",
+                "integrated.refl",
+                f"minimum_exposure.data={choice}",
+                min_exp_params.as_str(),
+            ]
         )
 
 
