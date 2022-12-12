@@ -1,43 +1,46 @@
 """
 Perform straight-line Wilson plot fit.  Draw the Wilson plot.
+"""
 
+help_message = """
 Reflection d-spacings are determined from the crystal symmetry (from
 indexing) and the Miller indices of the indexed reflections.  The
 atomic displacement parameter is assumed isotropic.  Its value is
-determined from a fit to the reflection data:
-  I = A * exp(-B / (2 * d^2)),
+determined from a fit to the reflection data: \n
+  I = A * exp(-B / (2 * d^2)), \n
 where I is the intensity and the scale factor, A, and isotropic
-displacement parameter, B, are the fitted parameters.
-
+displacement parameter, B, are the fitted parameters. \n
+\n
 An I/σ condition for 'good' diffraction statistics is set by the
 instance variable min_i_over_sigma, and the user's desired
 resolution is set by the instance variable desired_d.  A crude
 error model is assumed, whereby σ² = I, and so the I/σ condition
-translates trivially to a threshold I.
-
+translates trivially to a threshold I. \n
+\n
 The value of the fitted intensity function at the desired
 resolution is compared with the threshold I.  The ratio of these
 values is used to determine a recommended exposure (flux × exposure time)
-for the full data collection.
-
+for the full data collection. \n
+\n
 The Wilson plot of I as a function of d is drawn as the file
 'wilson_plot.png'.  The plot can optionally be saved in other formats.
+\n
+Examples:\n
 
-Examples:
+    screen19.minimum_exposure integrated.expt integrated.refl \n
 
-    screen19.minimum_exposure integrated.expt integrated.refl
-
-    screen19.minimum_exposure indexed.expt indexed.refl
+    screen19.minimum_exposure indexed.expt indexed.refl \n
 
     screen19.minimum_exposure min_i_over_sigma=2 desired_d=0.84 wilson_fit_max_d=4 \
-        integrated.expt integrated.refl
+        integrated.expt integrated.refl \n
 
 """
 
+import argparse
 import logging
-import time
+import sys
 from io import StringIO
-from typing import Iterable, List, Optional, Sequence, Union
+from typing import Iterable, Optional, Sequence, Union
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -48,15 +51,17 @@ from cctbx import miller
 
 from dials.array_family import flex
 from dials.util import log
-from dials.util.options import ArgumentParser  # OptionParser deprecated anyway
-from dials.util.version import dials_version
+
+# from dials.util.options import ArgumentParser  # OptionParser deprecated anyway
+# from dials.util.version import dials_version
 from dxtbx.model import ExperimentList
 
-from screen import (  # FIXME TODO change to relative import
-    __version__,
+from screen import (  # FIXME TODO change to relative import; __version__,
+    config_parser,
     d_ticks,
     plot_intensities,
     terminal_size,
+    version_parser,
 )
 
 # Custom types
@@ -65,56 +70,49 @@ Fit = Union[np.ndarray, Iterable, int, float]
 Scope = libtbx.phil.scope
 ScopeExtract = libtbx.phil.scope_extract
 
-help_message = __doc__
-
 
 phil_scope = libtbx.phil.parse(
     """
     verbosity = 0
-        .type = int(value_min=0)
-        .caption = 'Verbosity level of log output'
-        .help = "Possible values:\n"
-                "\t• 0: Info log output to stdout/logfile\n"
-                "\t• 1: Info log output to stdout/logfile, logfile contains timing"
-                "information\n"
-                "\t• 2: Info & debug log output to stdout/logfile, logfile contains"
-                "timing information"
+      .type = int(value_min=0)
+      .help = "Verbosity level of log output. Possible values:\n"
+        "\t• 0: Info log output to stdout/logfile\n"
+        "\t• 1: Info log output to stdout/logfile, logfile contains timing"
+        "information\n"
+        "\t• 2: Info & debug log output to stdout/logfile, logfile contains"
+        "timing information"
     minimum_exposure
-        .caption = 'Parameters for the calculation of the lower exposure bound'
-        {
-        desired_d = None
-            .multiple = True
-            .type = float
-            .caption = u'Desired resolution limit, in Ångströms, of diffraction data'
-            .help = 'This is the resolution target for the lower-bound exposure ' \
-                    'recommendation.'
-        min_i_over_sigma = 2
-            .type = float
-            .caption = u'Target I/σ value for lower-bound exposure recommendation'
-            .help = 'The lower-bound exposure recommendation provides an estimate of ' \
-                    u'the exposure (flux × exposure time) required to ensure that the' \
-                    'majority of expected reflections at the desired resolution limit' \
-                    u'have I/σ greater than or equal to this value.'
-        wilson_fit_max_d = 4  # Å
-            .type = float
-            .caption = u'Maximum d-value (in Ångströms) for displacement parameter fit'
-            .help = 'Reflections with lower resolution than this value will be ' \
-                    'ignored for the purposes of the Wilson plot.'
-        }
-    output
-        .caption = 'Parameters to control the output'
-        {
-        log = 'screen19.minimum_exposure.log'
-            .type = str
-            .caption = 'Location for the info log'
-        wilson_plot = 'wilson_plot'
-            .type = str
-            .caption = 'Filename for the Wilson plot image'
-            .help = "By default, the extension '.png' is appended.  If you include " \
-                    "a different extension, either '.pdf', '.ps', '.eps' or '.svg', " \
-                    "a file of that format will be created instead."
-        }
-        """,
+      .caption = 'Parameters for the calculation of the lower exposure bound'
+      {
+      desired_d = None
+        .multiple = True
+        .type = float
+        .help = u'Desired resolution limit, in Ångströms, of diffraction data' \
+          'This is the resolution target for the lower-bound exposure recommendation.'
+      min_i_over_sigma = 2
+        .type = float
+        .help = u'Target I/σ value for lower-bound exposure recommendation' \
+          'The lower-bound exposure recommendation provides an estimate of ' \
+          u'the exposure (flux × exposure time) required to ensure that the' \
+          'majority of expected reflections at the desired resolution limit' \
+          u'have I/σ greater than or equal to this value.'
+      wilson_fit_max_d = 4  # Å
+        .type = float
+        .help = u'Maximum d-value (in Ångströms) for displacement parameter fit' \
+          'Reflections with lower resolution than this value will be ' \
+          'ignored for the purposes of the Wilson plot.'
+    }
+    output {
+      log = 'screen19.minimum_exposure.log'
+        .type = str
+        .help = 'Location for the info log'
+      wilson_plot = 'wilson_plot'
+        .type = str
+        .help = "Filename for the Wilson plot image. By default, the extension '.png' is appended. " \
+          "If you include a different extension, either '.pdf', '.ps', '.eps' or '.svg', " \
+          "a file of that format will be created instead."
+    }
+    """,
     process_includes=True,
 )
 
@@ -320,7 +318,7 @@ def suggest_minimum_exposure(
     # Apply French-Wilson scaling to ensure positive intensities.
     miller_array = miller.array(
         miller.set(
-            expts[0].crystal.get_crystal_symmetry(),
+            expts.crystal.get_crystal_symmetry(),
             refls["miller_index"],
             anomalous_flag=False,
         ),
@@ -421,77 +419,52 @@ def suggest_minimum_exposure(
     )
 
 
-def run(
-    phil: Scope = phil_scope,
-    args: Optional[List[str]] = None,
-    set_up_logging: bool = False,
-) -> None:
-    """
-    Parse command-line arguments, run the script.
+usage = "%(prog)s [options] integrated.expt integrated.refl"
+parser = argparse.ArgumentParser(
+    usage=usage,
+    formatter_class=argparse.RawTextHelpFormatter,
+    description=__doc__,
+    epilog=help_message,
+    parents=[version_parser, config_parser],
+)
+parser.add_argument("experiments", type=str, help="")
+parser.add_argument("reflections", type=str, help="")
+parser.add_argument("phil_args", nargs="*", help="")
 
-    Uses the DIALS option parser to extract an experiment list, reflection table and
-    parameters, then passes them to :func:`suggest_minimum_exposure`.
-    Optionally, sets up the logger.
+
+def run(set_up_logging: bool = False):
+    """
+    Parse command-line arguments, run the script. Optionally, sets up the logger.
 
     Args:
-        phil: PHIL scope for option parser.
-        args: Arguments to parse. If None, :data:`sys.argv[1:]` will be used.
-        set_up_logging: Choose whether to configure :module:`screen19` logging.
+        set_up_logging (bool, optional): Choose whether to configure `screen19` logging. Defaults to False.
     """
-    usage = "%(prog)s [options] integrated.expt integrated.refl"
+    args = parser.parse_args()
+    cl = phil_scope.command_line_argument_interpreter()
+    working_phil = phil_scope.fetch(cl.process_and_fetch(args.phil_args))
 
-    parser = ArgumentParser(
-        usage=usage,
-        phil=phil,
-        read_experiments=True,
-        read_reflections=True,
-        check_format=False,
-        epilog=help_message,
-    )
+    if args.show_config:
+        # FIXME doesn't work unless some words are passed as positional argument (experiments)
+        working_phil.show(attributes_level=args.attributes_level)
+        sys.exit()
 
-    params, _ = parser.parse_args(args=args)
+    params = working_phil.extract()
 
     if set_up_logging:
         # Configure the logging
         log.config(params.verbosity, params.output.log)
 
-    if not (params.input.experiments and params.input.reflections):
-        version_information = (
-            f"screen19.minimum_exposure v{__version__} using {dials_version()} "
-            f"({time.strftime('%Y-%m-%d %H:%M:%S')})"
-        )
+    expt = ExperimentList.from_file(args.experiments)
+    refl = flex.reflection_table.from_file(args.reflections)
 
-        print(help_message)
-        print(version_information)
-        return
-
-    if len(params.input.experiments) > 1:
+    if len(expt) > 1:
         warn(
-            "You provided more than one experiment list (%s).  Only the "
-            "first, %s, will be used.",
-            ", ".join([expt.filename for expt in params.input.experiments]),
-            params.input.experiments[0].filename,
-        )
-    if len(params.input.reflections) > 1:
-        warn(
-            "You provided more than one reflection table (%s).  Only the "
-            "first, %s, will be used.",
-            ", ".join([refls.filename for refls in params.input.reflections]),
-            params.input.reflections[0].filename,
-        )
-
-    expts = params.input.experiments[0].data
-    refls = params.input.reflections[0].data
-
-    if len(expts) > 1:
-        warn(
-            "The experiment list you provided, %s, contains more than one "
+            f"The experiment list you provided, {args.experiments}, contains more than one "
             "experiment object (perhaps multiple indexing solutions).  Only "
-            "the first will be used, all others will be ignored.",
-            params.input.experiments[0].filename,
+            "the first will be used, all others will be ignored."
         )
 
-    suggest_minimum_exposure(expts, refls, params)
+    suggest_minimum_exposure(expt[0], refl, params)
 
 
 def main() -> None:

@@ -19,13 +19,29 @@ from screen.inputs import (
     refine_scope,
 )
 
+# Custom types
+Scope = libtbx.phil.scope
+ScopeExtract = libtbx.phil.scope_extract
+
 template_pattern = re.compile(r"(.*)_(?:[0-9]*\#+).(.*)")
 
 
 phil_scope = libtbx.phil.parse(
     """
-    log = False
-      .type = bool
+    verbosity = 0
+      .type = int(value_min=0)
+      .multiple = True
+      .help = "Verbosity level of log output. Possible values:\n"
+        "\t• 0: Info log output to stdout/logfile\n"
+        "\t• 1: Info log output to stdout/logfile, logfile contains timing"
+        "information\n"
+        "\t• 2: Info & debug log output to stdout/logfile, logfile contains"
+            "timing information"
+    output {
+      log = screen19.log
+        .type = str
+        .help = The log file name.
+    }
     dials_import {
       include scope screen.inputs.import_scope
     }
@@ -41,6 +57,7 @@ phil_scope = libtbx.phil.parse(
     dials_integrate {
       include scope screen.inputs.integrate_scope
     }
+    include scope screen.minimum_exposure.phil_scope
     """,
     process_includes=True,
 )
@@ -82,11 +99,27 @@ class _ImportImages(argparse.Action):
 parser = argparse.ArgumentParser(
     description=__doc__, parents=[version_parser, config_parser, options_parser]
 )
-parser.add_argument("experiments", type=str, nargs="+", action=_ImportImages, help="")
-parser.add_argument("phil_args", nargs="*")
+parser.add_argument(
+    "experiments",
+    type=str,
+    nargs="+",
+    action=_ImportImages,
+    help="The experiment path - either a directory or a list of files.",
+)
+parser.add_argument(
+    "phil_args", nargs="*", help="Phil parameters for pipeline."
+)  # I think at this point this might only be needed for import and minimum_exposure???
+parser.add_argument(
+    "-d",
+    "--data",
+    type=str,
+    choices=["indexed", "integrated"],
+    default="integrated",
+    help="At which point the disorder parameter fit should be conducted. Defaults to 'integrated'.",
+)
 
 
-def run_import(images, params):
+def run_import(images, params: ScopeExtract):
     # Ugly, but works
     import_params = import_scope.format(python_object=params)
 
@@ -98,7 +131,7 @@ def run_import(images, params):
         subprocess.run(["dials.import", import_params.as_str()])
 
 
-def run_find_spots(params, options=[]):
+def run_find_spots(params: ScopeExtract, options: list = []):
     find_spots_params = find_spots_scope.format(python_object=params)
 
     subprocess.run(
@@ -106,7 +139,7 @@ def run_find_spots(params, options=[]):
     )
 
 
-def run_indexing(params, options=[]):
+def run_indexing(params: ScopeExtract, options: list = []):
     index_params = index_scope.format(python_object=params)
 
     subprocess.run(
@@ -114,7 +147,7 @@ def run_indexing(params, options=[]):
     )
 
 
-def run_refine(params, options=[]):
+def run_refine(params: ScopeExtract, options: list = []):
     refine_params = refine_scope.format(python_object=params)
 
     subprocess.run(
@@ -128,7 +161,7 @@ def run_refine(params, options=[]):
     )
 
 
-def run_integrate(params, options=[]):
+def run_integrate(params: ScopeExtract, options: list = []):
     integrate_params = integrate_scope.format(python_object=params)
 
     subprocess.run(
@@ -142,12 +175,17 @@ def run_integrate(params, options=[]):
     )
 
 
-def run_minimum_exposure():
-    # subprocess.run(["screen19.minimum_exposure", "integrated.expt", "integrated.refl"])
-    pass
+def run_minimum_exposure(choice):
+    if choice == "indexed":
+        # subprocess.run
+        pass
+    else:
+        subprocess.run(
+            ["screen19.minimum_exposure", "integrated.expt", "integrated.refl"]
+        )
 
 
-def pipeline(args, working_phil):
+def pipeline(args: argparse.Namespace, working_phil: Scope):
     params = working_phil.extract()
 
     # Set directory/template if that's what's been parsed.
@@ -156,6 +194,8 @@ def pipeline(args, working_phil):
     params.dials_import.geometry.scan.image_range = (
         args.image_range if args.image_range else None
     )
+
+    print(params.minimum_exposure.desired_d)  # SIGH
 
     spot_finding_options = args.find_spots
     indexing_options = args.index
@@ -166,9 +206,12 @@ def pipeline(args, working_phil):
     run_find_spots(params.dials_find_spots, spot_finding_options)
     run_indexing(params.dials_index, indexing_options)
     subprocess.run(["dev.dials.pixel_histogram", "indexed.refl"])
-    run_refine(params.dials_refine, refinement_options)
-    run_integrate(params.dials_integrate, integration_options)
-    run_minimum_exposure()  # If minimum exposure at indexing, stope there, else go on to integrate
+    if args.data == "integrated":
+        run_refine(params.dials_refine, refinement_options)
+        run_integrate(params.dials_integrate, integration_options)
+        run_minimum_exposure(args.data)
+    else:
+        run_minimum_exposure(args.data)
 
 
 def main(args=None):
@@ -177,12 +220,12 @@ def main(args=None):
     working_phil = phil_scope.fetch(cl.process_and_fetch(args.phil_args))
 
     if args.show_config:
-        # FIXME doesn't work unless some words are passed as positional arguments
+        # FIXME doesn't work unless some words are passed as positional argument (experiments)
         working_phil.show(attributes_level=args.attributes_level)
         sys.exit()
 
     pipeline(args, working_phil)
 
 
-if __name__ == "__main__":
-    main(None)
+# if __name__ == "__main__":
+#     main(None)
