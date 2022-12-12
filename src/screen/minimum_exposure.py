@@ -2,6 +2,8 @@
 Perform straight-line Wilson plot fit.  Draw the Wilson plot.
 """
 
+from __future__ import annotations
+
 help_message = """
 Reflection d-spacings are determined from the crystal symmetry (from
 indexing) and the Miller indices of the indexed reflections.  The
@@ -40,7 +42,7 @@ import argparse
 import logging
 import sys
 from io import StringIO
-from typing import Iterable, Optional, Sequence, Union
+from typing import Iterable, Sequence, Union
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -51,12 +53,9 @@ from cctbx import miller
 
 from dials.array_family import flex
 from dials.util import log
-
-# from dials.util.options import ArgumentParser  # OptionParser deprecated anyway
-# from dials.util.version import dials_version
 from dxtbx.model import ExperimentList
 
-from screen import (  # FIXME TODO change to relative import; __version__,
+from screen import (  # FIXME TODO change to relative import
     config_parser,
     d_ticks,
     plot_intensities,
@@ -73,14 +72,6 @@ ScopeExtract = libtbx.phil.scope_extract
 
 phil_scope = libtbx.phil.parse(
     """
-    verbosity = 0
-      .type = int(value_min=0)
-      .help = "Verbosity level of log output. Possible values:\n"
-        "\t• 0: Info log output to stdout/logfile\n"
-        "\t• 1: Info log output to stdout/logfile, logfile contains timing"
-        "information\n"
-        "\t• 2: Info & debug log output to stdout/logfile, logfile contains"
-        "timing information"
     minimum_exposure
       .caption = 'Parameters for the calculation of the lower exposure bound'
       {
@@ -103,6 +94,14 @@ phil_scope = libtbx.phil.parse(
           'ignored for the purposes of the Wilson plot.'
     }
     output {
+      verbosity = 0
+        .type = int(value_min=0)
+        .help = "Verbosity level of log output. Possible values:\n"
+          "\t• 0: Info log output to stdout/logfile\n"
+          "\t• 1: Info log output to stdout/logfile, logfile contains timing"
+          "information\n"
+          "\t• 2: Info & debug log output to stdout/logfile, logfile contains"
+          "timing information"
       log = 'screen19.minimum_exposure.log'
         .type = str
         .help = 'Location for the info log'
@@ -180,7 +179,7 @@ def wilson_fit(
 
 
 def wilson_plot_ascii(
-    miller_array: miller.array, d_ticks: Optional[Sequence] = None
+    miller_array: miller.array, d_ticks: Sequence | None = None
 ) -> None:
     """
     Print an ASCII-art Wilson plot of reflection intensities.
@@ -221,8 +220,8 @@ def wilson_plot_image(
     d_star_sq: FloatSequence,
     intensity: FloatSequence,
     fit: Fit,
-    max_d: Optional[float] = None,
-    ticks: Optional[FloatSequence] = None,
+    max_d: float | None = None,
+    ticks: FloatSequence | None = None,
     output: str = "wilson_plot",
 ) -> None:
     """

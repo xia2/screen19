@@ -1,5 +1,42 @@
-"""The main screening script."""
+"""Pipeline to process screening data obtained at Diamond Light Source Beamline I19."""
+
 from __future__ import annotations
+
+help_message = """
+This program presents the user with recommendations for adjustments to beam
+flux, based on a single-sweep screening data collection.  It presents an
+upper- and lower-bound estimate of suitable flux.\n
+  • The upper-bound estimate is based on a comparison of a histogram of
+  measured pixel intensities with the trusted intensity range of the detector.
+  The user is warned when the measured pixel intensities indicate that the
+  detector would have a significant number of overloaded or untrustworthy
+  pixels.\n
+  • The lower-bound estimate is based on a linear fit of isotropic disorder
+  parameter, B, to a Wilson plot of reflection intensities.  From this, an estimate
+  is made of the minimum exposure (flux × exposure time) required to achieve a target
+  I/σ ratio (by default, target I/σ = 2) at one or more values of desired resolution, d,
+  (by default, desired d = 1 Å, 0.84 Å, 0.6 Å & 0.4 Å).\n
+\n
+Target I/σ and target d (in Ångström) can be set using the parameters
+'min_i_over_sigma' and 'desired_d'.  One can set multiple values of the latter.\n
+\n
+By default the disorder parameter fit is conducted on the integrated data.
+This ought to provide a reasonably true fit, but requires an integration step,
+which can take some time. You can achieve a quicker, dirtier answer by fitting
+to the indexed data (i.e. only the stronger spots), using 'minimum_exposure.data=indexed'.\n
+\n
+Examples:\n
+
+  screen19 *.cbf\n
+
+  screen19 /path/to/data/\n
+
+  screen19 /path/to/data/image0001.cbf:1:100\n
+
+  screen19 min_i_over_sigma=2 desired_d=0.84 <imported_experiments.json | image_files>\n
+
+  screen19 minimum_exposure.data=indexed <image_files>\n
+"""
 
 import argparse
 import re
@@ -30,7 +67,6 @@ phil_scope = libtbx.phil.parse(
     """
     verbosity = 0
       .type = int(value_min=0)
-      .multiple = True
       .help = "Verbosity level of log output. Possible values:\n"
         "\t• 0: Info log output to stdout/logfile\n"
         "\t• 1: Info log output to stdout/logfile, logfile contains timing"
@@ -96,8 +132,14 @@ class _ImportImages(argparse.Action):
             return in_value.as_posix(), None, None, None
 
 
+usage = "%(prog)s [options] /path/to/data"
+
 parser = argparse.ArgumentParser(
-    description=__doc__, parents=[version_parser, config_parser, options_parser]
+    usage=usage,
+    formatter_class=argparse.RawTextHelpFormatter,
+    description=__doc__,
+    epilog=help_message,
+    parents=[version_parser, config_parser, options_parser],
 )
 parser.add_argument(
     "experiments",
@@ -119,7 +161,7 @@ parser.add_argument(
 )
 
 
-def run_import(images, params: ScopeExtract):
+def run_import(images: list | str | None, params: ScopeExtract):
     # Ugly, but works
     import_params = import_scope.format(python_object=params)
 
@@ -175,9 +217,10 @@ def run_integrate(params: ScopeExtract, options: list = []):
     )
 
 
-def run_minimum_exposure(choice):
+def run_minimum_exposure(params, choice):
     if choice == "indexed":
         # subprocess.run
+        print(params.__dict__)
         pass
     else:
         subprocess.run(
@@ -195,8 +238,9 @@ def pipeline(args: argparse.Namespace, working_phil: Scope):
         args.image_range if args.image_range else None
     )
 
-    print(params.minimum_exposure.desired_d)  # SIGH
+    # print(params.minimum_exposure.desired_d)  # SIGH
 
+    # This probably makes the include scope in phil_scope a bit redundant... 2 choices to do this I guess?
     spot_finding_options = args.find_spots
     indexing_options = args.index
     refinement_options = args.refine
@@ -209,9 +253,9 @@ def pipeline(args: argparse.Namespace, working_phil: Scope):
     if args.data == "integrated":
         run_refine(params.dials_refine, refinement_options)
         run_integrate(params.dials_integrate, integration_options)
-        run_minimum_exposure(args.data)
+        run_minimum_exposure(params.minimum_exposure, args.data)
     else:
-        run_minimum_exposure(args.data)
+        run_minimum_exposure(params.minimum_exposure, args.data)
 
 
 def main(args=None):

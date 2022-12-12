@@ -43,22 +43,26 @@ options_parser.add_argument(
     type=str,
     default=[],
     nargs="*",
-    help="Additional options for spot finding.",
+    help="Additional options for dials.find_spots.",
 )
 options_parser.add_argument(
-    "--index", type=str, default=[], nargs="*", help="Additional options for indexing."
+    "--index",
+    type=str,
+    default=[],
+    nargs="*",
+    help="Additional options for dials.index.",
 )
 options_parser.add_argument(
     "--refine",
     type=str,
     default=[],
     nargs="*",
-    help="Additional options for refinement.",
+    help="Additional options for dials.refine.",
 )
 options_parser.add_argument(
     "--integrate",
     type=str,
     default=[],
     nargs="*",
-    help="Additional options for integration.",
+    help="Additional options for dials.integrate.",
 )
