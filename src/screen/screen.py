@@ -27,19 +27,19 @@ phil_scope = libtbx.phil.parse(
     log = False
       .type = bool
     dials_import {
-      include scope screen.scopes.import_scope
+      include scope screen.inputs.import_scope
     }
     dials_find_spots{
-      include scope screen.scopes.find_spots_scope
+      include scope screen.inputs.find_spots_scope
     }
     dials_index {
-      include scope screen.scopes.index_scope
+      include scope screen.inputs.index_scope
     }
     dials_refine {
-      include scope screen.scopes.refine_scope
+      include scope screen.inputs.refine_scope
     }
     dials_integrate {
-      include scope screen.scopes.integrate_scope
+      include scope screen.inputs.integrate_scope
     }
     """,
     process_includes=True,
