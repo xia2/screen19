@@ -66,3 +66,10 @@ options_parser.add_argument(
     nargs="*",
     help="Additional options for dials.integrate.",
 )
+options_parser.add_argument(
+    "--min-exposure",
+    type=str,
+    default=[],
+    nargs="*",
+    help="Additional options for screen19.minimum_exposure.",
+)

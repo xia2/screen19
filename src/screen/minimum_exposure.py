@@ -438,9 +438,9 @@ parser = argparse.ArgumentParser(
     epilog=help_message,
     parents=[version_parser, config_parser],
 )
-parser.add_argument("experiments", type=str, help="")
-parser.add_argument("reflections", type=str, help="")
-parser.add_argument("phil_args", nargs="*", help="")
+parser.add_argument("expt", type=str, help="Experiment file")
+parser.add_argument("refl", type=str, help="Reflection file")
+parser.add_argument("phil_args", nargs="*", help="Phil parameters for fit.")
 
 
 def run(set_up_logging: bool = False):
@@ -465,12 +465,12 @@ def run(set_up_logging: bool = False):
         # Configure the logging
         log.config(params.output.verbosity, params.output.log)
 
-    expt = ExperimentList.from_file(args.experiments)
-    refl = flex.reflection_table.from_file(args.reflections)
+    expt = ExperimentList.from_file(args.expt)
+    refl = flex.reflection_table.from_file(args.refl)
 
     if len(expt) > 1:
         warn(
-            f"The experiment list you provided, {args.experiments}, contains more than one "
+            f"The experiment list you provided, {args.expt}, contains more than one "
             "experiment object (perhaps multiple indexing solutions).  Only "
             "the first will be used, all others will be ignored."
         )

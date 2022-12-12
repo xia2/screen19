@@ -33,9 +33,9 @@ Examples:\n
 
   screen19 /path/to/data/image0001.cbf:1:100\n
 
-  screen19 min_i_over_sigma=2 desired_d=0.84 <imported_experiments.json | image_files>\n
+  screen19 <image_files> -d indexed\n
 
-  screen19 minimum_exposure.data=indexed <image_files>\n
+  screen19 <image_files> --find-spots nproc=4 --index space_group=P222
 """
 
 import argparse
@@ -55,7 +55,8 @@ from screen.inputs import (
     options_parser,
     refine_scope,
 )
-from screen.minimum_exposure import phil_scope as minimum_exposure_scope
+
+# from screen.minimum_exposure import phil_scope as minimum_exposure_scope
 
 # Custom types
 Scope = libtbx.phil.scope
@@ -218,9 +219,7 @@ def run_integrate(params: ScopeExtract, options: list = []):
     )
 
 
-def run_minimum_exposure(params: ScopeExtract, choice: str):
-    min_exp_params = minimum_exposure_scope.format(python_object=params)
-
+def run_minimum_exposure(choice: str, options: list = []):
     if choice == "indexed":
         subprocess.run(
             [
@@ -228,7 +227,7 @@ def run_minimum_exposure(params: ScopeExtract, choice: str):
                 "indexed.expt",
                 "indexed.refl",
                 f"minimum_exposure.data={choice}",
-                min_exp_params.as_str(),
+                *options,
             ]
         )
     else:
@@ -238,7 +237,7 @@ def run_minimum_exposure(params: ScopeExtract, choice: str):
                 "integrated.expt",
                 "integrated.refl",
                 f"minimum_exposure.data={choice}",
-                min_exp_params.as_str(),
+                *options,
             ]
         )
 
@@ -253,13 +252,12 @@ def pipeline(args: argparse.Namespace, working_phil: Scope):
         args.image_range if args.image_range else None
     )
 
-    # print(params.minimum_exposure.desired_d)  # SIGH
-
     # This probably makes the include scope in phil_scope a bit redundant... 2 choices to do this I guess?
     spot_finding_options = args.find_spots
     indexing_options = args.index
     refinement_options = args.refine
     integration_options = args.integrate
+    min_exp_options = args.min_exposure
 
     run_import(args.experiments, params.dials_import)
     run_find_spots(params.dials_find_spots, spot_finding_options)
@@ -268,9 +266,9 @@ def pipeline(args: argparse.Namespace, working_phil: Scope):
     if args.data == "integrated":
         run_refine(params.dials_refine, refinement_options)
         run_integrate(params.dials_integrate, integration_options)
-        run_minimum_exposure(params.minimum_exposure, args.data)
+        run_minimum_exposure(args.data, min_exp_options)
     else:
-        run_minimum_exposure(params.minimum_exposure, args.data)
+        run_minimum_exposure(args.data, min_exp_options)
 
 
 def main(args=None):
