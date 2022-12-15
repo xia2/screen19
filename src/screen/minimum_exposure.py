@@ -31,7 +31,7 @@ Examples:\n
 
     screen19.minimum_exposure integrated.expt integrated.refl \n
 
-    screen19.minimum_exposure indexed.expt indexed.refl \n
+    screen19.minimum_exposure data=indexed indexed.expt indexed.refl \n
 
     screen19.minimum_exposure min_i_over_sigma=2 desired_d=0.84 wilson_fit_max_d=4 \
         integrated.expt integrated.refl \n

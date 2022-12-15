@@ -36,6 +36,8 @@ Examples:\n
   screen19 <image_files> -d indexed\n
 
   screen19 <image_files> --find-spots nproc=4 --index space_group=P222
+
+  screen19 <image-files> --min-exposure desired_d=0.84 min_i_over_sigma=2
 """
 
 import argparse
@@ -134,7 +136,7 @@ class _ImportImages(argparse.Action):
             return in_value.as_posix(), None, None, None
 
 
-usage = "%(prog)s [options] /path/to/data"
+usage = "%(prog)s /path/to/data [options]"
 
 parser = argparse.ArgumentParser(
     usage=usage,
