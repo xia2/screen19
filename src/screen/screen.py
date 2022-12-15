@@ -41,12 +41,15 @@ Examples:\n
 """
 
 import argparse
+import logging
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 import libtbx.phil
+
+from dials.util import log
 
 from screen import config_parser, version_parser  # FIXME TODO change to relative import
 from screen.inputs import (
@@ -63,6 +66,11 @@ from screen.inputs import (
 # Custom types
 Scope = libtbx.phil.scope
 ScopeExtract = libtbx.phil.scope_extract
+
+# Logging set up
+logger_name = "dials.screen19"
+logger = logging.getLogger(logger_name)
+debug, info, warn = logger.debug, logger.info, logger.warning
 
 template_pattern = re.compile(r"(.*)_(?:[0-9]*\#+).(.*)")
 
@@ -246,6 +254,11 @@ def run_minimum_exposure(choice: str, options: list = []):
 
 def pipeline(args: argparse.Namespace, working_phil: Scope):
     params = working_phil.extract()
+
+    log.config(params.verbosity, logfile=params.output.log)
+    if not params.verbosity:
+        logging.getLogger("dials").setLevel(logging.WARNING)
+        logging.getLogger("dials.screen19").setLevel(logging.INFO)
 
     # Set directory/template if that's what's been parsed.
     params.dials_import.input.directory = [args.directory] if args.directory else []
