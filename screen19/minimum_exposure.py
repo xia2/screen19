@@ -52,7 +52,6 @@ from dials.util import log
 from dials.util.options import OptionParser
 from dials.util.version import dials_version
 from dxtbx.model import ExperimentList
-
 from screen19 import __version__, d_ticks, plot_intensities, terminal_size
 
 # Custom types
@@ -197,7 +196,7 @@ def wilson_plot_ascii(
     binned_intensity = [x if x else 0 for x in wilson.data[1:-1]]
     bins = dict(zip(wilson.binner.bin_centers(1), binned_intensity))
     if d_ticks:
-        tick_positions = ", ".join([f'"{d:g}" {1 / d ** 2}' for d in d_ticks])
+        tick_positions = ", ".join([f'"{d:g}" {1 / d**2}' for d in d_ticks])
         tick_positions = tick_positions.join(["(", ")"])
     else:
         tick_positions = ""

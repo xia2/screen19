@@ -170,8 +170,7 @@ def plot_intensities(
     except (OSError, subprocess.TimeoutExpired):
         info(traceback.format_exc())
         warn(
-            "Error running gnuplot. Cannot plot intensity distribution.  "
-            "No exit code."
+            "Error running gnuplot. Cannot plot intensity distribution.  No exit code."
         )
         return
     else:
@@ -180,8 +179,7 @@ def plot_intensities(
     returncode = getattr(result, "returncode")
     if returncode:
         warn(
-            "Error running gnuplot. Cannot plot intensity distribution. "
-            "Exit code %d",
+            "Error running gnuplot. Cannot plot intensity distribution. Exit code %d",
             returncode,
         )
     else:

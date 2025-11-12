@@ -61,6 +61,7 @@ from libtbx.phil import scope
 
 import dials.command_line.integrate
 import dials.util.version
+import screen19
 from dials.algorithms.indexing import DialsIndexError
 from dials.algorithms.indexing.bravais_settings import (
     refined_settings_from_refined_triclinic,
@@ -85,8 +86,6 @@ from dxtbx.model.experiment_list import (
     ExperimentListFactory,
     GoniometerComparison,
 )
-
-import screen19
 from screen19.minimum_exposure import suggest_minimum_exposure
 
 Templates = List[Tuple[str, Tuple[int, int]]]
@@ -1122,9 +1121,7 @@ class Screen19:
         if not self._index():
             info("\nRetrying for stronger spots only...")
             strong_refls = self.refls
-            self.params.dials_find_spots.spotfinder.threshold.dispersion.sigma_strong = (
-                15
-            )
+            self.params.dials_find_spots.spotfinder.threshold.dispersion.sigma_strong = 15
             self._find_spots()
 
             if not self._index():
