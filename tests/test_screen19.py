@@ -37,8 +37,7 @@ def test_screen19_inputs(dials_data, tmpdir, import_checks):
     """Test various valid input argument styles"""
     data_files, image_count = import_checks
     data = [
-        dials_data("small_molecule_example").join(filename).strpath
-        for filename in data_files
+        str(dials_data("small_molecule_example") / filename) for filename in data_files
     ]
 
     foo = Screen19()
@@ -53,7 +52,7 @@ def test_screen19_inputs(dials_data, tmpdir, import_checks):
 
 def test_screen19(dials_data, tmpdir):
     """An integration test.  Check the full functionality of screen19."""
-    data_dir = dials_data("x4wide").join("X4_wide_M1S4_2_####.cbf:1:30").strpath
+    data_dir = str(dials_data("x4wide") / "X4_wide_M1S4_2_####.cbf:1:30")
 
     # Test screen19 first.
     with tmpdir.as_cwd():
@@ -79,7 +78,7 @@ def test_screen19(dials_data, tmpdir):
 
 
 def test_screen19_single_frame(dials_data, tmpdir):
-    image = dials_data("x4wide").join("X4_wide_M1S4_2_0001.cbf").strpath
+    image = str(dials_data("x4wide") / "X4_wide_M1S4_2_0001.cbf")
 
     with tmpdir.as_cwd():
         Screen19().run([image], set_up_logging=True)
