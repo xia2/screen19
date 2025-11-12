@@ -6,7 +6,7 @@ from screen19.screen import Screen19
 # A list of tuples of example sys.argv[1:] cases and associated image count.
 import_checks = [
     ([""], 900),
-    (["/"], 900),
+    (["."], 900),
     (["x3_1_00*.cbf.gz"], 99),
     (["x3_1_####.cbf.gz:1:99"], 99),
     (["x3_1_00##.cbf.gz:1:99"], 99),
