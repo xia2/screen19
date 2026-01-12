@@ -1,3 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "screen19"
+version = "0.213"
+description = "Screening program for small-molecule single-crystal X-ray diffraction data"
+readme = "README.rst"
+license = "BSD-3-Clause"
+authors = [
+    { name = "Diamond Light Source", email = "scientificsoftware@diamond.ac.uk" },
+]
+requires-python = ">=3.10"
+dependencies = [
+    "procrunner",
+    "numpy",
+    "scipy",
+    "tabulate",
+]
+
+[dependency-groups]
+dev = [
+    "dials-data",
+    "mock>=2.0",
+    "pytest>=4.5",
+]
+
+[project.urls]
+Download = "https://github.com/xia2/screen19/releases"
+GitHub = "https://github.com/xia2/screen19"
+Bug-Tracker = "https://github.com/xia2/screen19/issues"
+
+[project.scripts]
+"i19.screen" = "screen19.screen:main"
+"screen19" = "screen19.screen:main"
+"i19.stability_fft" = "screen19.stability_fft:main"
+"i19.minimum_exposure" = "screen19.minimum_exposure:main"
+"screen19.minimum_exposure" = "screen19.minimum_exposure:main"
+
+[project.entry-points."libtbx.precommit"]
+"screen19" = "screen19"
+
+[tool.pytest.ini_options]
+addopts = "-rsxX"
+
 [tool.towncrier]
 package = "screen19"
 package_dir = ".."
@@ -59,3 +105,23 @@ section-order = [
     "wxtbx",
     "xfel",
 ]
+
+[tool.bumpversion]
+current_version = "0.213"
+commit = true
+tag = true
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)(\\.(?P<patch>\\d+))?"
+serialize = [
+    "{major}.{minor}.{patch}",
+    "{major}.{minor}",
+]
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = "version = \"{current_version}\""
+replace = "version = \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "screen19/__init__.py"
+search = "__version__ = \"{current_version}\""
+replace = "__version__ = \"{new_version}\""

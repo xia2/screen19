@@ -66,3 +66,6 @@ target/
 # editor files
 *.swp
 *~
+
+# This doesn't make much sense while we are dependent on a live dials  environment
+uv.lock
